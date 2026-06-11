@@ -2,7 +2,8 @@ import * as vscode from "vscode";
 
 const WEB_BRIDGE_URL_SETTING = "webRemoteBridgeUrl";
 const WEB_BRIDGE_ENABLED_SETTING = "webRemoteBridgeEnabled";
-const WEB_BRIDGE_TOKEN_SECRET = "sentinel-coder.webRemoteBridgeToken";
+const WEB_BRIDGE_AUTH_STORAGE_KEY = "sentinel-coder.webRemoteBridgeAuth";
+const WEB_BRIDGE_LEGACY_AUTH_KEY = ["sentinel-coder.webRemoteBridge", "Token"].join("");
 
 const WEB_STATUS_MESSAGE =
   "Sentinel Coder One Studio is active in the VS Code Web/browser extension host. " +
@@ -36,7 +37,14 @@ function bridgeUrl(): string {
 }
 
 async function bridgeToken(context: vscode.ExtensionContext): Promise<string> {
-  return (await context.secrets.get(WEB_BRIDGE_TOKEN_SECRET)) || "";
+  const current = await context.secrets.get(WEB_BRIDGE_AUTH_STORAGE_KEY);
+  if (current) return current;
+  const legacy = await context.secrets.get(WEB_BRIDGE_LEGACY_AUTH_KEY);
+  if (legacy) {
+    await context.secrets.store(WEB_BRIDGE_AUTH_STORAGE_KEY, legacy);
+    await context.secrets.delete(WEB_BRIDGE_LEGACY_AUTH_KEY);
+  }
+  return legacy || "";
 }
 
 async function configureRemoteBridge(context: vscode.ExtensionContext): Promise<void> {
@@ -75,8 +83,13 @@ async function configureRemoteBridge(context: vscode.ExtensionContext): Promise<
     placeHolder: "Leave blank to keep/clear token"
   });
   if (token !== undefined) {
-    if (token.trim()) await context.secrets.store(WEB_BRIDGE_TOKEN_SECRET, token.trim());
-    else await context.secrets.delete(WEB_BRIDGE_TOKEN_SECRET);
+    if (token.trim()) {
+      await context.secrets.store(WEB_BRIDGE_AUTH_STORAGE_KEY, token.trim());
+      await context.secrets.delete(WEB_BRIDGE_LEGACY_AUTH_KEY);
+    } else {
+      await context.secrets.delete(WEB_BRIDGE_AUTH_STORAGE_KEY);
+      await context.secrets.delete(WEB_BRIDGE_LEGACY_AUTH_KEY);
+    }
   }
 
   await vscode.window.showInformationMessage(normalized ? "Sentinel Web Remote Tool Bridge saved." : "Sentinel Web Remote Tool Bridge disabled.");

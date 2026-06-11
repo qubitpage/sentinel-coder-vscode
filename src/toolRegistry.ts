@@ -68,7 +68,13 @@ class PersistentShell {
   private proc: child_process.ChildProcessWithoutNullStreams | null = null;
   private buffer = "";
   private busy = false;
+  private lastUsedAt = Date.now();
   private readonly marker = "__SENTINEL_DONE_" + Math.random().toString(36).slice(2) + "__";
+
+  constructor(public readonly sessionId: string = "default") {}
+
+  isBusy() { return this.busy; }
+  lastUsed() { return this.lastUsedAt; }
 
   private isWindows() { return process.platform === "win32"; }
 
@@ -123,8 +129,9 @@ class PersistentShell {
   /** Run a command with safe timeout/reset and robust shell-exit handling. */
   run(command: string, timeoutMs: number = 120000, onChunk?: (s: string) => void): Promise<string> {
     return new Promise((resolve) => {
+      this.lastUsedAt = Date.now();
       if (this.busy) {
-        resolve("Error: shell is busy with another command. Wait for it to finish or cancel the previous task.");
+        resolve(`Error: terminal session "${this.sessionId}" is busy with another command. Use a different sessionId for parallel work, wait for it to finish, or cancel the previous task.`);
         return;
       }
       if (!this.proc) this.spawnShell();
@@ -163,6 +170,7 @@ class PersistentShell {
           );
         } else {
           this.busy = false;
+          this.lastUsedAt = Date.now();
           resolve(text);
         }
       };
@@ -221,15 +229,108 @@ class PersistentShell {
     });
   }
 
-  dispose() { try { this.proc?.kill(); } catch { /* ignore */ } this.proc = null; this.busy = false; }
+  dispose(): void {
+    const oldProc = this.proc;
+    this.proc = null;
+    this.busy = false;
+    this.killProcessTree(oldProc);
+  }
 }
 
-let _sharedShell: PersistentShell | null = null;
-function getShell(): PersistentShell {
-  if (!_sharedShell) _sharedShell = new PersistentShell();
-  return _sharedShell;
+type TerminalResourceCheck = { ok: true; detail: string } | { ok: false; detail: string };
+
+function configuredNumber(key: string, fallback: number): number {
+  const value = vscode.workspace.getConfiguration("sentinelCoder").get<number>(key);
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
-export function disposeShell() { _sharedShell?.dispose(); _sharedShell = null; }
+
+function normalizeTerminalSessionId(value: unknown): string {
+  const raw = typeof value === "string" && value.trim() ? value.trim() : "default";
+  return raw.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 64) || "default";
+}
+
+class TerminalSessionManager {
+  private readonly sessions = new Map<string, PersistentShell>();
+
+  getShell(sessionId?: unknown): PersistentShell {
+    this.cleanupIdleSessions();
+    const id = normalizeTerminalSessionId(sessionId);
+    const existing = this.sessions.get(id);
+    if (existing) return existing;
+    const maxSessions = Math.max(1, Math.floor(configuredNumber("terminalMaxSessions", 4)));
+    if (this.sessions.size >= maxSessions) {
+      const idle = [...this.sessions.entries()]
+        .filter(([, shell]) => !shell.isBusy())
+        .sort((a, b) => a[1].lastUsed() - b[1].lastUsed())[0];
+      if (idle) {
+        idle[1].dispose();
+        this.sessions.delete(idle[0]);
+      }
+    }
+    const shell = new PersistentShell(id);
+    this.sessions.set(id, shell);
+    return shell;
+  }
+
+  canStart(sessionId?: unknown): TerminalResourceCheck {
+    this.cleanupIdleSessions();
+    const id = normalizeTerminalSessionId(sessionId);
+    const maxSessions = Math.max(1, Math.floor(configuredNumber("terminalMaxSessions", 4)));
+    const minFreeMb = Math.max(0, Math.floor(configuredNumber("terminalMinFreeMemoryMb", 512)));
+    const freeMb = Math.floor(os.freemem() / 1024 / 1024);
+    const existing = this.sessions.get(id);
+    if (!existing && this.sessions.size >= maxSessions && ![...this.sessions.values()].some((shell) => !shell.isBusy())) {
+      return { ok: false, detail: `Terminal session limit reached (${this.sessions.size}/${maxSessions}) and all sessions are busy. Use an existing idle sessionId or raise sentinelCoder.terminalMaxSessions.` };
+    }
+    if (!existing && minFreeMb > 0 && freeMb < minFreeMb) {
+      return { ok: false, detail: `Refusing to start terminal session "${id}" because free memory is ${freeMb} MB, below sentinelCoder.terminalMinFreeMemoryMb=${minFreeMb}.` };
+    }
+    return { ok: true, detail: `terminalSession=${id}; activeSessions=${this.sessions.size}; freeMemoryMb=${freeMb}; maxSessions=${maxSessions}` };
+  }
+
+  cleanupIdleSessions() {
+    const idleMs = Math.max(60, configuredNumber("terminalIdleCleanupSeconds", 1800)) * 1000;
+    const now = Date.now();
+    for (const [id, shell] of this.sessions.entries()) {
+      if (id === "default") continue;
+      if (!shell.isBusy() && now - shell.lastUsed() > idleMs) {
+        shell.dispose();
+        this.sessions.delete(id);
+      }
+    }
+  }
+
+  disposeAll() {
+    for (const shell of this.sessions.values()) shell.dispose();
+    this.sessions.clear();
+  }
+}
+
+const terminalSessionManager = new TerminalSessionManager();
+function getShell(sessionId?: unknown): PersistentShell {
+  return terminalSessionManager.getShell(sessionId);
+}
+export function disposeShell() { terminalSessionManager.disposeAll(); }
+
+function remoteWorkspaceSummary(): string {
+  const remoteName = vscode.env.remoteName || "";
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  const uri = folder?.uri;
+  const scheme = uri?.scheme || "file";
+  const authority = uri?.authority || "";
+  const fsPath = uri?.fsPath || getBaseDir();
+  return [
+    `remoteName=${remoteName || "local"}`,
+    `scheme=${scheme}`,
+    authority ? `authority=${authority}` : undefined,
+    `workspace=${fsPath}`,
+    `platform=${process.platform}`,
+  ].filter(Boolean).join("; ");
+}
+
+function isVsCodeRemoteWorkspaceHost(): boolean {
+  return !!vscode.env.remoteName;
+}
 
 // Tool Registry ── All Built-in Tools ─────────────────────────────────────────────────────
 
@@ -649,16 +750,19 @@ const listDirectoryTool: ToolDefinition = {
 
 const runCommandTool: ToolDefinition = {
   name: "runCommand",
-  description: "Execute a shell command in a persistent terminal session (cd, env vars and venvs persist across calls). Use for installs, builds, tests, git, etc. Long-running commands are supported.",
+  description: "Execute a shell command in a persistent named terminal session (cd, env vars and venvs persist per session). Use sessionId for parallel builds/tests so one long command does not block other Sentinel chats.",
   category: "terminal",
   dangerLevel: "dangerous",
   parameters: [
     { name: "command", type: "string", description: "Command to execute", required: true },
     { name: "cwd", type: "string", description: "Working directory (optional — or just use 'cd' in the command)", required: false },
     { name: "timeoutSec", type: "number", description: "Max seconds to wait (default 600). The shell keeps running past this.", required: false },
+    { name: "sessionId", type: "string", description: "Optional named terminal session. Use distinct IDs (for example build, tests, server) for parallel work without blocking the default session.", required: false },
   ],
   execute: async (args) => {
-    const shell = getShell();
+    const resource = terminalSessionManager.canStart(args.sessionId);
+    if (!resource.ok) return `Error: ${resource.detail}`;
+    const shell = getShell(args.sessionId);
     let cmd = args.command as string;
     if (args.cwd) {
       const dir = resolvePath(args.cwd as string).replace(/"/g, '`"');
@@ -666,6 +770,47 @@ const runCommandTool: ToolDefinition = {
     }
     const timeoutMs = Math.max(1000, Math.round(((args.timeoutSec as number) || 600) * 1000));
     return shell.run(cmd, timeoutMs);
+  },
+};
+
+const remoteWorkspaceCommandTool: ToolDefinition = {
+  name: "remoteWorkspaceCommand",
+  description: "Run a shell command on the current VS Code Remote workspace host (Remote SSH, Dev Container, WSL, Codespaces, or Tunnel) using VS Code's already-authenticated remote extension session. Does not ask for or store SSH keys.",
+  category: "terminal",
+  dangerLevel: "dangerous",
+  parameters: [
+    { name: "command", type: "string", description: "Command to execute on the current remote workspace host", required: true },
+    { name: "cwd", type: "string", description: "Remote workspace directory to run from (optional; defaults to the open remote workspace folder)", required: false },
+    { name: "timeoutSec", type: "number", description: "Max seconds to wait (default 600)", required: false },
+    { name: "sessionId", type: "string", description: "Optional named remote terminal session. Use distinct IDs for parallel remote builds/tests without blocking other Sentinel sessions.", required: false },
+    { name: "allowLocalFallback", type: "boolean", description: "If true, allow execution in a local desktop workspace when no VS Code Remote session is active. Default false.", required: false },
+  ],
+  execute: async (args) => {
+    const allowLocalFallback = args.allowLocalFallback === true;
+    if (!isVsCodeRemoteWorkspaceHost() && !allowLocalFallback) {
+      return [
+        "Error: remoteWorkspaceCommand requires an active VS Code Remote workspace host.",
+        "Connect with VS Code Remote Explorer / Remote SSH, Dev Container, WSL, Codespaces, or Tunnel, then run the tool again.",
+        "Sentinel will reuse VS Code's authenticated remote extension session; do not paste SSH private keys into chat.",
+        `Current host: ${remoteWorkspaceSummary()}`,
+      ].join("\n");
+    }
+
+    const resource = terminalSessionManager.canStart(args.sessionId);
+    if (!resource.ok) return `Error: ${resource.detail}`;
+    const shell = getShell(args.sessionId);
+    let cmd = args.command as string;
+    const targetCwd = (args.cwd as string | undefined) || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (targetCwd) {
+      const dir = resolvePath(targetCwd).replace(/"/g, '`"');
+      cmd = `cd "${dir}"; ${cmd}`;
+    }
+    const timeoutMs = Math.max(1000, Math.round(((args.timeoutSec as number) || 600) * 1000));
+    const banner = isVsCodeRemoteWorkspaceHost()
+      ? `[remoteWorkspaceCommand] Executing on VS Code remote host (${remoteWorkspaceSummary()})`
+      : `[remoteWorkspaceCommand] Local fallback explicitly allowed (${remoteWorkspaceSummary()})`;
+    const out = await shell.run(cmd, timeoutMs);
+    return `${banner}\n${out}`;
   },
 };
 
@@ -2289,7 +2434,7 @@ export class ToolRegistry {
     const allTools = [
       createFileTool, readFileTool, inspectFileTool, prepareGeneratedWorkspaceTool, analyzeImageTool, createOfficeDocumentTool, discoverMediaModelsTool, generateImageTool, generateVideoTool, generateSpeechTool, captureScreenshotTool, ocrImageTool, transcribeAudioTool, editFileTool, deleteFileTool, listDirectoryTool,
       appendFileTool,
-      runCommandTool, searchFilesTool, searchTextTool, codebaseSearchTool,
+      runCommandTool, remoteWorkspaceCommandTool, searchFilesTool, searchTextTool, codebaseSearchTool,
       getOpenFileTool, getSelectionTool, insertTextTool, getErrorsTool, getOpenFilesTool,
       readClipboardTool, writeClipboardTool,
       gitStatusTool, gitDiffTool, gitCommitTool, gitPushTool, gitLogTool,

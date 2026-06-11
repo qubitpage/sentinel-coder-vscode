@@ -87,6 +87,12 @@ interface TurnAgentUsage {
   elapsedMs?: number;
 }
 
+interface SubAgentRunResult {
+  model: string;
+  result: string;
+  warning?: string;
+}
+
 const DEFAULT_DYNAMIC_CONTEXT: DynamicContextSettings = {
   enabled: true,
   includeActiveFile: true,
@@ -496,6 +502,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
   private _lastDynamicContextHash: string = "";
   private _turnAgentUsage: TurnAgentUsage[] = [];
   private _agenticPreflightContext = "";
+  private _subAgentCooldowns = new Map<string, { until: number; reason: string }>();
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -615,8 +622,23 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
 
   private _availableModel(id: string): boolean { return !!id && this._cachedModels.some(m => m.id === id); }
 
+  private _isSubAgentCoolingDown(modelId: string): boolean {
+    const item = this._subAgentCooldowns.get(modelId);
+    if (!item) return false;
+    if (Date.now() >= item.until) {
+      this._subAgentCooldowns.delete(modelId);
+      return false;
+    }
+    return true;
+  }
+
+  private _subAgentCooldownReason(modelId: string): string {
+    const item = this._subAgentCooldowns.get(modelId);
+    return item && Date.now() < item.until ? item.reason : "";
+  }
+
   private _firstAvailable(ids: string[] | undefined, exclude?: string): string | undefined {
-    for (const id of ids || []) if (id && id !== exclude && this._availableModel(id)) return id;
+    for (const id of ids || []) if (id && id !== exclude && this._availableModel(id) && !this._isSubAgentCoolingDown(id)) return id;
     return undefined;
   }
 
@@ -1748,7 +1770,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
       }
       prompt += "\n\nWhen the user asks you to create a file, a page, or build something:\n1. Use the createFile tool to create the file directly\n2. If it's an HTML file, also use serveFile to start a localhost server\n3. Then use openBrowser to open the URL";
       prompt += "\n\nWhen the user asks about the workspace, code, or files:\n1. Use readFile, listDirectory, searchFiles, searchText to find information\n2. Use getActiveFile, getSelection to check the current editor\n3. Use getDiagnostics to check for errors\n4. Use queryRAG to search the knowledge base for relevant context";
-      prompt += "\n\nWhen the user asks to run something:\n1. Use runCommand to execute terminal commands\n2. Use dockerCommand for Docker container operations\n3. Use sshCommand to run commands on remote servers";
+      prompt += "\n\nWhen the user asks to run something:\n1. Use runCommand to execute terminal commands in the current workspace host. For parallel builds/tests/servers, pass distinct sessionId values (for example build, tests, server) so one long-running task does not block another chat/session.\n2. If VS Code is already connected through Remote Explorer / Remote SSH / Dev Container / WSL / Codespaces / Tunnel, prefer remoteWorkspaceCommand so Sentinel reuses VS Code's authenticated remote extension session and does not ask for SSH keys again; also use sessionId there for parallel remote tasks.\n3. Use dockerCommand for Docker container operations\n4. Use sshCommand only when the user explicitly provides a separate SSH target outside the current VS Code Remote session";
       prompt += "\n\nWhen the user asks to search the web or fetch data:\n1. Use httpRequest to make HTTP requests";
       prompt += "\n\nWhen working with Git:\n1. Use gitStatus to check state, gitDiff to see changes\n2. Use gitCommit to stage and commit, gitPush to push to remote\n3. Use gitLog to show recent history";
       prompt += "\n\nWhen the user wants to add knowledge or search documentation:\n1. Use ingestRAG to add files or text to the knowledge base\n2. Use queryRAG to search for relevant context before answering";
@@ -2049,15 +2071,16 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     const runs = tasks.map(async (t) => {
       const started = Date.now();
       try {
-        const result = await this._runSubAgent(t.task, t.model, `Active profile: ${profile.name}\nMain model: ${modelId}\nCost policy: ${profile.costPolicy}\nInstructions: ${profile.instructions}`, temperature, Math.min(maxTokens, 8192));
-        this._recordAgentUsage("subagent", t.model, t.label, t.task, Date.now() - started, result.length);
-        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: "success", content: `${t.label} (${t.model})\n${result.slice(0, 3000)}` });
-        return `### ${t.label} (${t.model})\n${result.slice(0, 5000)}`;
+        const run = await this._runSubAgentResilient(t.model, t.task, `Active profile: ${profile.name}\nMain model: ${modelId}\nCost policy: ${profile.costPolicy}\nInstructions: ${profile.instructions}`, modelId, temperature, Math.min(maxTokens, 8192));
+        const content = run.warning ? `WARNING: ${run.warning}\n\n${run.result}` : run.result;
+        this._recordAgentUsage("subagent", run.model, t.label, t.task, Date.now() - started, content.length);
+        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: run.warning ? "warning" : "success", content: `${t.label} (${run.model})\n${content.slice(0, 3000)}` });
+        return `### ${t.label} (${run.model})\n${content.slice(0, 5000)}`;
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this._recordAgentUsage("subagent", t.model, t.label, t.task, Date.now() - started, msg.length);
-        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: "error", content: `${t.label} (${t.model}) failed: ${msg}` });
-        return `### ${t.label} (${t.model})\nERROR: ${msg}`;
+        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: "warning", content: `${t.label} (${t.model}) unavailable; continuing with main orchestrator: ${msg}` });
+        return `### ${t.label} (${t.model})\nWARNING: sub-agent unavailable; main orchestrator must continue directly and verify with tools. ${msg}`;
       }
     });
 
@@ -2589,6 +2612,76 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     return out.trim() || "(sub-agent returned no content)";
   }
 
+  private _subAgentErrorInfo(error: unknown): { message: string; transient: boolean; cooldownMs: number } {
+    const message = error instanceof Error ? error.message : String(error);
+    const lower = message.toLowerCase();
+    const transient = /\b(429|rate.?limit|retry-after|quota|temporar|throttl|overload|upstream|503|502|504|timeout|timed out|too many requests)\b/i.test(message);
+    const secondsMatch = message.match(/retry_after_seconds(?:_raw)?["'\s:=]+([0-9.]+)/i) || message.match(/retry-after["'\s:=]+([0-9.]+)/i);
+    const seconds = secondsMatch ? Math.max(5, Math.min(600, Number(secondsMatch[1]) || 60)) : 90;
+    return { message, transient, cooldownMs: transient ? seconds * 1000 : 0 };
+  }
+
+  private _subAgentCandidates(modelPref: string, task: string, parentModelId: string): string[] {
+    const primary = this._resolveSubModel(modelPref, task, parentModelId);
+    const profile = this._activeAgenticProfile();
+    const pool: string[] = [primary];
+    if (profile) {
+      if (modelPref === "reviewer") pool.push(...profile.reviewerModels, profile.defaultWorkerModel, ...profile.workerModels);
+      else pool.push(profile.defaultWorkerModel, ...profile.workerModels, ...profile.reviewerModels);
+    } else {
+      const taskType = classifyTask(task);
+      pool.push(
+        this._pickWorkerModel(taskType === "reasoning" ? "reasoning" : "coding", parentModelId, false),
+        this._pickWorkerModel("coding", parentModelId, true),
+        this._pickWorkerModel("speed", parentModelId, true)
+      );
+    }
+    const seen = new Set<string>();
+    return pool
+      .map(id => String(id || "").trim())
+      .filter(id => id && id !== parentModelId && this._availableModel(id) && !this._isSubAgentCoolingDown(id))
+      .filter(id => (seen.has(id) ? false : (seen.add(id), true)));
+  }
+
+  private async _runSubAgentResilient(modelPref: string, task: string, context: string, parentModelId: string, temperature: number, maxTokens: number): Promise<SubAgentRunResult> {
+    const skipped = this._resolveSubModel(modelPref, task, parentModelId);
+    const candidates = this._subAgentCandidates(modelPref, task, parentModelId);
+    if (!candidates.length) {
+      const reason = this._subAgentCooldownReason(skipped);
+      return {
+        model: skipped,
+        result: "(sub-agent skipped; no configured fallback model is currently available)",
+        warning: reason ? `Skipped ${skipped}: ${reason}` : "No available sub-agent candidate after provider/model filtering."
+      };
+    }
+
+    const failures: string[] = [];
+    for (const candidate of candidates) {
+      try {
+        const result = await this._runSubAgent(task, candidate, context, temperature, maxTokens);
+        const warning = failures.length ? `Fallback used ${candidate}; previous sub-agent attempt(s) failed: ${failures.join(" | ").slice(0, 1200)}` : undefined;
+        if (warning) this._emit({ type: "systemNote", content: warning });
+        return { model: candidate, result, warning };
+      } catch (error) {
+        const info = this._subAgentErrorInfo(error);
+        failures.push(`${candidate}: ${info.message.slice(0, 500)}`);
+        if (info.transient) {
+          this._subAgentCooldowns.set(candidate, { until: Date.now() + info.cooldownMs, reason: info.message.slice(0, 500) });
+          this._emit({ type: "systemNote", content: `Sub-agent ${candidate} is temporarily unavailable/rate-limited; cooling it down and trying another configured worker if possible.` });
+          continue;
+        }
+        // Non-transient provider/model errors may still be isolated to one worker deployment.
+        // Continue to the next configured candidate so Agentic orchestration does not collapse the turn.
+      }
+    }
+
+    return {
+      model: candidates[0],
+      result: `(sub-agent unavailable; main orchestrator should continue directly and verify with tools)\n${failures.join("\n").slice(0, 3000)}`,
+      warning: `All configured sub-agent candidates failed or were rate-limited. ${failures.join(" | ").slice(0, 1200)}`
+    };
+  }
+
   private async _handleSubAgent(
     args: Record<string, unknown>,
     parentModelId: string,
@@ -2600,9 +2693,9 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     // keeps the older budget-conscious default.
     const modelPref = (args.model as string) || (this._activeAgenticProfile() ? "worker" : (this._orchestration === "boss" ? "cheap" : "auto"));
     const context = (args.context as string) || "";
-    const subModelId = this._resolveSubModel(modelPref, task, parentModelId);
-    const result = await this._runSubAgent(task, subModelId, context, temperature, maxTokens);
-    return `Sub-agent (${subModelId.split(":").pop()}) result:\n${result.slice(0, 8000)}`;
+    const run = await this._runSubAgentResilient(modelPref, task, context, parentModelId, temperature, maxTokens);
+    const header = run.warning ? `Sub-agent (${run.model.split(":").pop()}) warning/fallback:\n${run.warning}\n\n` : `Sub-agent (${run.model.split(":").pop()}) result:\n`;
+    return `${header}${run.result.slice(0, 8000)}`;
   }
 
   /** Run several sub-agents in PARALLEL and return an aggregated summary of all results. */
@@ -2629,15 +2722,17 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     // mode defaults to cheap fan-out when no profile is selected.
     const bossDefault = activeProfile ? "worker" : "cheap";
     const runs = tasks.map((t) => {
-      const subModelId = this._resolveSubModel(t.model || bossDefault, t.task, parentModelId);
+      const pref = t.model || bossDefault;
       const started = Date.now();
-      return this._runSubAgent(t.task, subModelId, context, temperature, maxTokens)
-        .then((res) => {
-          this._recordAgentUsage("team", subModelId, "team agent", t.task, Date.now() - started, res.length);
-          return { task: t.task, model: subModelId, res };
+      return this._runSubAgentResilient(pref, t.task, context, parentModelId, temperature, maxTokens)
+        .then((run) => {
+          const res = run.warning ? `WARNING: ${run.warning}\n\n${run.result}` : run.result;
+          this._recordAgentUsage("team", run.model, "team agent", t.task, Date.now() - started, res.length);
+          return { task: t.task, model: run.model, res };
         })
         .catch((e: unknown) => {
-          const msg = "error: " + (e instanceof Error ? e.message : String(e));
+          const subModelId = this._resolveSubModel(pref, t.task, parentModelId);
+          const msg = "warning: sub-agent unavailable; main orchestrator should continue directly. " + (e instanceof Error ? e.message : String(e));
           this._recordAgentUsage("team", subModelId, "team agent", t.task, Date.now() - started, msg.length);
           return { task: t.task, model: subModelId, res: msg };
         });

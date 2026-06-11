@@ -2,7 +2,7 @@
   "name": "sentinel-coder",
   "displayName": "Sentinel Coder One Studio",
   "description": "Sentinel Coder One Studio - autonomous AI coding with single-model full-capability mode, opt-in Agentic Profiles, live provider model/context discovery, operation-aware native tool routing, VS Code Web remote-tool bridge support, media/document Studio, safer tools, dynamic context, and multi-provider orchestration.",
-  "version": "3.16.13",
+  "version": "3.16.16",
   "publisher": "Qubitpage",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -211,6 +211,25 @@
           "type": "number",
           "default": 64000,
           "description": "Approximate input-context token budget ceiling for long agent sessions. Sentinel detects the selected model window, but will not automatically fill 1M-token contexts unless you explicitly raise this budget; older turns are summarized to prevent runaway cost."
+        },
+        "sentinelCoder.terminalMaxSessions": {
+          "type": "number",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 16,
+          "description": "Maximum number of named persistent terminal sessions Sentinel may keep alive at once. Increase carefully on high-memory workstations or remote servers."
+        },
+        "sentinelCoder.terminalMinFreeMemoryMb": {
+          "type": "number",
+          "default": 512,
+          "minimum": 0,
+          "description": "Minimum free system memory required before Sentinel starts a new terminal session. Set 0 to disable the guard. Existing sessions can still be reused."
+        },
+        "sentinelCoder.terminalIdleCleanupSeconds": {
+          "type": "number",
+          "default": 1800,
+          "minimum": 60,
+          "description": "Seconds before idle non-default terminal sessions are disposed to reduce memory/process pressure."
         },
         "sentinelCoder.temperature": {
           "type": "number",

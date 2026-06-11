@@ -1,3 +1,24 @@
+## 3.16.16 - Multi-Session Terminal Pool + Memory Guardrails
+
+- Added named terminal sessions to `runCommand` and `remoteWorkspaceCommand` through an optional `sessionId` parameter, so multiple Sentinel chats/tasks can run builds, tests, logs, dev servers, and remote-server fixes without blocking on one global persistent shell.
+- Added a bounded terminal session manager with configurable `sentinelCoder.terminalMaxSessions`, `sentinelCoder.terminalMinFreeMemoryMb`, and `sentinelCoder.terminalIdleCleanupSeconds` settings to reduce OOM risk on local PCs and remote servers.
+- Improved busy-session guidance: when one terminal session is occupied, Sentinel tells the model/user to use another `sessionId` for safe parallel work instead of repeatedly retrying the same stuck shell.
+- Preserved the 3.16.15 VS Code Remote Explorer workflow: remote workspace commands still reuse VS Code's authenticated Remote SSH / Dev Container / WSL / Codespaces / Tunnel extension host and do not ask users to paste SSH keys.
+- Extended Remote Explorer workflow docs so VS Code Remote work can run separate remote build/test/log sessions while reusing VS Code's authenticated remote host.
+
+## 3.16.15 - VS Code Remote Explorer Server-Control Tool
+
+- Added `remoteWorkspaceCommand`, a dedicated tool for VS Code Remote SSH, Dev Containers, WSL, Codespaces, and Tunnels. It executes approved commands on the current remote workspace extension host and reuses VS Code's authenticated remote session instead of asking users for SSH keys again.
+- Updated agent routing instructions so Sentinel prefers `remoteWorkspaceCommand` when the user is already connected to a server through VS Code Remote Explorer, and uses `sshCommand` only for separate SSH targets outside the active VS Code session.
+- Documented the safer server-control workflow in Marketplace-facing docs: Desktop local tools, VS Code Remote workspace-host tools, pure-browser vscode.dev limitations, and optional HTTPS Remote Tool Bridge are now separated clearly.
+
+## 3.16.14 - Multi-Provider Article, Presentation Asset + Resilient Agentic Fallback
+
+- Added a Marketplace-visible multi-provider article covering Sentinel's live provider discovery, paid/free/free-tier model strategy, OpenRouter access to latest Claude/Fable/Opus-style model families, Agentic Profiles, Studio media generation, VS Code Web, remote-tool bridge strategy, and enterprise safeguards.
+- Added a generated presentation hero image for the provider-orchestration documentation pack.
+- **Resilient Agentic worker fallback**: hardened Agentic orchestration against provider throttling. If a free/cheap worker returns 429/rate-limit/quota/temporary-upstream errors, Sentinel marks the model on cooldown, tries another configured worker/reviewer, and continues the main turn with a clear warning instead of surfacing a raw provider failure.
+- Documented that model IDs, pricing, context windows, and availability can change, especially through OpenRouter, so Sentinel prefers live provider catalogs with curated fallback only when APIs are unavailable.
+
 ## 3.16.13 - Enterprise Documentation, Webview Hardening + Marketplace Release Pack
 
 - Hardened the Chat sidebar webview by removing direct raw `innerHTML` assignments from dynamic UI renderers, replacing them with DOM-safe builders or centralized trusted-fragment rendering for already-sanitized Markdown/media fragments.

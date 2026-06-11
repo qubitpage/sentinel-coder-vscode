@@ -36,4 +36,50 @@ assert(src.includes('Object.assign(existing, def, { updatedAt: now })'), 'update
 assert(/_profileMainModel\(profile: AgenticProfile\)[\s\S]*_availableModel\(profile\.mainModel\)[\s\S]*_firstAvailable\(profile\.reviewerModels\)[\s\S]*_firstAvailable\(profile\.workerModels\)/.test(src), 'profile main model must fall back to available reviewer/worker/cached model');
 assert(src.includes('delegateTeam') && src.includes('delegateSubAgent'), 'Agentic skill must document sub-agent delegation tools');
 assert(src.includes('firewall') || src.includes('security'), 'profiles/skills must include safe-coding/security review strategy');
+
+// 3.16.14: Agentic orchestration must degrade gracefully when a free/cheap worker is throttled.
+assert(src.includes('_subAgentCooldowns = new Map'), 'sub-agent cooldown registry must exist');
+assert(src.includes('_subAgentErrorInfo(error: unknown)'), 'sub-agent error classifier must exist');
+assert(src.includes('429|rate.?limit|retry-after|quota|temporar|throttl|overload|upstream|503|502|504|timeout'), 'transient/rate-limit error classifier must detect 429/quota/upstream failures');
+assert(src.includes('_runSubAgentResilient'), 'resilient sub-agent fallback runner must exist');
+assert(src.includes('cooling it down and trying another configured worker'), 'rate-limited workers must emit a clear cooldown/fallback note');
+assert(src.includes('All configured sub-agent candidates failed or were rate-limited'), 'all-worker-failed path must return a warning instead of raw provider crash');
+assert(/const pool: string\[\] = \[primary\][\s\S]*profile\.defaultWorkerModel[\s\S]*profile\.workerModels[\s\S]*profile\.reviewerModels/.test(src), 'fallback candidate order must include primary, default worker, workers, and reviewers');
+
+const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
+const changelog = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
+const article = fs.readFileSync(path.join(root, 'docs', 'MULTI_PROVIDER_MODEL_ARTICLE.md'), 'utf8');
+const toolRegistry = fs.readFileSync(path.join(root, 'src', 'toolRegistry.ts'), 'utf8');
+const remoteWorkspaceDocs = fs.readFileSync(path.join(root, 'docs', 'REMOTE_WORKSPACE_TOOLS.md'), 'utf8');
+assert(readme.includes('docs/MULTI_PROVIDER_MODEL_ARTICLE.md'), 'Marketplace README must link the multi-provider model article');
+assert(readme.includes('sentinel-coder-3-16-14-marketplace-hero.png'), 'Marketplace README must reference the generated 3.16.14 hero asset');
+assert(changelog.includes('3.16.14') && changelog.includes('Resilient Agentic worker fallback'), 'CHANGELOG must describe 3.16.14 resilient fallback');
+assert(article.includes('OpenRouter') && article.includes('claude-fable') && article.includes('Agentic Profiles'), 'article must cover OpenRouter Claude/Fable-style models and Agentic Profiles');
+assert(article.includes('Free') && article.includes('Paid') && article.includes('Unknown price'), 'article must explain free/paid/unknown price strategy');
+
+// 3.16.15: Remote Explorer sessions should be controllable through the active VS Code remote host, not by re-asking for SSH keys.
+assert(toolRegistry.includes('name: "remoteWorkspaceCommand"'), 'remoteWorkspaceCommand tool must be registered');
+assert(toolRegistry.includes('isVsCodeRemoteWorkspaceHost'), 'remote workspace host detector must exist');
+assert(toolRegistry.includes('vscode.env.remoteName'), 'remote workspace command must detect VS Code Remote extension host state');
+assert(toolRegistry.includes('allowLocalFallback'), 'remote workspace command must require an explicit local fallback opt-in');
+assert(toolRegistry.includes('requires an active VS Code Remote workspace host'), 'remote workspace command must refuse fake remote execution by default');
+assert(readme.includes('docs/REMOTE_WORKSPACE_TOOLS.md'), 'Marketplace README must link Remote Workspace Tools docs');
+assert(changelog.includes('3.16.15') && changelog.includes('remoteWorkspaceCommand'), 'CHANGELOG must describe 3.16.15 remote workspace tool');
+assert(remoteWorkspaceDocs.includes('Remote SSH') && remoteWorkspaceDocs.includes('does **not** ask for SSH private keys'), 'Remote Workspace docs must explain Remote SSH and no-key reuse');
+assert(remoteWorkspaceDocs.includes('pure browser vscode.dev') && remoteWorkspaceDocs.includes('Remote Tool Bridge'), 'Remote Workspace docs must explain browser limitations and bridge path');
+
+// 3.16.16: Local and remote commands must support multiple named terminal sessions with resource guardrails.
+assert(toolRegistry.includes('class TerminalSessionManager'), 'terminal session manager must exist');
+assert(toolRegistry.includes('normalizeTerminalSessionId'), 'terminal session IDs must be normalized');
+assert(toolRegistry.includes('terminalMaxSessions'), 'terminal max-session setting must be enforced');
+assert(toolRegistry.includes('terminalMinFreeMemoryMb'), 'terminal free-memory guard setting must be enforced');
+assert(toolRegistry.includes('terminalIdleCleanupSeconds'), 'idle session cleanup setting must be enforced');
+assert(toolRegistry.includes('getShell(args.sessionId)'), 'run/remote command tools must route through named terminal sessions');
+assert(toolRegistry.includes('canStart(args.sessionId)'), 'run/remote command tools must check resource guardrails before starting sessions');
+assert(toolRegistry.includes('Use a different sessionId for parallel work'), 'busy-session output must guide users to use another sessionId');
+const readmeLower = readme.toLowerCase();
+const changelogLower = changelog.toLowerCase();
+assert(readme.includes('New in 3.16.16') && readmeLower.includes('multi-session terminal pool'), 'Marketplace README must describe 3.16.16 multi-session terminal pool');
+assert(readme.includes('sentinelCoder.terminalMaxSessions') && readme.includes('sentinelCoder.terminalMinFreeMemoryMb'), 'Marketplace README must document terminal guardrail settings');
+assert(changelog.includes('3.16.16') && changelogLower.includes('multi-session terminal'), 'CHANGELOG must describe 3.16.16 multi-session terminals');
 process.stdout.write('agentic-profiles-regression: ok\n');

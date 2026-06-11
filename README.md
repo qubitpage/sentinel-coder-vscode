@@ -4,11 +4,11 @@
 
 ### Autonomous AI coding + Agentic Profiles + Media & Document Studio for Visual Studio Code
 
-**Multi-provider chat Ã‚Â· Categorized live model selector Ã‚Â· Single-model full-capability mode Ã‚Â· Opt-in Agentic orchestration Ã‚Â· Azure/OpenAI/Anthropic/Groq/OpenRouter/Ollama and OpenAI-compatible providers Ã‚Â· Sora video Ã‚Â· Image/audio/document Studio Ã‚Â· VS Code Web + Remote Tool Bridge**
+**Multi-provider chat · Categorized live model selector · Single-model full-capability mode · Opt-in Agentic orchestration · Azure/OpenAI/Anthropic/Groq/OpenRouter/Ollama and OpenAI-compatible providers · Sora video · Image/audio/document Studio · VS Code Web + Remote Tool Bridge**
 
-Built by [QubitPage Research](https://github.com/qubitpage) Ã‚Â· MIT licensed
+Built by [QubitPage Research](https://github.com/qubitpage) · MIT licensed
 
-[GitHub repository](https://github.com/qubitpage/sentinel-coder-vscode) Ã‚Â· [Contributing guide](https://github.com/qubitpage/sentinel-coder-vscode/blob/main/CONTRIBUTING.md) Ã‚Â· [Issues and feature requests](https://github.com/qubitpage/sentinel-coder-vscode/issues)
+[GitHub repository](https://github.com/qubitpage/sentinel-coder-vscode) · [Contributing guide](https://github.com/qubitpage/sentinel-coder-vscode/blob/main/CONTRIBUTING.md) · [Issues and feature requests](https://github.com/qubitpage/sentinel-coder-vscode/issues)
 
 </div>
 
@@ -25,7 +25,25 @@ It is designed around two safe defaults:
 
 ---
 
-## New in 3.16.13
+## New in 3.16.16
+
+- **Multi-session terminal pool**: `runCommand` and `remoteWorkspaceCommand` now support optional named `sessionId` values, so parallel Sentinel chats, builds, tests, dev servers, and remote-server fixes no longer get stuck behind one global terminal session.
+- **Resource and memory guardrails**: Sentinel limits terminal fan-out with `sentinelCoder.terminalMaxSessions`, refuses new sessions when free memory falls below `sentinelCoder.terminalMinFreeMemoryMb`, and cleans idle non-default sessions after `sentinelCoder.terminalIdleCleanupSeconds`.
+- **Remote-safe parallel work**: when connected through VS Code Remote SSH, Dev Containers, WSL, Codespaces, or Tunnels, use separate `sessionId` values such as `server-build`, `server-tests`, and `server-logs` to work on the already-authenticated remote host without re-entering SSH keys.
+
+## New in 3.16.15
+
+- **Remote Explorer server-control tool**: added `remoteWorkspaceCommand`, a first-class tool for VS Code Remote SSH, Dev Containers, WSL, Codespaces, and Tunnels. When Sentinel is installed/running on the remote workspace extension host, it can run approved commands on that already-authenticated server without asking again for SSH keys or private-key paths.
+- **Safer SSH workflow**: use `remoteWorkspaceCommand` for the server you are already connected to in VS Code Remote Explorer; use `sshCommand` only for a separate external SSH target. Never paste private keys into chat.
+- **Marketplace docs update**: documented the difference between Desktop local terminal, VS Code Remote workspace host execution, pure browser vscode.dev limitations, and the optional HTTPS Remote Tool Bridge.
+
+## New in 3.16.14
+
+- **Resilient Agentic worker fallback**: if a free/cheap worker is rate-limited, throttled, overloaded, temporarily unavailable, or returns a provider 429/5xx-style error, Sentinel cools that worker down, tries another configured worker/reviewer when possible, and continues with a warning instead of collapsing the whole turn.
+- **New multi-provider model article**: added a Marketplace-visible guide covering live provider catalogs, paid vs free/free-tier model strategy, OpenRouter access to latest Claude/Fable/Opus-style models, Agentic Profiles, Studio media generation, desktop tools, VS Code Web, and enterprise safeguards.
+- **New presentation hero image**: added a generated provider-orchestration presentation image for the Marketplace/GitHub documentation pack.
+
+![Sentinel Coder One Studio 3.16.14 provider-orchestration presentation image](docs/assets/sentinel-coder-3-16-14-marketplace-hero.png)
 
 - **Security-hardened webviews**: Chat sidebar and Studio renderers now avoid scattered raw HTML assignment for user/workspace data; dynamic cards/lists are rendered through DOM-safe builders or centralized sanitized fragments.
 - **Publish-ready Web compatibility verification**: desktop and web VSIX builds are verified with the web manifest checker and archive hygiene checks before Marketplace upload.
@@ -51,6 +69,8 @@ It is designed around two safe defaults:
 
 - [Documentation Hub](docs/README.md)
 - [Provider and Settings Guide](docs/PROVIDER_AND_SETTINGS_GUIDE.md)
+- [Remote Workspace Tools: VS Code Remote SSH, Containers, WSL, Codespaces, and Tunnels without re-entering SSH keys](docs/REMOTE_WORKSPACE_TOOLS.md)
+- [Multi-Provider Model Article: live catalogs, OpenRouter Claude/Fable/Opus-style models, free/paid strategy, Agentic Profiles, Studio, and Web](docs/MULTI_PROVIDER_MODEL_ARTICLE.md)
 - [Enterprise Setup and Operations Guide](docs/ENTERPRISE_SETUP_AND_OPERATIONS.md)
 - [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md)
 - [Agentic Profile Strategy](docs/AGENTIC_PROFILE_STRATEGY.md)
@@ -76,6 +96,7 @@ It is designed around two safe defaults:
 - Serve local HTML files and open browser previews.
 - Git status/diff/log/commit/push helpers.
 - Docker and SSH tools in VS Code Desktop.
+- `remoteWorkspaceCommand` for VS Code Remote Explorer sessions: run approved commands on the already-connected Remote SSH / Dev Container / WSL / Codespaces / Tunnel workspace host without re-entering SSH keys.
 - HTTP requests and web search.
 - RAG ingest/query for project knowledge.
 - Targeted firewall/security scan for secrets, unsafe HTML, injection risks, destructive commands, and debug code.
