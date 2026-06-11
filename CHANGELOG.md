@@ -1,3 +1,8 @@
+## 3.16.17 - Marketplace Refresh Repack
+
+- Repacked and republished the verified 3.16.16 stability release under a fresh Marketplace version so public Marketplace, VS Code Desktop, and VS Code Web channels can expose the latest build consistently.
+- Preserves the 3.16.16 multi-session terminal pool, resource/memory guardrails, Remote Workspace command support, Agentic fallback hardening, and enterprise documentation/security packaging work.
+
 ## 3.16.16 - Multi-Session Terminal Pool + Memory Guardrails
 
 - Added named terminal sessions to `runCommand` and `remoteWorkspaceCommand` through an optional `sessionId` parameter, so multiple Sentinel chats/tasks can run builds, tests, logs, dev servers, and remote-server fixes without blocking on one global persistent shell.

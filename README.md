@@ -25,6 +25,11 @@ It is designed around two safe defaults:
 
 ---
 
+## New in 3.16.17
+
+- **Marketplace refresh repack**: republishes the verified 3.16.16 stability work under a fresh Marketplace version so both Desktop and VS Code Web channels expose the latest multi-session terminal pool, memory guardrails, Remote Workspace tooling, Agentic resilience, and enterprise documentation updates.
+- **No feature rollback**: 3.16.17 contains the same tested 3.16.16 multi-session/resource-guard release plus the full 3.16.15 Remote Explorer workflow and 3.16.14 Agentic fallback/documentation pack.
+
 ## New in 3.16.16
 
 - **Multi-session terminal pool**: `runCommand` and `remoteWorkspaceCommand` now support optional named `sessionId` values, so parallel Sentinel chats, builds, tests, dev servers, and remote-server fixes no longer get stuck behind one global terminal session.
