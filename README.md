@@ -4,7 +4,7 @@
 
 ### Autonomous AI coding + Agentic Profiles + Media & Document Studio for Visual Studio Code
 
-**Multi-provider chat · Real tool use · Single-model full-capability mode · Opt-in Agentic orchestration · Azure/OpenAI/Groq/OpenRouter/Ollama · Sora video · Image/audio/document Studio · VS Code Web compatibility mode**
+**Multi-provider chat · Categorized live model selector · Single-model full-capability mode · Opt-in Agentic orchestration · Azure/OpenAI/Anthropic/Groq/OpenRouter/Ollama and OpenAI-compatible providers · Sora video · Image/audio/document Studio · VS Code Web + Remote Tool Bridge**
 
 Built by [QubitPage Research](https://github.com/qubitpage) · MIT licensed
 
@@ -25,17 +25,41 @@ It is designed around two safe defaults:
 
 ---
 
-## New in 3.16.10
+## New in 3.16.12
 
-- **Deterministic Agentic orchestration**: when you explicitly select an `Agentic:` profile and the task is substantial, Sentinel now proactively runs the profile worker/reviewer preflight and injects those findings into the main orchestrator turn.
+- **Security-hardened webviews**: Chat sidebar and Studio renderers now avoid scattered raw HTML assignment for user/workspace data; dynamic cards/lists are rendered through DOM-safe builders or centralized sanitized fragments.
+- **Publish-ready Web compatibility verification**: desktop and web VSIX builds are verified with the web manifest checker and archive hygiene checks before Marketplace upload.
+- **Cleaner packaged artifacts**: runtime packages exclude source, tests, scripts, scratch folders, PowerShell helpers, and inspection artifacts while keeping public docs available in Marketplace.
+
+- **Categorized live model selector**: the chat picker now shows `Agentic Modes` first, then `Most used models and modes`, then every configured/discovered model grouped by provider and by Local / Free / Free-tier / Subscription / Paid / Unknown price categories.
+- **Provider-neutral Agentic presets**: built-in editable profiles now cover Azure, OpenAI, Claude/Anthropic, OpenRouter, Groq, local Ollama/private coding, cost-saving swarms, novelty labs, and multi-provider elite ensembles.
+- **Adaptive profile templates**: preset model IDs are role templates, not hard blockers. Sentinel uses the live provider/model dropdown and preserves user edits; if a listed model is unavailable, choose the nearest configured model for that role.
+- **Deterministic Agentic orchestration**: when you explicitly select an `Agentic:` profile and the task is substantial, Sentinel runs profile worker/reviewer preflight and injects those findings into the main orchestrator turn.
 - **Single models still work at maximum potential**: choosing a normal model keeps a direct single-model flow with the model's detected context/output capability; orchestration only activates for selected Agentic profiles.
-- **Live dropdown Agentic profile editor**: Settings -> Agentic now uses provider/model dropdowns for the main orchestrator and multi-select live model lists for adding worker and reviewer agents under each profile.
+- **Live dropdown Agentic profile editor**: Settings -> Agentic uses provider/model dropdowns for the main orchestrator and multi-select live model lists for adding worker and reviewer agents under each profile.
 - **Selection preservation during provider refresh**: if Azure/Groq/OpenRouter/OpenAI-compatible provider discovery updates while the profile editor is open, selected agents are preserved instead of disappearing.
-- **Visible agent pools**: profile cards show main model, worker agents, default worker, reviewer agents, policy, premium-worker setting, and max parallel count.
+- **Visible agent pools and usage telemetry**: profile cards show main model, worker agents, default worker, reviewer agents, policy, premium-worker setting, max parallel count, and turn footers show orchestrator/sub-agent usage.
 - **Add follow-up while running**: the Send button becomes a highlighted **Add follow-up** action during active runs so you can queue extra instructions without stopping the agent.
-- **Live provider catalogs and context metadata**: Azure/OpenAI-compatible providers can refresh model lists and context windows from provider APIs, with curated fallback only when live data is unavailable.
-- **VS Code Web / vscode.dev compatibility workflow**: browser entry point, web workspace capability declarations, web VSIX packaging, and a packed-manifest verifier are included.
-- **Expanded public documentation**: see [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md).
+- **Live provider catalogs and context metadata**: Azure/OpenAI-compatible, OpenRouter, Groq, Anthropic/OpenAI-style, Ollama, and other configured catalogs can refresh model lists, context windows, supported parameters, pricing notes, and capability badges where APIs expose them.
+- **VS Code Web / vscode.dev compatibility workflow**: browser entry point, web workspace capability declarations, web VSIX packaging, and Remote Tool Bridge settings are included.
+- **Expanded public documentation**: see the [Documentation Hub](docs/README.md), [Provider and Settings Guide](docs/PROVIDER_AND_SETTINGS_GUIDE.md), [Enterprise Setup and Operations Guide](docs/ENTERPRISE_SETUP_AND_OPERATIONS.md), [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md), [Agentic Profile Strategy](docs/AGENTIC_PROFILE_STRATEGY.md), [Whitepaper](docs/WHITEPAPER.md), [Pitch Deck](docs/PITCH_DECK.md), [Browser Pitch Deck](docs/pitchdeck.html), [Enterprise Code Quality Audit](docs/ENTERPRISE_CODE_QUALITY_AUDIT.md), and [Security Release Checklist](docs/SECURITY_RELEASE_CHECKLIST.md).
+- **Open-source sustainability**: added public support/donation documentation with PayPal donation link and QR code so users who benefit from the project can help keep it frequently updated.
+
+---
+
+## Documentation and guides
+
+- [Documentation Hub](docs/README.md)
+- [Provider and Settings Guide](docs/PROVIDER_AND_SETTINGS_GUIDE.md)
+- [Enterprise Setup and Operations Guide](docs/ENTERPRISE_SETUP_AND_OPERATIONS.md)
+- [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md)
+- [Agentic Profile Strategy](docs/AGENTIC_PROFILE_STRATEGY.md)
+- [Whitepaper](docs/WHITEPAPER.md)
+- [Pitch Deck](docs/PITCH_DECK.md)
+- [Browser Pitch Deck](docs/pitchdeck.html)
+- [Enterprise Code Quality Audit](docs/ENTERPRISE_CODE_QUALITY_AUDIT.md)
+- [Security Release Checklist](docs/SECURITY_RELEASE_CHECKLIST.md)
+- [Donation and Community Guide](docs/DONATION_AND_COMMUNITY.md)
 
 ---
 
@@ -85,6 +109,18 @@ Sentinel Coder One Studio is published with a public contribution path:
 
 Use the repository for provider requests, Web compatibility reports, Agentic Profile templates, Studio/media workflow improvements, docs fixes, and security-hardening suggestions. Do not post API keys or private customer data in public issues.
 
+### Donate / support open-source development
+
+Sentinel Coder One Studio is open source. If you like the project and want to contribute to keeping it frequently updated, any amount is useful to sustain development, testing, provider updates, security hardening, and documentation.
+
+- Donate via PayPal: [paypal.com/donate/?hosted_button_id=97VNNYCB3HWMS](https://www.paypal.com/donate/?hosted_button_id=97VNNYCB3HWMS)
+- Donation QR: [docs/assets/paypal-donation-qr.png](docs/assets/paypal-donation-qr.png)
+- Donation details: [docs/DONATION_AND_COMMUNITY.md](docs/DONATION_AND_COMMUNITY.md)
+
+The project remains open source; donations help keep it maintained and available to the community.
+
+![PayPal donation QR](docs/assets/paypal-donation-qr.png)
+
 ### Agentic Profiles
 
 Agentic Profiles let you define opt-in orchestration from live model selectors:
@@ -102,10 +138,35 @@ When a real `Agentic:` profile is selected in Agent mode, Sentinel runs determin
 
 Recommended cost-smart pattern:
 
-- Use a strong daily model such as GPT-4.1 as orchestrator.
-- Use Grok or another adversarial model for critique/review.
-- Use cheaper/free workers for low-risk drafts and extraction.
-- Reserve GPT-5.5/frontier models for final review, architecture, security, finance, and hard unresolved decisions.
+- Use a strong daily model such as GPT-4.1, Claude Sonnet, GPT-4.1-mini, Groq OSS 120B, or a local coding model as the orchestrator depending on your provider keys and budget.
+- Use a different strong model/provider for adversarial critique and security review to avoid same-model blind spots.
+- Use cheaper/free workers for low-risk drafts, code reading, extraction, test ideas, documentation, and brainstorming.
+- Reserve GPT-5.5, Claude Opus/Sonnet, GPT-5-class, or other frontier paid models for final review, architecture, security, finance, and hard unresolved decisions.
+
+### Predefined adaptive Agentic profiles
+
+The extension ships editable standard templates so a new user gets sensible orchestration no matter which provider keys they have. These are **adaptive templates**: they appear as built-in profiles, but the profile editor uses live dropdowns from your configured provider catalogs, so you can swap unavailable model IDs for the closest live model.
+
+| Built-in profile | Best when | Default strategy |
+| --- | --- | --- |
+| Standard: Single Model Full Capability | You selected one normal model | No orchestration; use the selected model directly with its discovered context/output/tool limits. |
+| FREE: Multi-Provider Coding Council | You want to test Agentic orchestration with no paid escalation | Uses discovered free/free-tier/local models across OpenRouter, Groq, Gemini/free-tier gateways, and Ollama; main model must verify because free models can be rate-limited or inconsistent. |
+| FREE: OpenRouter Coding Swarm | You have an OpenRouter key and want free-only agents | Uses only OpenRouter `:free` or free-priced models such as Qwen/DeepSeek/Kimi/Gemini free entries from the live catalog; paid review is blocked unless you edit/switch profiles. |
+| FREE: Groq Fast OSS | You want very fast free-tier/low-cost OSS drafts | Groq OSS models fan out on code reading, docs, tests, and alternative patches; final owner runs strict verification. |
+| FREE: Gemini / Google Free-Tier Research | You want free-tier research/planning support | Gemini/Flash-style free models handle research, summaries, UI copy, and plan alternatives, paired with a coding-focused free model when configured. |
+| FREE: Local Ollama Private | You want privacy and zero API spend | Local Ollama models lead/draft/review with low parallelism; compile/tests/firewall scans are mandatory because small local models can miss subtle bugs. |
+| Adaptive: Best Available From Your Keys | You have one or mixed provider keys and want a sane automatic default | Resolves roles from live configured/discovered models and avoids hard failures when a template model is unavailable. |
+| Azure Cost-Smart Production | You have Azure credits but want lower burn | GPT-4.1 owns normal coding, Grok/GPT-4.1 challenge and implement, GPT-5.5 is reserved for final hard review, security, architecture, and risky decisions. |
+| Azure Frontier Architect | Correctness beats cost | GPT-5.5 leads hard architecture/high-risk code; GPT-4.1/Grok workers produce alternatives; GPT-5.5 judges final output. |
+| OpenAI Balanced Coding | User has OpenAI API keys | GPT-4.1/modern GPT coding model leads; mini/router-class models draft docs/tests/boilerplate; stronger GPT reasoning reviewer validates. |
+| Anthropic Claude Code Quality | User has Anthropic or Claude via gateway | Sonnet-class main coder, Haiku-class low-risk workers, Opus/Sonnet reviewer for maintainability and hidden edge cases. |
+| OpenRouter Balanced Coding | User has one OpenRouter key and wants many vendors | Best configured Claude/Qwen/Kimi/DeepSeek coding model leads; free models draft; stronger paid model reviews when available. |
+| Groq Fast OSS Swarm | User wants fast parallel low-cost work | Groq OSS workers fan out for investigation, tests, docs, and drafts; final owner verifies and escalates if risk is high. |
+| Local/Private Ollama | User wants privacy or zero API spend | Local models lead/draft/review with fewer parallel agents; cloud reviewers are added only if the user edits the profile intentionally. |
+| Multi-Provider Frontier Council | User has multiple API keys | Azure/OpenAI/Claude/OpenRouter/Groq each get distinct roles; main model synthesizes and verifies instead of voting blindly. |
+| Open-Compatible Coding Mix | User has Mistral, DeepSeek, Together, Vultr, Moonshot/Kimi, Featherless, or custom OpenAI-compatible keys | Live dropdown replaces placeholder IDs with discovered coding/reasoning models; cheap workers handle extraction/docs and stronger models review. |
+
+These profiles follow production agent patterns from OpenAI-style routines/handoffs and Anthropic-style prompt chaining, routing, parallelization, orchestrator-worker, and evaluator-optimizer workflows. The main model remains accountable: it must inspect worker output, apply the final patch with tools, run diagnostics/build/tests, and report the actual evidence.
 
 ### Media & Document Studio
 
@@ -266,11 +327,11 @@ If the Marketplace says the extension is unavailable on vscode.dev, maintainers 
 cd vscode-ext
 npm run compile
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.10.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.12.vsix
 npm run publish:web
 ```
 
-See [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md) for the current web-compatible publish workflow and live Agentic dropdown/add-agent fix.
+See [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md) plus this 3.16.12 README for the current web-compatible publish workflow, live Agentic dropdown/add-agent fix, categorized model picker, and adaptive provider-profile templates.
 
 ---
 
@@ -303,6 +364,7 @@ Command Palette commands include:
 ## Full documentation
 
 - [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md)
+- [Agentic Profile Strategy](docs/AGENTIC_PROFILE_STRATEGY.md)
 - [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md)
 - [VS Code Web Marketplace Fix 3.16.9](docs/VS_CODE_WEB_MARKETPLACE_FIX_3_16_9.md)
 - [Azure Cost Hard Critique and Agentic Routing Plan](docs/AZURE_COST_HARD_CRITIQUE_AND_AGENTIC_ROUTING_PLAN.md)
@@ -319,7 +381,7 @@ cd vscode-ext
 npm run compile
 npm run package:desktop
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.10.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.12.vsix
 ```
 
 Publish both Marketplace paths when releasing web compatibility:

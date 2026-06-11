@@ -52,6 +52,8 @@ export interface ModelConfig {
   pricing: PricingTier;
   pricingNote?: string;        // e.g. "$3/1M input", "Free 14k req/day"
   supportsTools: boolean;
+  /** Provider/API-advertised request parameters, when available (for example: tools, tool_choice, response_format). */
+  supportedParameters?: string[];
   supportsThinking: boolean;
   supportsVision: boolean;
   supportsStreaming: boolean;
@@ -68,6 +70,8 @@ export interface ModelOption {
   pricing: PricingTier;
   pricingNote: string;
   supportsTools: boolean;
+  /** Provider/API-advertised request parameters, when available (for example: tools, tool_choice, response_format). */
+  supportedParameters?: string[];
   supportsThinking: boolean;
   supportsVision: boolean;
   supportsStreaming: boolean;
@@ -110,6 +114,9 @@ interface LiveModelMetadata {
   providerModelId?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
+  /** Raw provider-advertised request parameters, e.g. OpenRouter supported_parameters. */
+  supportedParameters?: string[];
+  /** Explicit provider/model support for Chat Completions native tools, when the live API exposes it. */
   supportsTools?: boolean;
   supportsThinking?: boolean;
   supportsVision?: boolean;
@@ -242,7 +249,7 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
   // ── QubGPU (MI300X local, vLLM/SGLang OpenAI-compatible) ──
   {
     id: "qubgpu", name: "QubGPU (MI300X local)", type: "custom-openai",
-    baseUrl: "http://134.199.206.25:8000", apiKey: "EMPTY", enabled: false,
+    baseUrl: "http://134.199.206.25:8000", apiKey: "", enabled: false,
     models: [
       { id: "Qwen/Qwen3-Coder-Next", displayName: "Qwen3-Coder-Next (80B-A3B · agentic)", provider: "qubgpu", contextWindow: 262144, maxOutputTokens: 65536, pricing: "local", pricingNote: "Local MI300X · free", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
       { id: "Qwen/Qwen3-Coder-30B-A3B-Instruct", displayName: "Qwen3-Coder-30B-A3B (fallback)", provider: "qubgpu", contextWindow: 262144, maxOutputTokens: 32768, pricing: "local", pricingNote: "Local MI300X · free", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
@@ -449,7 +456,7 @@ function trimMessagesForRuntimeBudget(provider: ProviderConfig, model: string, m
   return [...systemMessages, ...trimmed];
 }
 
-function buildRequestBody(provider: ProviderConfig, model: string, messages: ChatMessage[], options: { temperature?: number; max_tokens?: number; stream?: boolean; tools?: OpenAIToolSpec[] }): string {
+function buildRequestBody(provider: ProviderConfig, model: string, messages: ChatMessage[], options: { temperature?: number; max_tokens?: number; stream?: boolean; tools?: OpenAIToolSpec[]; toolChoice?: boolean }): string {
   const stream = options.stream !== false;
   const runtimeMessages = trimMessagesForRuntimeBudget(provider, model, messages, options.max_tokens || 4096);
   switch (provider.type) {
@@ -488,19 +495,83 @@ function buildRequestBody(provider: ProviderConfig, model: string, messages: Cha
       }
       if (options.tools && options.tools.length > 0) {
         body.tools = options.tools;
-        body.tool_choice = "auto";
+        if (options.toolChoice !== false) {
+          body.tool_choice = "auto";
+        }
       }
       return JSON.stringify(body);
     }
   }
 }
 
-/** OpenAI-compatible provider types that support native function/tool calling. */
+/** OpenAI-compatible provider types that can support native function/tool calling. */
 const NATIVE_TOOL_TYPES = new Set([
   "openai", "azure", "groq", "openrouter", "deepseek", "mistral", "together", "vultr", "huggingface", "moonshot", "custom-openai"
 ]);
 export function providerSupportsNativeTools(type: string): boolean {
   return NATIVE_TOOL_TYPES.has(type);
+}
+
+function truthyCapability(value: unknown): boolean | undefined {
+  if (value === true || value === "true" || value === "1" || value === 1 || value === "enabled" || value === "supported") return true;
+  if (value === false || value === "false" || value === "0" || value === 0 || value === "disabled" || value === "unsupported") return false;
+  return undefined;
+}
+
+function capabilityRecordSaysTools(value: unknown): boolean | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const obj = value as Record<string, unknown>;
+  const directKeys = [
+    "tools", "tool", "tool_choice", "toolChoice", "function_calling", "functionCalling",
+    "function_call", "functionCall", "functions", "parallel_tool_calls", "parallelToolCalls"
+  ];
+  for (const key of directKeys) {
+    const verdict = truthyCapability(obj[key]);
+    if (verdict !== undefined) return verdict;
+  }
+  for (const nestedKey of ["capabilities", "features", "supported", "supported_parameters", "supportedParameters"]) {
+    const nested = obj[nestedKey];
+    if (Array.isArray(nested)) {
+      const lowered = nested.map(v => String(v).toLowerCase());
+      if (lowered.some(v => ["tools", "tool_choice", "function_calling", "functions", "parallel_tool_calls"].includes(v))) return true;
+    } else {
+      const verdict = capabilityRecordSaysTools(nested);
+      if (verdict !== undefined) return verdict;
+    }
+  }
+  return undefined;
+}
+
+function liveEntrySaysTools(entry: OpenRouterApiModel): boolean | undefined {
+  const params = Array.isArray(entry.supported_parameters) ? entry.supported_parameters.map(p => String(p).toLowerCase()) : [];
+  if (params.length > 0) {
+    return params.some(p => ["tools", "tool_choice", "function_calling", "functions", "parallel_tool_calls"].includes(p));
+  }
+  return capabilityRecordSaysTools(entry.capabilities);
+}
+
+function defaultNativeToolSupportForChatCompletions(provider: ProviderConfig, modelId: string, displayName?: string, catalogSupportsTools?: boolean): boolean {
+  if (!providerSupportsNativeTools(provider.type)) return false;
+  if (catalogSupportsTools === false) return false;
+  const name = `${modelId} ${displayName || ""}`.toLowerCase();
+
+  // Azure OpenAI/AI Foundry is operation-specific: a deployment can chat/stream normally
+  // while rejecting Chat Completions native tools with HTTP 400 "operation unsupported".
+  // Enable tools only for Azure deployments known to support Chat Completions tools unless
+  // a live API capability explicitly says otherwise.
+  if (provider.type === "azure") {
+    if (/gpt[-_ ]?4\.1|gpt[-_ ]?4o|gpt[-_ ]?4[-_ ]turbo|gpt-chat-latest/.test(name)) return true;
+    if (/gpt[-_ ]?5|grok|model-router|router/.test(name)) return false;
+    return catalogSupportsTools === true;
+  }
+
+  // OpenRouter exposes model-level supported_parameters; respect the catalog instead of
+  // assuming every routed model accepts native tools.
+  if (provider.type === "openrouter") return catalogSupportsTools === true;
+
+  // For direct OpenAI-compatible providers, allow native tools by default when the catalog
+  // does not explicitly deny them; these APIs generally accept OpenAI tools syntax.
+  return true;
 }
 
 // Force localhost to 127.0.0.1 to avoid IPv6 issues
@@ -516,6 +587,11 @@ function isRetryableNetworkError(error: unknown): boolean {
 function describeNetworkError(error: unknown): string {
   if (error instanceof Error) return error.message || error.name;
   return String(error);
+}
+
+function isUnsupportedOperationResponse(statusCode: number | undefined, body: string): boolean {
+  if (statusCode !== 400) return false;
+  return /requested operation is unsupported|operation is unsupported|unsupported operation|not supported/i.test(body || "");
 }
 
 function delayWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
@@ -594,6 +670,7 @@ export class MultiProviderClient {
   // streaming endpoints do not return a usage object on every call.
   private _usage: Map<string, { requests: number; inputTokensEst: number; outputTokensEst: number }> = new Map();
   private _liveModelMetadataCache: Map<string, { expiresAt: number; metadata: Map<string, LiveModelMetadata> }> = new Map();
+  private _nativeToolsDisabledForSession: Set<string> = new Set();
 
   constructor() {
     for (const p of DEFAULT_PROVIDERS) {
@@ -1023,11 +1100,53 @@ export class MultiProviderClient {
     this._recordUsage(provider.id, inputChars, outputChars);
   }
 
-  /** Whether the model's provider supports native function/tool calling. */
+  /** Whether this exact provider/model/API operation supports native Chat Completions tools. */
   supportsNativeTools(fullModelId: string): boolean {
     const resolved = this.resolveModel(fullModelId);
     if (!resolved) return false;
-    return providerSupportsNativeTools(resolved.provider.type);
+    return this._nativeToolSupportForModel(resolved.provider, resolved.modelId);
+  }
+
+  private _nativeToolSessionKey(provider: ProviderConfig, modelId: string): string {
+    return `${provider.id}:${modelId}`.toLowerCase();
+  }
+
+  private _liveMetadataForModel(provider: ProviderConfig, modelId: string): LiveModelMetadata | undefined {
+    const model = provider.models.find(m => m.id === modelId);
+    const cached = this._liveModelMetadataCache.get(provider.id)?.metadata;
+    return cached ? this._findLiveMetadata(provider, {
+      id: modelId,
+      displayName: model?.displayName || modelId,
+      provider: provider.id,
+      contextWindow: model?.contextWindow || 0,
+      pricing: model?.pricing || "pay-per-use",
+      supportsTools: model?.supportsTools ?? true,
+      supportsThinking: model?.supportsThinking ?? false,
+      supportsVision: model?.supportsVision ?? false,
+      supportsStreaming: model?.supportsStreaming ?? true,
+    }, cached) : undefined;
+  }
+
+  private _nativeToolSupportForModel(provider: ProviderConfig, modelId: string): boolean {
+    if (this._nativeToolsDisabledForSession.has(this._nativeToolSessionKey(provider, modelId))) return false;
+    const model = provider.models.find(m => m.id === modelId);
+    const live = this._liveMetadataForModel(provider, modelId);
+    const params = Array.isArray(live?.supportedParameters)
+      ? live.supportedParameters.map(p => String(p).toLowerCase())
+      : [];
+    if (params.length > 0 && !params.some(p => ["tools", "tool_choice", "function_calling", "functions", "parallel_tool_calls"].includes(p))) return false;
+    if (live?.supportsTools !== undefined) return live.supportsTools;
+    return defaultNativeToolSupportForChatCompletions(provider, modelId, live?.displayName || model?.displayName, model?.supportsTools);
+  }
+
+  private _supportsToolChoiceForModel(provider: ProviderConfig, modelId: string): boolean {
+    if (!this._nativeToolSupportForModel(provider, modelId)) return false;
+    const model = provider.models.find(m => m.id === modelId);
+    const live = this._liveMetadataForModel(provider, modelId);
+    const params = Array.isArray(live?.supportedParameters) ? live.supportedParameters.map(p => String(p).toLowerCase()) : [];
+    if (params.length > 0) return params.includes("tool_choice");
+    if (provider.type === "openrouter") return false;
+    return defaultNativeToolSupportForChatCompletions(provider, modelId, model?.displayName, model?.supportsTools);
   }
 
   /**
@@ -1050,12 +1169,27 @@ export class MultiProviderClient {
       throw new Error(`No API key configured for ${provider.name}. Set it in Settings > Models.`);
     }
 
+    if (tools.length > 0 && !this._nativeToolSupportForModel(provider, modelId)) {
+      // Correct operation selection: this model can chat, but its provider/catalog does not
+      // advertise Chat Completions native tools for this exact deployment/model. Use normal
+      // streaming chat rather than sending an unsupported tools operation.
+      for await (const chunk of this.streamChat(fullModelId, messages, options, signal)) {
+        yield { kind: "text", value: chunk };
+      }
+      return;
+    }
+
     const evInputChars = messages.reduce((n, m) => n + (m.content ? m.content.length : 0), 0);
     let evOutputChars = 0;
 
     const endpoint = getChatEndpoint(provider, modelId);
     const headers = buildHeaders(provider);
-    const body = buildRequestBody(provider, modelId, messages, { ...options, stream: true, tools });
+    const body = buildRequestBody(provider, modelId, messages, {
+      ...options,
+      stream: true,
+      tools,
+      toolChoice: this._supportsToolChoiceForModel(provider, modelId),
+    });
 
     const parsed = new URL(provider.baseUrl + endpoint.path);
     const isHttps = parsed.protocol === "https:";
@@ -1107,6 +1241,18 @@ export class MultiProviderClient {
       for await (const chunk of response) chunks.push(chunk as Buffer);
       const errBody = Buffer.concat(chunks).toString();
       const code = response.statusCode;
+      if (tools.length > 0 && isUnsupportedOperationResponse(code, errBody)) {
+        // Some Azure OpenAI / AI Foundry deployments can chat normally but reject
+        // the specific native-tool/streaming operation with a generic 400. Mark
+        // this exact deployment/model as native-tool-disabled for the current
+        // session so later turns choose the correct operation without re-triggering
+        // the unsupported request, then degrade gracefully to normal chat.
+        this._nativeToolsDisabledForSession.add(this._nativeToolSessionKey(provider, modelId));
+        for await (const chunk of this.streamChat(fullModelId, messages, options, signal)) {
+          yield { kind: "text", value: chunk };
+        }
+        return;
+      }
       const hint = code === 429
         ? " (rate limited — wait a moment, lower request frequency, or switch to another provider/model)"
         : code === 401 || code === 403
@@ -1357,7 +1503,8 @@ export class MultiProviderClient {
       maxOutputTokens,
       pricing: model.pricing,
       pricingNote: `${model.pricingNote || ""}${suffix}`.trim(),
-      supportsTools: live?.supportsTools ?? model.supportsTools,
+      supportsTools: live?.supportsTools ?? defaultNativeToolSupportForChatCompletions(provider, model.id, model.displayName, model.supportsTools),
+      supportedParameters: live?.supportedParameters || model.supportedParameters,
       supportsThinking: live?.supportsThinking ?? model.supportsThinking,
       supportsVision: live?.supportsVision ?? model.supportsVision,
       supportsStreaming: model.supportsStreaming,
@@ -1431,7 +1578,8 @@ export class MultiProviderClient {
       maxOutputTokens,
       pricing,
       pricingNote,
-      supportsTools: meta.supportsTools ?? true,
+      supportsTools: meta.supportsTools ?? defaultNativeToolSupportForChatCompletions(provider, id, meta.displayName),
+      supportedParameters: meta.supportedParameters,
       supportsThinking: meta.supportsThinking ?? /reason|gpt[-_ ]?5|grok|o[1-9]|deepseek|qwen|kimi/i.test(`${id} ${meta.displayName || ""}`),
       supportsVision: meta.supportsVision ?? /gpt[-_ ]?4\.1|gpt[-_ ]?5|gemini|claude|vision|4o/i.test(`${id} ${meta.displayName || ""}`),
       supportsStreaming: true,
@@ -1463,16 +1611,17 @@ export class MultiProviderClient {
       if (!apiSaysChat && !nameLooksChat) continue;
       const existing = liveMetadata ? this._findLiveMetadata(provider, { id: deploymentId, displayName, provider: provider.id, contextWindow: 0, pricing: "subscription", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true }, liveMetadata) : undefined;
       const inferred = this._inferModelLimits(deploymentId, modelName || displayName);
-      const meta: LiveModelMetadata = existing || {
+      const explicitTools = capabilityRecordSaysTools(capabilities) ?? capabilityRecordSaysTools(item);
+      const meta: LiveModelMetadata = {
         id: deploymentId,
-        displayName,
-        providerModelId: modelName && modelName !== deploymentId ? modelName : undefined,
-        contextWindow: inferred.contextWindow,
-        maxOutputTokens: inferred.maxOutputTokens,
-        supportsTools: true,
-        supportsThinking: /reason|gpt[-_ ]?5|grok|o[1-9]|deepseek|qwen|kimi/i.test(`${deploymentId} ${modelName}`),
-        supportsVision: /gpt[-_ ]?4\.1|gpt[-_ ]?5|vision|4o|gemini|claude/i.test(`${deploymentId} ${modelName}`),
-        source: "live-api+heuristic",
+        displayName: existing?.displayName || displayName,
+        providerModelId: existing?.providerModelId || (modelName && modelName !== deploymentId ? modelName : undefined),
+        contextWindow: existing?.contextWindow || inferred.contextWindow,
+        maxOutputTokens: existing?.maxOutputTokens || inferred.maxOutputTokens,
+        supportsTools: existing?.supportsTools ?? explicitTools ?? defaultNativeToolSupportForChatCompletions(provider, deploymentId, modelName || displayName),
+        supportsThinking: existing?.supportsThinking ?? /reason|gpt[-_ ]?5|grok|o[1-9]|deepseek|qwen|kimi/i.test(`${deploymentId} ${modelName}`),
+        supportsVision: existing?.supportsVision ?? /gpt[-_ ]?4\.1|gpt[-_ ]?5|vision|4o|gemini|claude/i.test(`${deploymentId} ${modelName}`),
+        source: existing?.source || "live-api+heuristic",
         updatedAt: now,
       };
       out.push(this._modelOptionFromLiveMetadata(provider, meta, deploymentId));
@@ -1515,7 +1664,7 @@ export class MultiProviderClient {
       if (inferred.contextWindow || inferred.maxOutputTokens) {
         const meta: LiveModelMetadata = {
           id: m.id, displayName: m.displayName, contextWindow: inferred.contextWindow, maxOutputTokens: inferred.maxOutputTokens,
-          supportsTools: m.supportsTools, supportsThinking: m.supportsThinking, supportsVision: m.supportsVision, source: "heuristic", updatedAt: now,
+          supportsTools: defaultNativeToolSupportForChatCompletions(provider, m.id, m.displayName, m.supportsTools), supportsThinking: m.supportsThinking, supportsVision: m.supportsVision, source: "heuristic", updatedAt: now,
         };
         metadata.set(m.id, meta);
         metadata.set(m.id.toLowerCase(), meta);
@@ -1571,7 +1720,8 @@ export class MultiProviderClient {
       entry.top_provider?.max_completion_tokens, entry.max_completion_tokens, entry.max_output_tokens, entry.output_token_limit,
     ]);
     const inferred = this._inferModelLimits(entry.id, entry.name || entry.display_name || entry.model || entry.id);
-    const params = Array.isArray(entry.supported_parameters) ? entry.supported_parameters : [];
+    const params = Array.isArray(entry.supported_parameters) ? entry.supported_parameters.map(p => String(p).toLowerCase()) : [];
+    const explicitTools = liveEntrySaysTools(entry);
     const inMods = entry.architecture && Array.isArray(entry.architecture.input_modalities) ? entry.architecture.input_modalities : [];
     const outMods = entry.architecture && Array.isArray(entry.architecture.output_modalities) ? entry.architecture.output_modalities : [];
     const modalityText = `${entry.architecture?.modality || ""} ${inMods.join(" ")} ${outMods.join(" ")}`.toLowerCase();
@@ -1583,7 +1733,8 @@ export class MultiProviderClient {
       providerModelId: entry.model,
       contextWindow: ctx || inferred.contextWindow,
       maxOutputTokens: out || inferred.maxOutputTokens,
-      supportsTools: params.includes("tools") || params.includes("tool_choice") || undefined,
+      supportedParameters: params.length > 0 ? params : undefined,
+      supportsTools: explicitTools,
       supportsThinking: params.includes("reasoning") || params.includes("include_reasoning") || undefined,
       supportsVision: inMods.includes("image") || undefined,
       source,

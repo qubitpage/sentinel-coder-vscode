@@ -22,7 +22,7 @@ Status: implemented and verified for 3.16.10.
 cd vscode-ext
 npm run compile
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.10.vsix
+npm run verify:web-manifest -- sentinel-coder-web-<current-version>.vsix
 npm run publish:web
 ```
 

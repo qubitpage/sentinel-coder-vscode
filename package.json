@@ -1,8 +1,8 @@
 {
   "name": "sentinel-coder",
   "displayName": "Sentinel Coder One Studio",
-  "description": "Sentinel Coder One Studio - autonomous AI coding with standard single-model full-capability mode, opt-in deterministic Agentic Profile preflight orchestration, live model dropdown selectors for adding worker/reviewer agents, visible orchestrator/sub-agent model usage, Add follow-up while runs are active, credit-safe context budgeting, Azure Foundry live deployment discovery, authoritative live provider model dropdowns, live provider context-window refresh, dynamic context, focus-safe edits, reader-safe streaming scroll, VS Code Web compatibility mode, media/document Studio, safer tools, and multi-provider orchestration.",
-  "version": "3.16.10",
+  "description": "Sentinel Coder One Studio - autonomous AI coding with single-model full-capability mode, opt-in Agentic Profiles, live provider model/context discovery, operation-aware native tool routing, VS Code Web remote-tool bridge support, media/document Studio, safer tools, dynamic context, and multi-provider orchestration.",
+  "version": "3.16.12",
   "publisher": "Qubitpage",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -53,7 +53,11 @@
     "deterministic-agentic-preflight",
     "add-follow-up",
     "agentic-worker-selector",
-    "agentic-reviewer-selector"
+    "agentic-reviewer-selector",
+    "web-remote-bridge",
+    "vscode-dev-remote-tools",
+    "operation-aware-tools",
+    "tool-capability-routing"
   ],
   "galleryBanner": {
     "color": "#0e1117",
@@ -135,7 +139,15 @@
       },
       {
         "command": "sentinel-coder.openDesktopHelp",
-        "title": "Sentinel Coder: Why Desktop Mode Is Required"
+        "title": "Sentinel Coder: Web/Remote Tooling Help"
+      },
+      {
+        "command": "sentinel-coder.configureWebRemoteBridge",
+        "title": "Sentinel Coder: Configure Web Remote Tool Bridge"
+      },
+      {
+        "command": "sentinel-coder.testWebRemoteBridge",
+        "title": "Sentinel Coder: Test Web Remote Tool Bridge"
       }
     ],
     "viewsContainers": {
@@ -320,6 +332,16 @@
           "type": "boolean",
           "default": true,
           "description": "Include selected model/provider and Agentic Profile metadata in automatic dynamic context."
+        },
+        "sentinelCoder.webRemoteBridgeEnabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable VS Code Web remote tool routing through a trusted Sentinel Remote Tool Bridge. The browser cannot run local terminal/SSH/Docker/MCP directly; the bridge performs approved operations on a machine you control."
+        },
+        "sentinelCoder.webRemoteBridgeUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "HTTPS base URL for the Sentinel Remote Tool Bridge used by vscode.dev/github.dev, e.g. `https://agent.example.com`. Store the bearer token with `Sentinel Coder: Configure Web Remote Tool Bridge`, not in settings."
         }
       }
     }
@@ -327,11 +349,11 @@
   "capabilities": {
     "virtualWorkspaces": {
       "supported": "limited",
-      "description": "Sentinel Coder can activate in VS Code for the Web and virtual workspaces with safe status/settings webviews. Full autonomous agent tools require VS Code Desktop with a local workspace."
+      "description": "Sentinel Coder can activate in VS Code for the Web and virtual/remote workspaces. Full filesystem, terminal, SSH, Docker, MCP, and local-model tools run when VS Code provides a trusted desktop or remote workspace extension host; pure browser-only workspaces use the web-safe status/chat guidance layer."
     },
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "Sentinel Coder can activate in Restricted Mode with safe status/settings guidance. File edits, terminals, SSH, Docker, MCP, and other autonomous tools require a trusted desktop workspace."
+      "description": "Sentinel Coder can activate in Restricted Mode with safe status/settings guidance. File edits, terminals, SSH, Docker, MCP, and other autonomous tools require a trusted workspace or trusted remote execution host."
     }
   },
   "scripts": {
@@ -342,7 +364,15 @@
     "package:web": "vsce package --no-dependencies --target web -o sentinel-coder-web-%npm_package_version%.vsix",
     "publish": "vsce publish --no-dependencies",
     "publish:web": "vsce publish --no-dependencies --target web",
-    "verify:web-manifest": "node scripts/verify-web-manifest.cjs"
+    "verify:web": "node scripts/verify-web-manifest.cjs",
+    "verify:web-manifest": "node scripts/verify-web-manifest.cjs",
+    "verify:web-vsix": "node scripts/verify-web-manifest.cjs",
+    "test:capabilities": "node tests/provider-capability-regression.cjs",
+    "test:provider-capabilities": "node tests/provider-capability-regression.cjs",
+    "test:web-bridge": "node tests/web-bridge-manifest-regression.cjs",
+    "test:model-selector": "node tests/model-selector-regression.cjs",
+    "test:agentic-profiles": "node tests/agentic-profiles-regression.cjs",
+    "test": "npm run compile && npm run test:provider-capabilities && npm run test:web-bridge && npm run test:model-selector && npm run test:agentic-profiles"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -351,6 +381,7 @@
   },
   "browser": "./out/extensionWeb.js",
   "extensionKind": [
+    "workspace",
     "ui"
   ]
 }

@@ -26,6 +26,7 @@ const SESSIONS_KEY = "sentinelCoder.sessions";
 const CURRENT_SESSION_KEY = "sentinelCoder.currentSessionId";
 const MAX_SESSIONS = 100;
 const SKILLS_KEY = "sentinelCoder.skills";
+const BUILTIN_SKILLS_VERSION_KEY = "sentinelCoder.builtinSkillsVersion";
 
 /** A reusable instruction pack injected into the system prompt when enabled. */
 export interface Skill {
@@ -102,7 +103,7 @@ const BUILTIN_AGENTIC_PROFILES: Array<Omit<AgenticProfile, "createdAt" | "update
   {
     id: STANDARD_AGENTIC_PROFILE_ID,
     name: "Standard: Single Model Full Capability",
-    description: "Default standard profile/reference: when you choose a normal model, Sentinel uses that model directly at its discovered context/output capability; no multi-agent orchestration is applied unless an Agentic profile is explicitly selected.",
+    description: "Default/reference profile: normal model selections use the selected model directly at its discovered context/output/tool capability. Multi-agent orchestration only runs when an Agentic profile is explicitly selected.",
     mainModel: "auto",
     workerModels: [],
     reviewerModels: [],
@@ -111,40 +112,110 @@ const BUILTIN_AGENTIC_PROFILES: Array<Omit<AgenticProfile, "createdAt" | "update
     allowPremiumWorkers: false,
     maxParallelAgents: 1,
     costPolicy: "balanced",
-    instructions: "Standard single-model mode. Do not spawn sub-agents automatically. Use the selected model directly with its discovered provider context window and output limit, bounded only by user context budget/max-token settings. Switch to another Agentic profile only when you want boss/worker/reviewer orchestration."
+    instructions: "Single-model mode. Do not spawn sub-agents automatically. Use the selected model directly at its live-discovered provider capability, bounded only by user context budget/max-token settings."
   },
   {
-    id: "profile_premium_architect",
-    name: "Premium Architect + Strong Agents",
-    description: "Best quality: GPT-5.5 orchestrates, GPT-4.1/Grok-4.3 handle hard sub-agent work, cheaper models only as fallback.",
-    mainModel: "azure:gpt-5.5",
-    workerModels: ["azure:gpt-4.1", "azure:grok-4.3", "azure:gpt-5.4"],
-    reviewerModels: ["azure:gpt-5.5", "azure:gpt-5.4-pro", "azure:gpt-4.1"],
-    defaultWorkerModel: "azure:gpt-4.1",
+    id: "profile_free_multi_provider_coding",
+    name: "FREE: Multi-Provider Coding Council",
+    description: "Best free-only starting point for testing Agentic orchestration across configured free/free-tier/local providers without paid escalation.",
+    mainModel: "auto",
+    workerModels: ["openrouter:qwen/qwen3-coder:free", "openrouter:deepseek/deepseek-chat-v3.1:free", "openrouter:moonshotai/kimi-k2:free", "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest"],
+    reviewerModels: ["openrouter:qwen/qwen3-coder:free", "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest"],
+    defaultWorkerModel: "openrouter:qwen/qwen3-coder:free",
     allowCheapFallback: true,
-    allowPremiumWorkers: true,
+    allowPremiumWorkers: false,
     maxParallelAgents: 4,
-    costPolicy: "quality-first",
-    instructions: "Use premium sub-agents for architecture, code edits, security, financial/business reasoning, and final-quality drafts. Use cheaper/free models only for broad brainstorming, repetitive extraction, or fallback. Main model must verify and apply final changes."
+    costPolicy: "cost-first",
+    instructions: "Use discovered free/free-tier/local models only; do not escalate to paid models. Use multiple free providers for independent drafts/tests/research, then require the main model to verify with real tools because free models can be rate-limited, weaker, or inconsistent. Expect rate limits and variable quality; reduce parallelism when providers throttle."
   },
   {
-    id: "profile_balanced_azure",
-    name: "Balanced Azure Boss + Budget Drafts",
-    description: "Balanced cost/quality: GPT-4.1 orchestrates, Grok/GPT-4.1 review hard work, free workers can draft low-risk boilerplate.",
-    mainModel: "azure:gpt-4.1",
-    workerModels: ["azure:grok-4.3", "azure:gpt-4.1", "groq:openai/gpt-oss-120b", "openrouter:qwen/qwen3-coder:free"],
-    reviewerModels: ["azure:gpt-5.5", "azure:gpt-4.1", "azure:grok-4.3"],
-    defaultWorkerModel: "azure:grok-4.3",
+    id: "profile_openrouter_free_coding_swarm",
+    name: "FREE: OpenRouter Coding Swarm",
+    description: "OpenRouter-only free profile for trying Qwen, DeepSeek, Kimi, and other :free coding/reasoning models from the live OpenRouter catalog.",
+    mainModel: "openrouter:qwen/qwen3-coder:free",
+    workerModels: ["openrouter:qwen/qwen3-coder:free", "openrouter:deepseek/deepseek-chat-v3.1:free", "openrouter:moonshotai/kimi-k2:free", "openrouter:google/gemini-2.0-flash-exp:free"],
+    reviewerModels: ["openrouter:qwen/qwen3-coder:free", "openrouter:deepseek/deepseek-chat-v3.1:free"],
+    defaultWorkerModel: "openrouter:qwen/qwen3-coder:free",
+    allowCheapFallback: true,
+    allowPremiumWorkers: false,
+    maxParallelAgents: 5,
+    costPolicy: "cost-first",
+    instructions: "Use only OpenRouter models marked :free or free-priced in the live catalog. Good for low-cost brainstorming, docs, tests, code reading, and alternative patches. Never assume free output is production-ready: main model must run strict verification and security review before applying changes."
+  },
+  {
+    id: "profile_groq_free_fast_oss",
+    name: "FREE: Groq Fast OSS",
+    description: "Groq free-tier/low-cost OSS profile optimized for fast fan-out on drafts, tests, and code understanding.",
+    mainModel: "groq:openai/gpt-oss-120b",
+    workerModels: ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b", "groq:llama-3.3-70b-versatile"],
+    reviewerModels: ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b"],
+    defaultWorkerModel: "groq:qwen/qwen3-32b",
+    allowCheapFallback: true,
+    allowPremiumWorkers: false,
+    maxParallelAgents: 5,
+    costPolicy: "cost-first",
+    instructions: "Use Groq free-tier or free/low-cost OSS models for fast parallel drafts and critiques. Keep tasks bounded, because high speed can amplify shallow mistakes. For production changes, the main agent must run tests/diagnostics and escalate only if the user switches to a paid profile."
+  },
+  {
+    id: "profile_gemini_free_tier_research",
+    name: "FREE: Gemini / Google Free-Tier Research",
+    description: "Free-tier research and planning preset for Google/Gemini models exposed through configured providers such as OpenRouter or OpenAI-compatible gateways.",
+    mainModel: "openrouter:google/gemini-2.0-flash-exp:free",
+    workerModels: ["openrouter:google/gemini-2.0-flash-exp:free", "openrouter:google/gemini-2.5-flash-lite", "openrouter:qwen/qwen3-coder:free"],
+    reviewerModels: ["openrouter:google/gemini-2.0-flash-exp:free", "openrouter:qwen/qwen3-coder:free"],
+    defaultWorkerModel: "openrouter:google/gemini-2.0-flash-exp:free",
+    allowCheapFallback: true,
+    allowPremiumWorkers: false,
+    maxParallelAgents: 3,
+    costPolicy: "cost-first",
+    instructions: "Use free-tier Gemini/Flash-style models for broad research, summaries, UI copy, and plan alternatives, paired with a coding-focused free model for implementation critique. Confirm live availability from the provider dropdown because free-tier model names and quotas change often."
+  },
+  {
+    id: "profile_local_free_private",
+    name: "FREE: Local Ollama Private",
+    description: "Zero cloud spend and privacy-first local-only Agentic testing profile using Ollama/local models.",
+    mainModel: "ollama:sentinel-coder-one:latest",
+    workerModels: ["ollama:sentinel-coder-one:latest", "ollama:qwen2.5-coder:latest", "ollama:deepseek-coder:latest", "ollama:llama3.1:latest"],
+    reviewerModels: ["ollama:sentinel-coder-one:latest", "ollama:qwen2.5-coder:latest"],
+    defaultWorkerModel: "ollama:sentinel-coder-one:latest",
+    allowCheapFallback: false,
+    allowPremiumWorkers: false,
+    maxParallelAgents: 2,
+    costPolicy: "cost-first",
+    instructions: "Use only local Ollama models. Best for privacy, offline testing, and zero API cost. Limit parallelism to protect local CPU/GPU memory and require compile/tests/firewall scans because small local models may miss subtle bugs."
+  },
+  {
+    id: "profile_provider_best_available",
+    name: "Adaptive: Best Available From Your Keys",
+    description: "Provider-agnostic default for new users: uses the strongest discovered configured model as main, then available workers/reviewers from any provider. Good when you have one API key or mixed keys.",
+    mainModel: "auto",
+    workerModels: ["azure:gpt-4.1", "openai:gpt-4.1", "anthropic:claude-sonnet-4.5", "openrouter:anthropic/claude-sonnet-4.5", "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest"],
+    reviewerModels: ["azure:gpt-5.5", "openai:gpt-5", "anthropic:claude-opus-4.1", "openrouter:google/gemini-2.5-pro", "azure:gpt-4.1"],
+    defaultWorkerModel: "auto",
     allowCheapFallback: true,
     allowPremiumWorkers: true,
-    maxParallelAgents: 5,
+    maxParallelAgents: 3,
     costPolicy: "balanced",
-    instructions: "Default to Azure GPT-4.1/Grok-4.3 for meaningful sub-agent work. Use free/cheap workers for first-pass research, boilerplate, extraction, and alternative ideas. Escalate weak outputs to premium reviewer."
+    instructions: "Adaptive planner-worker-reviewer flow. Resolve every role from live configured/discovered models; never require a hardcoded model that is unavailable. Use one strong main model, one or two workers for independent drafts/tests/research, and a stronger reviewer only for high-risk code, security, architecture, release, or business-critical decisions."
+  },
+  {
+    id: "profile_adaptive_best_available",
+    name: "Adaptive: Best Available From Your Keys",
+    description: "Provider-neutral default for new users: starts from common strong/free model roles but is meant to be edited from the live dropdown after Sentinel discovers the user's configured providers.",
+    mainModel: "auto",
+    workerModels: ["openrouter:qwen/qwen3-coder:free", "groq:openai/gpt-oss-120b", "gemini:gemini-2.5-flash", "openai:gpt-4.1-mini", "azure:gpt-4.1", "ollama:qwen2.5-coder:latest"],
+    reviewerModels: ["azure:gpt-5.5", "openai:gpt-4.1", "anthropic:claude-sonnet-4.5", "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest"],
+    defaultWorkerModel: "auto",
+    allowCheapFallback: true,
+    allowPremiumWorkers: true,
+    maxParallelAgents: 3,
+    costPolicy: "balanced",
+    instructions: "Adaptive provider-neutral template. Use the live configured model list to pick the strongest available main model, cheap/free/local workers for drafts and tests, and a different provider/model for adversarial review when available. If a template model is unavailable, replace it from the dropdown; never fail solely because a preset ID is missing. Keep paid frontier reviewers for high-risk steps only unless the user changes the cost policy."
   },
   {
     id: "profile_azure_cost_smart_production",
-    name: "Azure Cost-Smart Production",
-    description: "Recommended for your current Azure spend: GPT-4.1/Grok do most work; GPT-5.5 is reserved for final hard review, architecture, security, and high-risk decisions.",
+    name: "Azure: Cost-Smart Production",
+    description: "Best default for Azure-credit users: GPT-4.1 leads daily coding, Grok/GPT-4.1 challenge and implement, GPT-5.5 is reserved for final hard review/security/architecture.",
     mainModel: "azure:gpt-4.1",
     workerModels: ["azure:grok-4.3", "azure:gpt-4.1", "azure:model-router", "groq:openai/gpt-oss-120b"],
     reviewerModels: ["azure:gpt-5.5", "azure:gpt-5.4-pro", "azure:gpt-4.1"],
@@ -153,44 +224,122 @@ const BUILTIN_AGENTIC_PROFILES: Array<Omit<AgenticProfile, "createdAt" | "update
     allowPremiumWorkers: true,
     maxParallelAgents: 3,
     costPolicy: "balanced",
-    instructions: "Use GPT-4.1 as the orchestrator for coding and editing. Use Grok-4.3 for alternative reasoning, critique, and code review. Use Model Router or free/Groq OSS only for extraction, boilerplate, or broad brainstorming. Escalate to GPT-5.5 only for final hard critique, security-sensitive review, architecture tradeoffs, financial strategy, or when cheaper models disagree. Keep dynamic context tight; prefer targeted file reads/RAG over dumping full history."
+    instructions: "Use GPT-4.1 as orchestrator for most coding/editing. Use Grok/GPT-4.1 workers for alternative implementation and critique. Use Azure Model Router or cheap/free workers for extraction/boilerplate. Escalate to GPT-5.5 only for final hard critique, security-sensitive review, architecture tradeoffs, financial strategy, or model disagreement. Keep context targeted."
   },
   {
-    id: "profile_cost_saving_research_swarm",
-    name: "Cost-Saving Research Swarm",
-    description: "Cheap/free agents fan out for research and alternatives; Azure reviewer/main model verifies and finalizes.",
-    mainModel: "azure:gpt-4.1",
-    workerModels: ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b", "openrouter:qwen/qwen3-coder:free", "openrouter:qwen/qwen3-next-80b-a3b-instruct:free"],
-    reviewerModels: ["azure:gpt-4.1", "azure:gpt-5.5", "azure:grok-4.3"],
-    defaultWorkerModel: "groq:openai/gpt-oss-120b",
+    id: "profile_azure_frontier_architect",
+    name: "Azure: Frontier Architect Council",
+    description: "Quality-first Azure profile: GPT-5.5 leads hard architecture/high-risk coding; GPT-4.1/Grok workers produce implementable alternatives; GPT-5.5 judges final output.",
+    mainModel: "azure:gpt-5.5",
+    workerModels: ["azure:gpt-4.1", "azure:grok-4.3", "azure:gpt-5.4", "azure:model-router"],
+    reviewerModels: ["azure:gpt-5.5", "azure:gpt-5.4-pro", "azure:gpt-4.1"],
+    defaultWorkerModel: "azure:gpt-4.1",
+    allowCheapFallback: true,
+    allowPremiumWorkers: true,
+    maxParallelAgents: 4,
+    costPolicy: "quality-first",
+    instructions: "Use for big architecture, production release gates, security reviews, and hard debugging. Main GPT-5.5 owns final decisions; workers independently propose patches/tests; reviewer validates risks before tools are applied."
+  },
+  {
+    id: "profile_openai_balanced_coding",
+    name: "OpenAI: Balanced Coding Team",
+    description: "For OpenAI API users: GPT-4.1/modern GPT coding model leads, mini/router-class models draft, stronger GPT/reasoning reviewer validates when configured.",
+    mainModel: "openai:gpt-4.1",
+    workerModels: ["openai:gpt-4.1-mini", "openai:gpt-4o-mini", "openai:gpt-4.1"],
+    reviewerModels: ["openai:gpt-4.1", "openai:o3", "openai:gpt-5"],
+    defaultWorkerModel: "openai:gpt-4.1-mini",
+    allowCheapFallback: true,
+    allowPremiumWorkers: true,
+    maxParallelAgents: 3,
+    costPolicy: "balanced",
+    instructions: "Use mini/fast models for boilerplate, tests, extraction, and parallel alternatives. Keep GPT-4.1/stronger reasoning models for edits that touch architecture, public APIs, security, or production behavior."
+  },
+  {
+    id: "profile_anthropic_claude_code_quality",
+    name: "Anthropic: Claude Code Quality",
+    description: "For Anthropic users: Sonnet-class main coder, Haiku-class workers for low-risk work, Opus/Sonnet reviewer for deep critique where configured.",
+    mainModel: "anthropic:claude-sonnet-4.5",
+    workerModels: ["anthropic:claude-haiku-4.5", "anthropic:claude-sonnet-4.5"],
+    reviewerModels: ["anthropic:claude-opus-4.1", "anthropic:claude-sonnet-4.5"],
+    defaultWorkerModel: "anthropic:claude-haiku-4.5",
+    allowCheapFallback: true,
+    allowPremiumWorkers: true,
+    maxParallelAgents: 3,
+    costPolicy: "balanced",
+    instructions: "Use Sonnet as the main coding/reasoning model, Haiku-class models for fast low-risk drafts, and Opus/Sonnet review for correctness, maintainability, UX, and safety."
+  },
+  {
+    id: "profile_openrouter_balanced_coding",
+    name: "OpenRouter: Free-First + Premium Judge",
+    description: "For OpenRouter users: best available Claude/Qwen/Kimi/DeepSeek/Gemini model leads; free models draft first; stronger paid model reviews when configured.",
+    mainModel: "openrouter:anthropic/claude-sonnet-4.5",
+    workerModels: ["openrouter:qwen/qwen3-coder:free", "openrouter:moonshotai/kimi-k2:free", "openrouter:deepseek/deepseek-chat-v3.1:free", "openrouter:qwen/qwen3-coder"],
+    reviewerModels: ["openrouter:anthropic/claude-sonnet-4.5", "openrouter:openai/gpt-4.1", "openrouter:google/gemini-2.5-pro"],
+    defaultWorkerModel: "openrouter:qwen/qwen3-coder:free",
+    allowCheapFallback: true,
+    allowPremiumWorkers: true,
+    maxParallelAgents: 5,
+    costPolicy: "cost-first",
+    instructions: "Start with free OpenRouter workers for research, boilerplate, tests, and option generation. A paid or stronger configured reviewer must validate code that will be applied. Respect OpenRouter rate limits and switch workers automatically when a free model is rate-limited."
+  },
+  {
+    id: "profile_groq_fast_swarm",
+    name: "Groq: Fast OSS Swarm",
+    description: "For Groq users: fast OSS models fan out on low/medium-risk work, with a stronger configured reviewer or main model finalizing.",
+    mainModel: "groq:openai/gpt-oss-120b",
+    workerModels: ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b", "groq:llama-3.3-70b-versatile"],
+    reviewerModels: ["groq:openai/gpt-oss-120b", "azure:gpt-4.1", "openai:gpt-4.1"],
+    defaultWorkerModel: "groq:qwen/qwen3-32b",
     allowCheapFallback: true,
     allowPremiumWorkers: false,
     maxParallelAgents: 5,
     costPolicy: "cost-first",
-    instructions: "Use free/cheap workers only for non-final drafts, research, extraction, critique lists, test ideas, and brainstorming. Never accept worker output directly; main Azure model must verify, rewrite, and apply final work."
+    instructions: "Use Groq for fast parallel drafts, refactors, tests, and critique lists. Escalate final review to a configured premium provider if available; otherwise the main Groq model must run stricter self-checks and tests."
   },
   {
-    id: "profile_novelty_lab",
-    name: "Novelty Lab: Diverse Opinions + Premium Judge",
-    description: "Novelty/cost-saving experiment: diverse cheap/free models generate competing options, premium reviewer ranks and merges.",
+    id: "profile_local_private_ollama",
+    name: "Local/Ollama: Private Coding",
+    description: "Privacy-first local profile: local model leads and drafts; optional cloud reviewer can be added by the user for final critique.",
+    mainModel: "ollama:sentinel-coder-one:latest",
+    workerModels: ["ollama:sentinel-coder-one:latest", "ollama:qwen2.5-coder:latest", "ollama:deepseek-coder:latest"],
+    reviewerModels: ["ollama:sentinel-coder-one:latest"],
+    defaultWorkerModel: "ollama:sentinel-coder-one:latest",
+    allowCheapFallback: false,
+    allowPremiumWorkers: false,
+    maxParallelAgents: 2,
+    costPolicy: "cost-first",
+    instructions: "Keep code local/private. Use small parallelism to avoid overloading local hardware. If user later adds cloud keys, they can edit this profile and add a reviewer."
+  },
+  {
+    id: "profile_multi_provider_frontier_council",
+    name: "Multi-Provider: Frontier Council",
+    description: "For users with multiple API keys: one strong main model coordinates independent Azure/OpenAI/Claude/OpenRouter/Groq opinions, then chooses a verified final plan.",
     mainModel: "azure:gpt-5.5",
-    workerModels: ["azure:grok-4.3", "groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b", "openrouter:qwen/qwen3-next-80b-a3b-instruct:free"],
-    reviewerModels: ["azure:gpt-5.5", "azure:gpt-4.1"],
-    defaultWorkerModel: "azure:grok-4.3",
+    workerModels: ["openai:gpt-4.1", "anthropic:claude-sonnet-4.5", "openrouter:qwen/qwen3-coder:free", "groq:openai/gpt-oss-120b"],
+    reviewerModels: ["azure:gpt-5.5", "anthropic:claude-opus-4.1", "openai:o3", "openrouter:google/gemini-2.5-pro"],
+    defaultWorkerModel: "openai:gpt-4.1",
     allowCheapFallback: true,
     allowPremiumWorkers: true,
     maxParallelAgents: 5,
-    costPolicy: "novelty-lab",
-    instructions: "For strategy, product, architecture, and critiques, ask different workers for genuinely different approaches. Main model must compare, rank, synthesize, and choose the safest executable plan."
+    costPolicy: "quality-first",
+    instructions: "Use independent provider diversity for hard tasks: planner, implementer, adversarial reviewer, security/firewall reviewer, and final owner. Never merge conflicting outputs blindly; the main model synthesizes and verifies with real tools/tests."
+  },
+  {
+    id: "profile_mistral_deepseek_together_open_compat",
+    name: "Open-Compatible: Mistral/DeepSeek/Together/Kimi",
+    description: "Generic preset for Mistral, DeepSeek, Together, Vultr, Moonshot/Kimi, Featherless, and other OpenAI-compatible providers using live discovered models.",
+    mainModel: "custom:auto",
+    workerModels: ["mistral:codestral-latest", "deepseek:deepseek-coder", "together:Qwen/Qwen3-Coder", "moonshot:kimi-k2"],
+    reviewerModels: ["mistral:large-latest", "deepseek:deepseek-reasoner", "together:meta-llama/Llama-3.3-70B-Instruct-Turbo"],
+    defaultWorkerModel: "custom:auto",
+    allowCheapFallback: true,
+    allowPremiumWorkers: true,
+    maxParallelAgents: 3,
+    costPolicy: "balanced",
+    instructions: "Template for any OpenAI-compatible provider. The dropdown uses live provider discovery where available; edit the profile to map main/workers/reviewers to the exact models returned by your provider."
   }
 ];
 
-/** Bumped whenever BUILTIN_SKILLS content changes so existing installs re-sync. */
-const BUILTIN_SKILLS_VERSION_KEY = "sentinelCoder.builtinSkillsVersion";
-
-/** Default, stack-focused skills shipped with the extension and enabled by
- * default so every chat session starts with the team's conventions loaded.
- * Generic and reusable — NO secrets, IPs, hostnames, or credentials. */
 const BUILTIN_SKILLS: Array<{ id: string; name: string; description: string; body: string }> = [
   {
     id: "builtin_cost_orchestrator",
@@ -428,7 +577,8 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     for (const def of BUILTIN_AGENTIC_PROFILES) {
       const existing = this._agenticProfiles.find(p => p.id === def.id && p.source === "builtin");
       if (existing) {
-        Object.assign(existing, def, { updatedAt: existing.updatedAt || now });
+        Object.assign(existing, def, { updatedAt: now });
+        changed = true;
       } else {
         this._agenticProfiles.push({ ...def, source: "builtin", createdAt: now, updatedAt: now });
         changed = true;
@@ -1409,13 +1559,17 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
         provider: m.provider,
         providerType: m.providerType,
         contextWindow: m.contextWindow,
+        effectiveContextWindow: m.effectiveContextWindow,
         maxOutputTokens: m.maxOutputTokens,
         pricing: m.pricing,
         pricingNote: m.pricingNote,
         supportsTools: m.supportsTools,
+        supportedParameters: m.supportedParameters,
         supportsThinking: m.supportsThinking,
         supportsVision: m.supportsVision,
         supportsStreaming: m.supportsStreaming,
+        contextSource: m.contextSource,
+        contextUpdatedAt: m.contextUpdatedAt,
       }))];
       this._view?.webview.postMessage({ type: "modelList", models: modelItems, selected: this._selectedModel, agenticProfiles: this._agenticProfiles, currentAgenticProfileId: this._currentAgenticProfileId });
     } catch (err) {

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sentinel Coder One Studio Pitch Deck</title>
+  <style>
+    :root { color-scheme: dark; --bg:#070b14; --card:#111827; --ink:#eef6ff; --muted:#a7b4c8; --accent:#62e6ff; --accent2:#9b8cff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background: radial-gradient(circle at top left, #12355c, transparent 34rem), var(--bg); color:var(--ink); }
+    header, section { min-height: 100vh; padding: clamp(2rem, 5vw, 5rem); display:grid; align-content:center; }
+    header { grid-template-columns: 1.1fr .9fr; gap: 2rem; }
+    h1 { font-size: clamp(3rem, 7vw, 6rem); line-height:.9; margin:0 0 1rem; letter-spacing:-.06em; }
+    h2 { font-size: clamp(2.2rem, 5vw, 4rem); line-height:1; margin:0 0 1.4rem; letter-spacing:-.04em; }
+    p, li { font-size: clamp(1.1rem, 2vw, 1.55rem); color: var(--muted); line-height:1.45; }
+    strong { color: var(--ink); }
+    .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing:.16em; font-weight:800; font-size:.9rem; }
+    .hero { width:100%; border-radius: 2rem; box-shadow: 0 24px 80px #0009; border:1px solid #ffffff22; }
+    .card { background: linear-gradient(145deg, #111827ee, #0b1222dd); border:1px solid #ffffff1c; border-radius:2rem; padding:2rem; box-shadow: 0 20px 60px #0007; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:1rem; }
+    .pill { display:inline-block; margin:.3rem; padding:.55rem .8rem; border:1px solid #ffffff22; border-radius:999px; background:#ffffff0c; color:var(--ink); }
+    .accent { color: var(--accent); }
+    .qr { width:160px; height:160px; image-rendering: crisp-edges; background:white; border-radius:1rem; padding:.4rem; }
+    a { color: var(--accent); }
+    @media (max-width: 800px) { header { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="eyebrow">Open-source VS Code AI studio</div>
+      <h1>Sentinel Coder One Studio</h1>
+      <p><strong>Autonomous coding, opt-in Agentic Profiles, live model discovery, VS Code Web support, and media/document Studio.</strong></p>
+      <p>Use one model directly when that is best. Orchestrate multiple models only when you explicitly choose an Agentic Profile.</p>
+    </div>
+    <img class="hero" src="assets/sentinel-coder-enterprise-hero.png" alt="Sentinel Coder One Studio enterprise hero" />
+  </header>
+
+  <section><div class="card"><div class="eyebrow">Problem</div><h2>The AI developer workspace is fragmented</h2><ul><li>Provider dashboards and stale model lists.</li><li>Context windows and tool support change constantly.</li><li>Long-context models can become expensive fast.</li><li>Desktop automation and browser VS Code need different safety models.</li></ul></div></section>
+
+  <section><div class="card"><div class="eyebrow">Solution</div><h2>One extension for direct AI coding and explicit orchestration</h2><p>Sentinel combines direct single-model mode, opt-in Agentic Profiles, tools, Studio, model discovery, and release-hardening discipline.</p><div><span class="pill">Azure OpenAI</span><span class="pill">OpenRouter</span><span class="pill">Groq</span><span class="pill">Anthropic</span><span class="pill">Ollama</span><span class="pill">OpenAI-compatible</span></div></div></section>
+
+  <section><div class="grid"><div class="card"><h2>Single-model mode</h2><p>Pick GPT-4.1, GPT-5.5, Grok, Claude, Groq, OpenRouter, Ollama, or another configured model and Sentinel uses it directly.</p></div><div class="card"><h2>Agentic Profiles</h2><p>Choose an <span class="accent">Agentic:</span> profile to run a main model with worker and reviewer pools for substantial tasks.</p></div></div></section>
+
+  <section><div class="card"><div class="eyebrow">Enterprise safety</div><h2>Hardening built in</h2><ul><li>Secret-free setup guidance and security scans.</li><li>Operation-aware native tool routing.</li><li>Strict webview rendering practices.</li><li>Package hygiene for Marketplace VSIX artifacts.</li><li>Clear Desktop vs Web capability reporting.</li></ul></div></section>
+
+  <section><div class="card"><div class="eyebrow">Cost strategy</div><h2>Use premium models where they matter</h2><p>Cheap/free workers can draft, extract, and brainstorm. Premium models can orchestrate or review high-risk changes. Long-context models are budgeted deliberately, not filled automatically every turn.</p></div></section>
+
+  <section><div class="card"><div class="eyebrow">Community</div><h2>Open source and contribution-friendly</h2><p>Repository: <a href="https://github.com/qubitpage/sentinel-coder-vscode">github.com/qubitpage/sentinel-coder-vscode</a></p><p>Issues: <a href="https://github.com/qubitpage/sentinel-coder-vscode/issues">GitHub Issues</a></p></div></section>
+
+  <section><div class="card"><div class="eyebrow">Support</div><h2>Help keep Sentinel open source</h2><p>If Sentinel helps your work and you want to support frequent updates, any amount is useful to sustain development.</p><p><a href="https://www.paypal.com/donate/?hosted_button_id=97VNNYCB3HWMS">Donate with PayPal</a></p><img class="qr" src="assets/paypal-donation-qr.png" alt="PayPal donation QR" /></div></section>
+</body>
+</html>

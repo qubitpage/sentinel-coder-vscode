@@ -1,3 +1,24 @@
+## 3.16.12 - Enterprise Documentation, Webview Hardening + Marketplace Release Pack
+
+- Hardened the Chat sidebar webview by removing direct raw `innerHTML` assignments from dynamic UI renderers, replacing them with DOM-safe builders or centralized trusted-fragment rendering for already-sanitized Markdown/media fragments.
+- Hardened the Studio webview render paths for file trees, selected-file previews, and version history so workspace-controlled names, paths, and previews are rendered through text/attribute APIs.
+- Added enterprise documentation hub with setup, provider/API-key guidance, model selector strategy, Agentic Profiles, Studio/media workflows, VS Code Web/Remote Tool Bridge guidance, troubleshooting, security, and release checklist.
+- Added public whitepaper, pitch deck, hard self-critique/roadmap, donation/support page, PayPal donation link, QR code, generated hero image, and Office presentation assets for GitHub and Marketplace users.
+- Reverified single-model full-capability mode, opt-in Agentic Profiles, live model dropdowns, free/provider Agentic presets, operation-aware tool routing, and VS Code Web Remote Tool Bridge manifests.
+- Rebuilt desktop and web VSIX packages with archive hygiene checks so scripts, tests, source, scratch folders, PowerShell helpers, and inspection artifacts are not shipped in Marketplace packages.
+- Hardened Marketplace-facing documentation around secret hygiene: do not publish API keys, local VS Code storage, private provider files, or customer data.
+- Preserved 3.16.11 provider/tool capability fixes while preparing a clean 3.16.12 publish target for desktop and VS Code Web packages.
+
+## 3.16.11 - Operation-Aware Native Tools + GPT-5.5 Single-Model Stability
+
+- Added operation-aware native-tool routing so Sentinel does not send OpenAI-style `tools`/`tool_choice` parameters to provider/model combinations that do not advertise or support that operation.
+- Fixed the Azure/OpenAI Foundry GPT-5.5 single-model chat failure where the provider returned `400: The requested operation is unsupported` when native tool calling was attempted.
+- Preserved native tools for models that do support them, such as Azure GPT-4.1, while disabling unsupported native-tool operations for GPT-5.x/Grok/router-style deployments unless live provider metadata proves support.
+- Added runtime learning: if a provider rejects a native-tool operation, Sentinel disables native tools for that exact model/deployment for the current VS Code session and retries the turn as normal streaming chat.
+- Made OpenRouter/OpenAI-compatible routing respect live `supported_parameters` metadata, including omitting `tool_choice` when a model supports `tools` but not `tool_choice`.
+- Added durable provider-capability regression tests and excluded `tests/**` from packaged VSIX artifacts.
+- Cleaned the Agentic Profile editor so empty/new custom profiles no longer silently inject hardcoded Azure worker/reviewer defaults; model selection comes from live configured dropdowns.
+
 ## 3.16.10 - Deterministic Agentic Profiles + Live Agent Dropdowns
 
 - Added deterministic Agentic Profile preflight for substantial Agent-mode requests: when a real `Agentic:` profile is selected, Sentinel proactively runs the profile worker and, for high-risk tasks, reviewer preflight before the main orchestrator response instead of waiting for the LLM to voluntarily call delegation tools.

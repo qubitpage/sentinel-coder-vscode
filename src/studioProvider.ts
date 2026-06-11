@@ -660,6 +660,9 @@ function esc(v){return String(v||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':
 function fmtSize(n){ if(!n) return '0 B'; const u=['B','KB','MB','GB']; let i=0,v=n; while(v>1024&&i<u.length-1){v/=1024;i++;} return v.toFixed(i?1:0)+' '+u[i]; }
 function fmtDate(ms){ try{return new Date(ms).toLocaleString();}catch{return '';} }
 function iconFor(item){ return ({image:'IMG',video:'VID',audio:'AUD',pdf:'PDF',office:'DOC',text:'TXT',data:'DAT',document:'DOC',other:'FILE'}[item.kind]||'FILE'); }
+function clearNode(node){ while(node.firstChild) node.removeChild(node.firstChild); }
+function appendTextNode(parent, tag, className, text){ const el=document.createElement(tag); if(className) el.className=className; el.textContent=String(text||''); parent.appendChild(el); return el; }
+function appendEmpty(node, text, className='empty'){ clearNode(node); appendTextNode(node, 'div', className, text); }
 function selectedItem(){ return allItems.find(x => x.id === selectedId) || null; }
 function applyFilters(){
   const q = searchEl.value.toLowerCase().trim();
@@ -671,38 +674,106 @@ function applyFilters(){
 }
 function renderFilters(){
   const kinds = ['all','image','video','audio','text','data','pdf','office'];
-  filtersEl.innerHTML = kinds.map(k => '<button class="filter '+(activeKind===k?'active':'')+'" data-filter="'+k+'">'+esc(k)+'</button>').join('');
+  clearNode(filtersEl);
+  for(const k of kinds){
+    const button = document.createElement('button');
+    button.className = 'filter ' + (activeKind === k ? 'active' : '');
+    button.dataset.filter = k;
+    button.textContent = k;
+    filtersEl.appendChild(button);
+  }
 }
 function renderTree(){
   applyFilters();
   statusEl.textContent = filteredItems.length + ' files shown / ' + allItems.length + ' indexed';
-  if(!filteredItems.length){ tree.innerHTML = '<div class="empty">No files found. Generate media or create documents with Sentinel to populate Studio.</div>'; return; }
+  clearNode(tree);
+  if(!filteredItems.length){ appendTextNode(tree, 'div', 'empty', 'No files found. Generate media or create documents with Sentinel to populate Studio.'); return; }
   const groups = new Map();
   for(const item of filteredItems){ if(!groups.has(item.category)) groups.set(item.category, []); groups.get(item.category).push(item); }
-  let html = '';
   for(const [category, group] of groups){
-    html += '<section class="category"><h3><span>'+esc(category)+'</span><span>'+group.length+'</span></h3>';
+    const section = document.createElement('section');
+    section.className = 'category';
+    const heading = document.createElement('h3');
+    appendTextNode(heading, 'span', '', category);
+    appendTextNode(heading, 'span', '', String(group.length));
+    section.appendChild(heading);
     for(const item of group){
-      html += '<button class="file-row '+(item.id===selectedId?'active':'')+'" data-select="'+esc(item.id)+'" title="'+esc(item.path)+'"><span class="badge">'+esc(iconFor(item))+'</span><span><div class="file-name">'+esc(item.name)+'</div><div class="meta">'+esc(item.workspaceRelativePath)+' · '+fmtSize(item.size)+' · '+fmtDate(item.modified)+'</div></span></button>';
+      const row = document.createElement('button');
+      row.className = 'file-row ' + (item.id === selectedId ? 'active' : '');
+      row.dataset.select = item.id;
+      row.title = item.path;
+      appendTextNode(row, 'span', 'badge', iconFor(item));
+      const textWrap = document.createElement('span');
+      appendTextNode(textWrap, 'div', 'file-name', item.name);
+      appendTextNode(textWrap, 'div', 'meta', item.workspaceRelativePath + ' - ' + fmtSize(item.size) + ' - ' + fmtDate(item.modified));
+      row.appendChild(textWrap);
+      section.appendChild(row);
     }
-    html += '</section>';
+    tree.appendChild(section);
   }
-  tree.innerHTML = html;
+}
+function appendActionButton(parent, label, attrs, className){
+  const button = document.createElement('button');
+  if(className) button.className = className;
+  button.textContent = label;
+  for(const [key, value] of Object.entries(attrs || {})){
+    button.setAttribute(key, String(value));
+  }
+  parent.appendChild(button);
+  return button;
 }
 function editorToolbar(){
-  return '<div class="editor-toolbar"><button data-format="bold">Bold</button><button data-format="italic">Italic</button><button data-format="h2">Heading</button><button data-format="list">List</button><button data-format="quote">Quote</button><button data-format="code">Code</button><button data-format="table">CSV table hint</button></div>';
+  const bar = document.createElement('div');
+  bar.className = 'editor-toolbar';
+  const buttons = [['bold','Bold'],['italic','Italic'],['h2','Heading'],['list','List'],['quote','Quote'],['code','Code'],['table','CSV table hint']];
+  for(const [format, label] of buttons){ appendActionButton(bar, label, {'data-format': format}); }
+  return bar;
 }
 function renderSelected(){
   const item = selectedItem();
-  if(!item){ fileHead.innerHTML = '<div class="empty">Select a file from the left navigator.</div>'; viewer.innerHTML = '<div class="empty">Preview, edit, and collaborate with AI here.</div>'; return; }
-  fileHead.innerHTML = '<div class="file-title"><strong>'+esc(item.name)+'</strong><span class="badge">'+esc(item.kind)+'</span></div><div class="meta">'+esc(item.workspaceRelativePath)+' · '+fmtSize(item.size)+' · '+fmtDate(item.modified)+'</div><div class="actions"><button data-open="'+esc(item.id)+'">Open in editor</button><button class="secondary" data-reveal="'+esc(item.id)+'">Reveal</button>'+(item.editable?'<button data-save="'+esc(item.id)+'">Save edits</button>':'')+'<button class="secondary" data-ai="improve" data-id="'+esc(item.id)+'">AI improve file</button><button class="secondary" data-ai="summarize" data-id="'+esc(item.id)+'">AI summarize</button></div>';
-  if(item.kind==='image' && item.webviewUri){ viewer.innerHTML = '<div class="media-wrap"><img src="'+esc(item.webviewUri)+'" alt="'+esc(item.name)+'" /></div>'; return; }
-  if(item.kind==='video' && item.webviewUri){ viewer.innerHTML = '<div class="media-wrap"><video controls src="'+esc(item.webviewUri)+'"></video></div>'; return; }
-  if(item.kind==='audio' && item.webviewUri){ viewer.innerHTML = '<div class="media-wrap"><audio controls src="'+esc(item.webviewUri)+'"></audio></div>'; return; }
-  if(item.kind==='pdf' && item.webviewUri){ viewer.innerHTML = '<iframe class="pdf-frame" src="'+esc(item.webviewUri)+'"></iframe>'; return; }
-  if(item.preview !== undefined && item.editable){ viewer.innerHTML = editorToolbar() + '<textarea id="activeEditor" class="editor" spellcheck="false">'+esc(item.preview)+'</textarea>'; return; }
-  if(item.preview !== undefined){ viewer.innerHTML = '<pre class="editor">'+esc(item.preview)+'</pre>'; return; }
-  viewer.innerHTML = '<div class="empty">Preview not available yet. Use Open in editor, or ask AI to inspect/convert this file.</div>';
+  clearNode(fileHead);
+  clearNode(viewer);
+  if(!item){ appendTextNode(fileHead, 'div', 'empty', 'Select a file from the left navigator.'); appendTextNode(viewer, 'div', 'empty', 'Preview, edit, and collaborate with AI here.'); return; }
+  const title = document.createElement('div');
+  title.className = 'file-title';
+  appendTextNode(title, 'strong', '', item.name);
+  appendTextNode(title, 'span', 'badge', item.kind);
+  fileHead.appendChild(title);
+  appendTextNode(fileHead, 'div', 'meta', item.workspaceRelativePath + ' - ' + fmtSize(item.size) + ' - ' + fmtDate(item.modified));
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  appendActionButton(actions, 'Open in editor', {'data-open': item.id});
+  appendActionButton(actions, 'Reveal', {'data-reveal': item.id}, 'secondary');
+  if(item.editable){ appendActionButton(actions, 'Save edits', {'data-save': item.id}); }
+  appendActionButton(actions, 'AI improve file', {'data-ai': 'improve', 'data-id': item.id}, 'secondary');
+  appendActionButton(actions, 'AI summarize', {'data-ai': 'summarize', 'data-id': item.id}, 'secondary');
+  fileHead.appendChild(actions);
+  if(item.kind==='image' && item.webviewUri){ const wrap=document.createElement('div'); wrap.className='media-wrap'; const img=document.createElement('img'); img.src=item.webviewUri; img.alt=item.name; wrap.appendChild(img); viewer.appendChild(wrap); return; }
+  if(item.kind==='video' && item.webviewUri){ const wrap=document.createElement('div'); wrap.className='media-wrap'; const video=document.createElement('video'); video.controls=true; video.src=item.webviewUri; wrap.appendChild(video); viewer.appendChild(wrap); return; }
+  if(item.kind==='audio' && item.webviewUri){ const wrap=document.createElement('div'); wrap.className='media-wrap'; const audio=document.createElement('audio'); audio.controls=true; audio.src=item.webviewUri; wrap.appendChild(audio); viewer.appendChild(wrap); return; }
+  if(item.kind==='pdf' && item.webviewUri){ const frame=document.createElement('iframe'); frame.className='pdf-frame'; frame.src=item.webviewUri; viewer.appendChild(frame); return; }
+  if(item.preview !== undefined && item.editable){ viewer.appendChild(editorToolbar()); const area=document.createElement('textarea'); area.id='activeEditor'; area.className='editor'; area.spellcheck=false; area.value=item.preview; viewer.appendChild(area); return; }
+  if(item.preview !== undefined){ const pre=document.createElement('pre'); pre.className='editor'; pre.textContent=item.preview; viewer.appendChild(pre); return; }
+  appendTextNode(viewer, 'div', 'empty', 'Preview not available yet. Use Open in editor, or ask AI to inspect/convert this file.');
+}
+function renderVersions(msg){
+  const versions = msg.versions || [];
+  sideInfo.style.display = 'block';
+  clearNode(sideInfo);
+  if(!versions.length){ appendTextNode(sideInfo, 'div', 'comment-hint', 'No version snapshots yet. Save an editable file to create snapshots automatically.'); return; }
+  appendTextNode(sideInfo, 'strong', '', 'Version history');
+  for(const v of versions){
+    const row = document.createElement('div');
+    row.className = 'version-row';
+    const detail = document.createElement('span');
+    detail.title = v.path || '';
+    detail.appendChild(document.createTextNode(v.name || 'snapshot'));
+    detail.appendChild(document.createElement('br'));
+    appendTextNode(detail, 'span', 'meta', fmtSize(v.size) + ' - ' + fmtDate(v.modified));
+    row.appendChild(detail);
+    appendActionButton(row, 'Restore', {'data-restore': v.path || ''});
+    sideInfo.appendChild(row);
+  }
 }
 function applyFormat(kind){
   const area = document.getElementById('activeEditor');
@@ -724,12 +795,6 @@ function sendAi(action){
 }
 function showVersions(){ const item = selectedItem(); if(item) vscode.postMessage({type:'listVersions', id:item.id}); }
 function addComment(){ const item = selectedItem(); if(!item) return; const note = document.getElementById('aiInstruction').value || 'Review note'; vscode.postMessage({type:'addComment', id:item.id, comment:note, selection:selectedText()}); }
-function renderVersions(msg){
-  const versions = msg.versions || [];
-  sideInfo.style.display = 'block';
-  if(!versions.length){ sideInfo.innerHTML = '<div class="comment-hint">No version snapshots yet. Save an editable file to create snapshots automatically.</div>'; return; }
-  sideInfo.innerHTML = '<strong>Version history</strong>' + versions.map(v => '<div class="version-row"><span title="'+esc(v.path)+'">'+esc(v.name)+'<br><span class="meta">'+fmtSize(v.size)+' - '+fmtDate(v.modified)+'</span></span><button data-restore="'+esc(v.path)+'">Restore</button></div>').join('');
-}
 function hideMenu(){ menu.style.display='none'; }
 function renderAll(){ renderFilters(); renderTree(); renderSelected(); }
 tree.addEventListener('click', event => { const target = event.target.closest('[data-select]'); if(target){ selectedId = target.getAttribute('data-select'); renderAll(); }});
