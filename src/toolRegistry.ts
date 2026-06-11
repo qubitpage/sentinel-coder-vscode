@@ -602,8 +602,8 @@ const transcribeAudioTool: ToolDefinition = {
     if (!audioPath || !fs.existsSync(audioPath) || !fs.statSync(audioPath).isFile()) {
       return `Audio file not found: ${audioPath}`;
     }
-    const token = loadSpeechmaticsApiKey();
-    if (!token) return "Speechmatics API key not found. Set SPEECHMATICS_API_KEY or configure sentinelCoder.apiKeysFile with a git-ignored key file.";
+    const speechmaticsCredential = loadSpeechmaticsApiKey();
+    if (!speechmaticsCredential) return "Speechmatics API key not found. Set SPEECHMATICS_API_KEY or configure sentinelCoder.apiKeysFile with a git-ignored key file.";
     const language = String(args.language || "en");
     const baseName = safeOutputName(String(args.outputName || `speechmatics-${path.basename(audioPath, path.extname(audioPath))}-${Date.now()}`));
     const reportsDir = path.join(getBaseDir(), ".sentinel", "generated", "reports");
@@ -611,7 +611,7 @@ const transcribeAudioTool: ToolDefinition = {
     const config = { type: "transcription", transcription_config: { language, operating_point: "enhanced" } };
     const upload = speechmaticsMultipartBody(audioPath, config);
     const jobRaw = await httpsBinary("https://asr.api.speechmatics.com/v2/jobs/", upload.body, {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${speechmaticsCredential}`,
       "Content-Type": `multipart/form-data; boundary=${upload.boundary}`,
       "User-Agent": "sentinel-coder/1.0",
     }, 120000);
@@ -622,7 +622,7 @@ const transcribeAudioTool: ToolDefinition = {
     for (let i = 0; i < 45; i++) {
       await sleepMs(2000);
       const info = await httpsJson(`https://asr.api.speechmatics.com/v2/jobs/${encodeURIComponent(jobId)}`, null, {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${speechmaticsCredential}`,
         "User-Agent": "sentinel-coder/1.0",
       }, 30000) as Record<string, unknown>;
       status = String((info as any).job?.status || (info as any).status || "unknown");
@@ -630,7 +630,7 @@ const transcribeAudioTool: ToolDefinition = {
     }
     if (status !== "done") return `Speechmatics job ${jobId} finished with status: ${status}`;
     const transcript = (await httpsGetText(`https://asr.api.speechmatics.com/v2/jobs/${encodeURIComponent(jobId)}/transcript?format=txt`, {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${speechmaticsCredential}`,
       "User-Agent": "sentinel-coder/1.0",
     }, 60000)).trim();
     const outPath = path.join(reportsDir, `${baseName}.txt`);
