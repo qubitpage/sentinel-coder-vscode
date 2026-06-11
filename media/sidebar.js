@@ -1142,7 +1142,7 @@
   });
   $("btn-close-settings").addEventListener("click", function () { settingsPanel.classList.remove("active"); });
 
-  // ── MCP server controls (delegated) ──
+  // MCP server controls (delegated)
   var mcpListEl = $("mcp-server-list");
   if (mcpListEl) mcpListEl.addEventListener("click", function (e) {
     var t = e.target;
@@ -1151,7 +1151,7 @@
     var server = t.getAttribute("data-server");
     if (action === "connect") {
       vscode.postMessage({ type: "startMcpServer", serverName: server });
-      t.textContent = "Connecting…"; t.disabled = true;
+      t.textContent = "Connecting..."; t.disabled = true;
     } else if (action === "stop") {
       vscode.postMessage({ type: "stopMcpServer", serverName: server });
     } else if (action === "save-env") {
@@ -1179,7 +1179,7 @@
     vscode.postMessage({ type: "getMcpStatus" });
   });
 
-  // ── Mode tabs ──
+  // Mode tabs
   document.querySelectorAll(".mode-tab").forEach(function (tab) {
     tab.addEventListener("click", function () {
       document.querySelectorAll(".mode-tab").forEach(function (t) { t.classList.remove("active"); });
@@ -2585,9 +2585,9 @@
         envHtml +=
           '<div class="mcp-env-row">' +
             '<label class="mcp-env-label">' + esc(k) +
-              (ok ? ' <span class="mcp-ok">● set</span>' : ' <span class="mcp-err">● required</span>') + '</label>' +
+              (ok ? ' <span class="mcp-ok">OK set</span>' : ' <span class="mcp-err">ERROR required</span>') + '</label>' +
             '<div class="mcp-env-input">' +
-              '<input id="mcp-env-' + attr(s.name) + '-' + attr(k) + '" type="' + (isSecret ? 'password' : 'text') + '" placeholder="' + (ok ? 'Saved — enter to replace' : 'Enter value…') + '">' +
+              '<input id="mcp-env-' + attr(s.name) + '-' + attr(k) + '" type="' + (isSecret ? 'password' : 'text') + '" placeholder="' + (ok ? 'Saved - enter to replace' : 'Enter value') + '">' +
               '<button class="action-btn primary" data-mcp-action="save-env" data-server="' + attr(s.name) + '" data-key="' + attr(k) + '">Save</button>' +
             '</div>' +
           '</div>';
@@ -2595,10 +2595,10 @@
 
       var canConnect = requires.every(function (k) { return envSet[k]; });
       var statusHtml = s.connected
-        ? '<span class="connected">● Connected</span> <span class="mcp-server-tools">' + s.toolCount + ' tools</span>'
+        ? '<span class="connected">OK Connected</span> <span class="mcp-server-tools">' + s.toolCount + ' tools</span>'
         : (s.lastError
-            ? '<span class="disconnected">● Error</span>'
-            : '<span class="disconnected">○ Disconnected</span>');
+            ? '<span class="disconnected">ERROR</span>'
+            : '<span class="disconnected">Disconnected</span>');
 
       item["inner" + "HTML"] =
         '<div class="mcp-server-head">' +

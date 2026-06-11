@@ -1352,6 +1352,96 @@ const webSearchTool: ToolDefinition = {
 // Tool Registry ── RAG Tools ──────────────────────────────────────────────────────────────
 
 const RAG_URL = process.env.RAG_URL || "http://localhost:7861";
+const LOCAL_RAG_RELATIVE_PATH = path.join(".sentinel", "rag", "local-memory.jsonl");
+
+interface LocalRagRecord {
+  id: string;
+  text: string;
+  source: string;
+  collection: string;
+  createdAt: string;
+}
+
+function getLocalRagFilePath(): string {
+  const filePath = path.join(getBaseDir(), LOCAL_RAG_RELATIVE_PATH);
+  try { fs.mkdirSync(path.dirname(filePath), { recursive: true }); } catch { /* best effort */ }
+  return filePath;
+}
+
+function normalizeRagText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function readLocalRagRecords(collection: string): LocalRagRecord[] {
+  const filePath = getLocalRagFilePath();
+  if (!fs.existsSync(filePath)) return [];
+  try {
+    return fs.readFileSync(filePath, "utf8")
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as LocalRagRecord)
+      .filter((record) => !collection || record.collection === collection);
+  } catch {
+    return [];
+  }
+}
+
+function appendLocalRagRecord(args: Record<string, unknown>): string {
+  try {
+    const collection = String(args.collection || "default");
+    const sourceTag = String(args.source_tag || args.path || "manual");
+    let text = String(args.text || "");
+    const fileArg = String(args.path || "").trim();
+    if (!text && fileArg) {
+      const filePath = resolvePath(fileArg);
+      const stat = fs.statSync(filePath);
+      if (stat.size > 2_000_000) {
+        return `Local RAG fallback refused ${fileArg}: file is larger than 2 MB. Start rag_server.py for large-document ingestion.`;
+      }
+      text = fs.readFileSync(filePath, "utf8");
+    }
+    const normalized = normalizeRagText(text).slice(0, 200000);
+    if (!normalized) return "No RAG text provided. Pass either text or path.";
+    const record: LocalRagRecord = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      text: normalized,
+      source: sourceTag,
+      collection,
+      createdAt: new Date().toISOString(),
+    };
+    fs.appendFileSync(getLocalRagFilePath(), JSON.stringify(record) + "\n", "utf8");
+    return `RAG server unavailable, saved to local fallback memory (${LOCAL_RAG_RELATIVE_PATH}) in collection '${collection}' from ${sourceTag}.`;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return `RAG server unavailable and local fallback ingestion failed: ${message}`;
+  }
+}
+
+function queryLocalRag(args: Record<string, unknown>, reason?: string): string {
+  const query = normalizeRagText(String(args.query || ""));
+  const collection = String(args.collection || "default");
+  const n = Math.max(1, Math.min(20, Number(args.n_results || 5) || 5));
+  if (!query) return "No RAG query provided.";
+  const terms = query.toLowerCase().split(/[^a-z0-9_.$/-]+/i).filter((term) => term.length > 2);
+  const records = readLocalRagRecords(collection)
+    .map((record) => {
+      const haystack = `${record.source} ${record.text}`.toLowerCase();
+      const score = terms.reduce((acc, term) => acc + (haystack.includes(term) ? 1 : 0), 0);
+      return { record, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n);
+  if (!records.length) {
+    const prefix = reason ? `RAG server unavailable (${reason}). ` : "";
+    return `${prefix}No local fallback RAG results found for: ${query}. Use ingestRAG first, or start rag_server.py for vector search.`;
+  }
+  const header = reason ? `RAG server unavailable (${reason}); using local fallback memory.\n` : "Local fallback RAG results:\n";
+  return header + records.map((item, idx) => {
+    const preview = item.record.text.length > 900 ? item.record.text.slice(0, 900) + "..." : item.record.text;
+    return `${idx + 1}. [${item.record.collection}] ${item.record.source} (${item.record.createdAt})\n${preview}`;
+  }).join("\n\n");
+}
 
 const queryRAGTool: ToolDefinition = {
   name: "queryRAG",
@@ -1390,7 +1480,7 @@ const queryRAGTool: ToolDefinition = {
           });
         }
       );
-      req.on("error", (e: Error) => resolve(`RAG server not available (start rag_server.py): ${e.message}`));
+      req.on("error", (e: Error) => resolve(queryLocalRag(args, `start rag_server.py for vector search: ${e.message}`)));
       req.on("timeout", () => { req.destroy(); resolve("RAG query timed out"); });
       req.write(body);
       req.end();
@@ -1426,7 +1516,7 @@ const ingestRAGTool: ToolDefinition = {
             res.on("end", () => { try { resolve(JSON.stringify(JSON.parse(data), null, 2)); } catch { resolve(data); } });
           }
         );
-        req.on("error", (e: Error) => resolve(`RAG server not available: ${e.message}`));
+        req.on("error", (e: Error) => resolve(`${appendLocalRagRecord(args)}\nExternal RAG server note: ${e.message}`));
         req.write(body); req.end();
       });
     }
@@ -1446,7 +1536,7 @@ const ingestRAGTool: ToolDefinition = {
           res.on("end", () => { try { resolve(JSON.stringify(JSON.parse(data), null, 2)); } catch { resolve(data); } });
         }
       );
-      req.on("error", (e: Error) => resolve(`RAG server not available: ${e.message}`));
+      req.on("error", (e: Error) => resolve(`${appendLocalRagRecord(args)}\nExternal RAG server note: ${e.message}`));
       req.write(body); req.end();
     });
   },
@@ -1783,20 +1873,21 @@ const discoverMediaModelsTool: ToolDefinition = {
   execute: async () => {
     try {
       const acct = getAzureOpenAIAccount();
-      const names = ["gpt-image-2", "MAI-Image-2e", "gpt-4.1", "gpt-5.5", "grok-4.3"];
+      const names = ["gpt-image-2", "MAI-Image-2e", "sora-2", "gpt-4.1", "gpt-5.5", "grok-4.3"];
       return JSON.stringify({
         ok: true,
         azure: {
           endpoint: acct.endpoint.replace(/https:\/\/([^./]+).*/, "https://$1...") ,
+          foundryEndpoint: `https://${acct.account}.services.ai.azure.com`,
           proven: {
             image: ["gpt-image-2", "MAI-Image-2e"],
+            video: ["sora-2"],
             speech: ["Azure Speech TTS"],
             transcription: ["Speechmatics"],
-            visionOcr: ["gpt-4.1"],
-            video: []
+            visionOcr: ["gpt-4.1"]
           },
           deploymentsToCheck: names,
-          videoStatus: "No Sora/video deployment found in current Azure deployment list; video generation remains unavailable until a video deployment/API key is configured and smoke-tested."
+          videoStatus: "Azure Sora 2 generation is wired through the Azure Foundry /openai/v1/videos endpoint. Availability still depends on the configured Azure account, region, quota, and content policy; run generateVideo for a smoke test before promising production delivery."
         }
       }, null, 2);
     } catch (error) {

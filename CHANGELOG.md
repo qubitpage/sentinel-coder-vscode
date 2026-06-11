@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.16.21 - Studio Video, Image, File Manager, MCP and RAG Polish
+
+- Expanded Marketplace/GitHub documentation for Studio media generation beyond image-only workflows, including Azure Sora 2 video generation, MP4 playback, sound/volume expectations, storyboard prompts, smoke testing, MAI Image, GPT Image, Azure Speech, Speechmatics transcription, and troubleshooting notes.
+- Added Studio file-manager actions for create, duplicate, rename, delete, open, reveal, save, version restore, comments, and AI actions over generated/workspace assets with workspace-bound safety checks.
+- Improved Studio video/audio previews with native webview media controls, preload metadata, unmuted/volume-ready playback, and explicit guidance for Sora MP4 audio tracks or separate Azure Speech narration.
+- Corrected media capability discovery so Sora 2 is reported as a wired/testable Azure video model while still warning that availability depends on account, region, quota, deployment access, and content policy.
+- Hardened local MCP startup on Windows/Desktop by resolving `npx` to `npx.cmd` under `shell:false`, extending first-run startup timeouts for `npx -y` package installs, and improving Node.js/PATH troubleshooting messages for filesystem and memory built-ins.
+- Added local fallback RAG memory: when the optional `rag_server.py` vector service is unavailable, `ingestRAG` stores workspace-backed JSONL memory and `queryRAG` searches that fallback instead of returning only a dead server error.
+
 ## 3.16.20 - Model Selector Regression Fix
 
 - Fixed the published 3.16.19 chat model selector regression where the picker could show only `Auto` after a live provider model refresh failed, returned an incomplete list, or hit a frontend refresh error.

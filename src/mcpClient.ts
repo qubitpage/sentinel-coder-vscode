@@ -1,9 +1,44 @@
 import * as vscode from "vscode";
 import * as child_process from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
 
-// ── MCP Protocol Types (JSON-RPC 2.0) ──────────────────────────────────────
+// MCP Protocol Types (JSON-RPC 2.0)
+
+function resolveExecutable(command: string): string {
+  const raw = String(command || "").trim();
+  if (!raw || path.isAbsolute(raw)) {
+    return raw;
+  }
+  if (process.platform !== "win32") {
+    return raw;
+  }
+  const hasExt = /\.(cmd|exe|bat|com)$/i.test(raw);
+  const candidates = hasExt ? [raw] : [`${raw}.cmd`, `${raw}.exe`, `${raw}.bat`, raw];
+  const pathDirs = String(process.env.PATH || "").split(path.delimiter).filter(Boolean);
+  for (const dir of pathDirs) {
+    for (const candidate of candidates) {
+      const full = path.join(dir.replace(/^"|"$/g, ""), candidate);
+      try {
+        if (fs.existsSync(full)) {
+          return full;
+        }
+      } catch {
+        // Ignore unreadable PATH entries.
+      }
+    }
+  }
+  return raw;
+}
+
+function mcpRequestTimeoutMs(method: string, command: string): number {
+  const isStartup = method === "initialize" || method === "tools/list";
+  const isNpx = /(?:^|[\\/])npx(?:\.cmd|\.exe)?$/i.test(command) || /^npx(?:\.cmd|\.exe)?$/i.test(command);
+  return isStartup && isNpx ? 120000 : 30000;
+}
+
+// MCP Server Connection
 
 interface JsonRpcRequest {
   jsonrpc: "2.0";
@@ -43,7 +78,7 @@ export interface McpServerConfig {
   source?: "builtin" | "user" | "vscode";
 }
 
-// ── MCP Server Connection ──────────────────────────────────────────────────
+// MCP Server Connection
 
 class McpServerConnection {
   private _process: child_process.ChildProcess | null = null;
@@ -79,10 +114,11 @@ class McpServerConnection {
       throw new Error(this._lastError);
     }
 
-    const command = String(this.config.command || "").trim();
+    const configuredCommand = String(this.config.command || "").trim();
+    const command = resolveExecutable(configuredCommand);
     const mcpArgv = Array.isArray(this.config.args) ? this.config.args.map((arg) => String(arg)) : [];
-    const commandLooksSafe = /^[A-Za-z0-9_.-]+(?:\.cmd|\.exe|\.bat)?$/.test(command) || path.isAbsolute(command);
-    if (!command || !commandLooksSafe || /[\r\n\u0000<>|&;]/.test(command)) {
+    const commandLooksSafe = /^[A-Za-z0-9_.-]+(?:\.cmd|\.exe|\.bat|\.com)?$/.test(configuredCommand) || path.isAbsolute(configuredCommand);
+    if (!configuredCommand || !command || !commandLooksSafe || /[\r\n\u0000<>|&;]/.test(configuredCommand)) {
       this._lastError = "Invalid MCP command. Use an executable name such as npx/node/python, or an absolute executable path.";
       throw new Error(this._lastError);
     }
@@ -91,7 +127,10 @@ class McpServerConnection {
       throw new Error(this._lastError);
     }
 
-    this._outputChannel.appendLine(`[MCP] Starting server: ${this.config.name} -> ${command} ${mcpArgv.join(" ")}`);
+    this._outputChannel.appendLine(`[MCP] Starting server: ${this.config.name} -> ${configuredCommand} ${mcpArgv.join(" ")}`);
+    if (command !== configuredCommand) {
+      this._outputChannel.appendLine(`[MCP] ${this.config.name}: resolved executable to ${command}`);
+    }
 
     try {
       this._process = child_process.spawn(command, mcpArgv, {
@@ -103,7 +142,7 @@ class McpServerConnection {
 
       this._process.on("error", (err) => {
         const hint = /ENOENT|not recognized|not found/i.test(err.message)
-          ? ` — '${this.config.command}' was not found. Install Node.js (which provides npx) and ensure it is on your PATH.`
+          ? ` - '${configuredCommand}' was not found. Install Node.js LTS, restart VS Code so PATH refreshes, and make sure npx is available. On Windows Sentinel resolves npx.cmd automatically when it is on PATH.`
           : "";
         this._lastError = err.message + hint;
         this._outputChannel.appendLine(`[MCP] ${this.config.name} error: ${this._lastError}`);
@@ -230,12 +269,13 @@ class McpServerConnection {
       const request: JsonRpcRequest = { jsonrpc: "2.0", id, method, params };
       this._pendingRequests.set(id, { resolve, reject });
 
+          const timeoutMs = mcpRequestTimeoutMs(method, resolveExecutable(this.config.command));
       const timeout = setTimeout(() => {
         if (this._pendingRequests.has(id)) {
           this._pendingRequests.delete(id);
-          reject(new Error(`MCP request timeout: ${method}`));
+          reject(new Error(`MCP request timeout: ${method} after ${Math.round(timeoutMs / 1000)}s. First-time npx MCP startup can be slow while packages download; if this repeats, run 'npx -y ${this.config.args?.[1] || "<mcp-server>"} --help' in a terminal to warm the cache.`));
         }
-      }, 30000);
+      }, timeoutMs);
 
       // Clear timeout when resolved
       const originalResolve = resolve;
@@ -256,7 +296,7 @@ class McpServerConnection {
   }
 }
 
-// ── MCP Manager ────────────────────────────────────────────────────────────
+// MCP Manager
 
 export class McpManager {
   private _servers = new Map<string, McpServerConnection>();
@@ -276,7 +316,7 @@ export class McpManager {
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-filesystem", this._getWorkspacePath()],
         enabled: false,
-        description: "Read/write files in the current workspace folder. Free — no API key needed.",
+        description: "Read/write files in the current workspace folder. Free - no API key needed.",
         source: "builtin",
       },
       {
@@ -284,7 +324,7 @@ export class McpManager {
         command: "npx",
         args: ["-y", "@modelcontextprotocol/server-memory"],
         enabled: false,
-        description: "A persistent knowledge graph the agent can store and recall facts from. Free — no API key needed.",
+        description: "A persistent knowledge graph the agent can store and recall facts from. Free - no API key needed.",
         source: "builtin",
       },
       {

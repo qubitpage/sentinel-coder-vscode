@@ -36,6 +36,20 @@ function normalizeFsPath(input: string): string {
   return input.replace(/^file:\/\//i, "");
 }
 
+function sanitizeFileName(input: string, fallback: string): string {
+  const cleaned = input.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").slice(0, 120);
+  return cleaned || fallback;
+}
+
+function ensureInsideWorkspace(targetPath: string, workspaceRoot: string): string {
+  const resolved = path.resolve(targetPath);
+  const root = path.resolve(workspaceRoot);
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+    throw new Error("Studio file operations are limited to the current workspace for safety.");
+  }
+  return resolved;
+}
+
 function fileKind(filePath: string): StudioFileItem["kind"] {
   const ext = path.extname(filePath).toLowerCase();
   if ([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".avif"].includes(ext)) {
@@ -254,6 +268,22 @@ export class SentinelStudioProvider implements vscode.WebviewViewProvider {
       await this._saveTextFile(String(message.id), String(message.content ?? ""));
       return;
     }
+    if (message.type === "createFile") {
+      await this._createManagedFile(String(message.kind ?? "markdown"));
+      return;
+    }
+    if (message.type === "renameFile") {
+      await this._renameManagedFile(String(message.id));
+      return;
+    }
+    if (message.type === "duplicateFile") {
+      await this._duplicateManagedFile(String(message.id));
+      return;
+    }
+    if (message.type === "deleteFile") {
+      await this._deleteManagedFile(String(message.id));
+      return;
+    }
     if (message.type === "listVersions") {
       await this._listVersions(String(message.id));
       return;
@@ -411,6 +441,114 @@ export class SentinelStudioProvider implements vscode.WebviewViewProvider {
     const snapshot = await this._snapshotBeforeWrite(item, "manual-save");
     await fs.promises.writeFile(item.path, content, "utf8");
     vscode.window.showInformationMessage(`Saved ${item.name}${snapshot ? " with version snapshot" : ""}`);
+    await this.refresh();
+  }
+
+  private _workspaceRoot(): string {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    if (!folder) {
+      throw new Error("Open a workspace folder first.");
+    }
+    return folder.uri.fsPath;
+  }
+
+  private _managedFolder(kind: string): string {
+    const workspaceRoot = this._workspaceRoot();
+    const normalized = kind.toLowerCase();
+    const folder = normalized === "storyboard" || normalized === "video" ? path.join(workspaceRoot, GENERATED_ROOT, "videos", "storyboards")
+      : normalized === "data" ? path.join(workspaceRoot, GENERATED_ROOT, "data")
+      : normalized === "document" ? path.join(workspaceRoot, GENERATED_ROOT, "documents")
+      : path.join(workspaceRoot, GENERATED_ROOT, "templates");
+    return ensureInsideWorkspace(folder, workspaceRoot);
+  }
+
+  private async _createManagedFile(kind: string): Promise<void> {
+    const workspaceRoot = this._workspaceRoot();
+    const normalized = kind.toLowerCase();
+    const defaultExt = normalized === "data" ? ".json" : normalized === "storyboard" || normalized === "video" ? ".json" : ".md";
+    const name = await vscode.window.showInputBox({
+      prompt: "Create a Studio-managed file",
+      placeHolder: `brief${defaultExt}`,
+      value: normalized === "storyboard" ? `sora-storyboard-${Date.now()}${defaultExt}` : `studio-${normalized}-${Date.now()}${defaultExt}`,
+      validateInput: (value) => /[\\/:*?"<>|]/.test(value) ? "Use a file name only, without path separators." : undefined,
+    });
+    if (!name) {
+      return;
+    }
+    const target = ensureInsideWorkspace(path.join(this._managedFolder(normalized), sanitizeFileName(name, `studio${defaultExt}`)), workspaceRoot);
+    await fs.promises.mkdir(path.dirname(target), { recursive: true });
+    if (fs.existsSync(target)) {
+      throw new Error(`File already exists: ${path.basename(target)}`);
+    }
+    const body = normalized === "data" ? "{\n  \"notes\": []\n}\n"
+      : normalized === "storyboard" || normalized === "video" ? JSON.stringify({ title: "Untitled Sora storyboard", aspectRatio: "720x1280", shotSeconds: 4, audio: "Use natural ambient sound or generated dialogue only when requested.", shots: [{ id: 1, prompt: "Cinematic opening shot, stable camera motion, professional lighting." }] }, null, 2) + "\n"
+      : `# ${path.basename(target, path.extname(target))}\n\nStart writing here.\n`;
+    await fs.promises.writeFile(target, body, "utf8");
+    this._post({ type: "saved", message: `Created ${path.relative(workspaceRoot, target)}` });
+    await this.refresh();
+    this.openFilePath(target);
+  }
+
+  private async _renameManagedFile(id: string): Promise<void> {
+    const item = this._items.get(id);
+    const workspaceRoot = this._workspaceRoot();
+    if (!item) {
+      throw new Error("File not found in Studio index.");
+    }
+    const name = await vscode.window.showInputBox({
+      prompt: `Rename ${item.name}`,
+      value: item.name,
+      validateInput: (value) => /[\\/:*?"<>|]/.test(value) ? "Use a file name only, without path separators." : undefined,
+    });
+    if (!name || name === item.name) {
+      return;
+    }
+    const target = ensureInsideWorkspace(path.join(path.dirname(item.path), sanitizeFileName(name, item.name)), workspaceRoot);
+    if (fs.existsSync(target)) {
+      throw new Error(`Target already exists: ${path.basename(target)}`);
+    }
+    await this._snapshotBeforeWrite(item, "before-rename");
+    await fs.promises.rename(item.path, target);
+    this._post({ type: "saved", message: `Renamed ${item.name} to ${path.basename(target)}` });
+    await this.refresh();
+    this.openFilePath(target);
+  }
+
+  private async _duplicateManagedFile(id: string): Promise<void> {
+    const item = this._items.get(id);
+    const workspaceRoot = this._workspaceRoot();
+    if (!item) {
+      throw new Error("File not found in Studio index.");
+    }
+    const ext = path.extname(item.path);
+    const base = path.basename(item.path, ext);
+    let target = path.join(path.dirname(item.path), `${base}.copy${ext}`);
+    let index = 2;
+    while (fs.existsSync(target)) {
+      target = path.join(path.dirname(item.path), `${base}.copy-${index}${ext}`);
+      index += 1;
+    }
+    target = ensureInsideWorkspace(target, workspaceRoot);
+    await fs.promises.copyFile(item.path, target);
+    this._post({ type: "saved", message: `Duplicated ${item.name}` });
+    await this.refresh();
+    this.openFilePath(target);
+  }
+
+  private async _deleteManagedFile(id: string): Promise<void> {
+    const item = this._items.get(id);
+    const workspaceRoot = this._workspaceRoot();
+    if (!item) {
+      throw new Error("File not found in Studio index.");
+    }
+    ensureInsideWorkspace(item.path, workspaceRoot);
+    const answer = await vscode.window.showWarningMessage(`Delete ${item.name}? A version snapshot will be kept when possible.`, { modal: true }, "Delete");
+    if (answer !== "Delete") {
+      return;
+    }
+    await this._snapshotBeforeWrite(item, "before-delete");
+    await fs.promises.unlink(item.path);
+    this._post({ type: "saved", message: `Deleted ${item.name}` });
     await this.refresh();
   }
 
@@ -584,6 +722,7 @@ button:hover { filter: brightness(1.08); }
 .media-wrap { display:grid; place-items:center; min-height:280px; background:#05070d; border:1px solid var(--line); border-radius:14px; padding:12px; }
 .viewer img, .viewer video { max-width:100%; max-height:70vh; border-radius:12px; object-fit:contain; background:#05070d; }
 .viewer audio { width:100%; margin-top:12px; }
+.media-note { width:100%; color:var(--vscode-descriptionForeground); font-size:11px; line-height:1.45; margin-top:10px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.035); }
 .pdf-frame { width:100%; height:70vh; border:0; border-radius:12px; background:#fff; }
 .editor-toolbar { display:flex; gap:5px; flex-wrap:wrap; padding:8px; border:1px solid var(--line); border-bottom:0; border-radius:12px 12px 0 0; background:rgba(255,255,255,.035); }
 .editor { width:100%; min-height:55vh; max-height:calc(100vh - 260px); overflow:auto; resize:vertical; border-radius:0 0 12px 12px; border:1px solid var(--line); background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); padding:12px; font-family: var(--vscode-editor-font-family); font-size:12px; line-height:1.55; }
@@ -602,11 +741,12 @@ button:hover { filter: brightness(1.08); }
 </head>
 <body>
   <div class="header">
-    <div class="title"><span>Sentinel Studio</span><span class="badge">File + Media Manager</span></div>
-    <div class="subtitle">Browse workspace and generated files, preview media, edit text/data, version saves, and send selected content to Sentinel AI actions.</div>
+    <div class="title"><span>Sentinel Studio</span><span class="badge">Media + File Manager</span></div>
+    <div class="subtitle">Browse generated images, Sora videos, audio, documents and workspace files; preview with sound controls, edit text/data, version saves, and send selected content to Sentinel AI actions.</div>
     <div class="toolbar">
       <button id="refresh">Refresh</button>
       <button id="openGenerated" class="secondary">Open generated folder</button>
+      <button id="newFile" class="secondary">New file</button>
       <button id="newTemplate" class="secondary">New writing template</button>
       <button id="newStoryboard" class="secondary">New Sora storyboard</button>
     </div>
@@ -744,13 +884,16 @@ function renderSelected(){
   actions.className = 'actions';
   appendActionButton(actions, 'Open in editor', {'data-open': item.id});
   appendActionButton(actions, 'Reveal', {'data-reveal': item.id}, 'secondary');
+  appendActionButton(actions, 'Duplicate', {'data-duplicate': item.id}, 'secondary');
+  appendActionButton(actions, 'Rename', {'data-rename': item.id}, 'secondary');
+  appendActionButton(actions, 'Delete', {'data-delete': item.id}, 'ghost');
   if(item.editable){ appendActionButton(actions, 'Save edits', {'data-save': item.id}); }
   appendActionButton(actions, 'AI improve file', {'data-ai': 'improve', 'data-id': item.id}, 'secondary');
   appendActionButton(actions, 'AI summarize', {'data-ai': 'summarize', 'data-id': item.id}, 'secondary');
   fileHead.appendChild(actions);
   if(item.kind==='image' && item.webviewUri){ const wrap=document.createElement('div'); wrap.className='media-wrap'; const img=document.createElement('img'); img.src=item.webviewUri; img.alt=item.name; wrap.appendChild(img); viewer.appendChild(wrap); return; }
-  if(item.kind==='video' && item.webviewUri){ const wrap=document.createElement('div'); wrap.className='media-wrap'; const video=document.createElement('video'); video.controls=true; video.src=item.webviewUri; wrap.appendChild(video); viewer.appendChild(wrap); return; }
-  if(item.kind==='audio' && item.webviewUri){ const wrap=document.createElement('div'); wrap.className='media-wrap'; const audio=document.createElement('audio'); audio.controls=true; audio.src=item.webviewUri; wrap.appendChild(audio); viewer.appendChild(wrap); return; }
+  if(item.kind==='video' && item.webviewUri){ const wrap=document.createElement('div'); wrap.className='media-wrap'; const inner=document.createElement('div'); inner.style.width='100%'; inner.style.display='grid'; inner.style.placeItems='center'; const video=document.createElement('video'); video.controls=true; video.preload='metadata'; video.playsInline=true; video.muted=false; video.volume=1; video.src=item.webviewUri; inner.appendChild(video); const note=document.createElement('div'); note.className='media-note'; note.textContent='Video preview uses native VS Code webview media controls. If the generated Sora MP4 contains audio, unmute/adjust volume in the player; if there is no audio track, generate or attach voiceover with Azure Speech and combine externally.'; inner.appendChild(note); wrap.appendChild(inner); viewer.appendChild(wrap); return; }
+  if(item.kind==='audio' && item.webviewUri){ const wrap=document.createElement('div'); wrap.className='media-wrap'; const inner=document.createElement('div'); inner.style.width='100%'; const audio=document.createElement('audio'); audio.controls=true; audio.preload='metadata'; audio.volume=1; audio.src=item.webviewUri; inner.appendChild(audio); const note=document.createElement('div'); note.className='media-note'; note.textContent='Audio preview is enabled with native controls for generated speech, transcripts, narration, and exported sound files.'; inner.appendChild(note); wrap.appendChild(inner); viewer.appendChild(wrap); return; }
   if(item.kind==='pdf' && item.webviewUri){ const frame=document.createElement('iframe'); frame.className='pdf-frame'; frame.src=item.webviewUri; viewer.appendChild(frame); return; }
   if(item.preview !== undefined && item.editable){ viewer.appendChild(editorToolbar()); const area=document.createElement('textarea'); area.id='activeEditor'; area.className='editor'; area.spellcheck=false; area.value=item.preview; viewer.appendChild(area); return; }
   if(item.preview !== undefined){ const pre=document.createElement('pre'); pre.className='editor'; pre.textContent=item.preview; viewer.appendChild(pre); return; }
@@ -802,6 +945,9 @@ fileHead.addEventListener('click', event => {
   const target = event.target; if(!(target instanceof HTMLElement)) return;
   const open = target.getAttribute('data-open'); if(open) vscode.postMessage({type:'open', id:open});
   const reveal = target.getAttribute('data-reveal'); if(reveal) vscode.postMessage({type:'reveal', id:reveal});
+  const duplicate = target.getAttribute('data-duplicate'); if(duplicate) vscode.postMessage({type:'duplicateFile', id:duplicate});
+  const rename = target.getAttribute('data-rename'); if(rename) vscode.postMessage({type:'renameFile', id:rename});
+  const del = target.getAttribute('data-delete'); if(del) vscode.postMessage({type:'deleteFile', id:del});
   const save = target.getAttribute('data-save'); if(save){ const area = document.getElementById('activeEditor'); vscode.postMessage({type:'save', id:save, content: area ? area.value : ''}); }
   const ai = target.getAttribute('data-ai'); const id = target.getAttribute('data-id'); if(ai && id) vscode.postMessage({type:'aiAction', id, action:ai, selection:selectedText()});
 });
@@ -813,6 +959,7 @@ filtersEl.addEventListener('click', event => { const target=event.target; if(tar
 searchEl.addEventListener('input', renderAll);
 document.getElementById('refresh').addEventListener('click', () => vscode.postMessage({type:'refresh'}));
 document.getElementById('openGenerated').addEventListener('click', () => vscode.postMessage({type:'openGeneratedFolder'}));
+document.getElementById('newFile').addEventListener('click', () => vscode.postMessage({type:'createFile', kind:'markdown'}));
 document.getElementById('newTemplate').addEventListener('click', () => vscode.postMessage({type:'createTemplate', kind:'office-brief'}));
 document.getElementById('newStoryboard').addEventListener('click', () => vscode.postMessage({type:'createStoryboard'}));
 document.getElementById('aiApply').addEventListener('click', () => sendAi('edit selected/file'));

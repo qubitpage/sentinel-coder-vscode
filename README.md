@@ -25,6 +25,16 @@ It is designed around two safe defaults:
 
 ---
 
+## New in 3.16.21
+
+- **Studio video generation documentation upgrade**: the Marketplace README now explains Azure Sora 2 video generation, MP4 output, prompt structure, size/duration options, audio expectations, smoke testing, and troubleshooting.
+- **MAI + GPT image workflow documentation**: Studio docs now distinguish `azure:gpt-image-2` and `azure:MAI-Image-2e`, how outputs are saved, and how generated images are previewed/reused.
+- **Studio file manager polish**: the Studio view now exposes create, duplicate, rename, delete, open, reveal, save, version, comment, and AI-action workflows for generated/workspace assets.
+- **Video/audio preview polish**: Sora MP4 and audio previews use native VS Code webview media controls with sound/volume guidance instead of treating Studio as image-only.
+- **Media capability discovery correction**: `discoverMediaModels` reports Sora 2 as a wired/testable Azure video model while still warning that availability depends on the configured Azure account, region, quota, and content policy.
+- **MCP local server startup hardening**: built-in filesystem and memory MCP servers now resolve `npx.cmd` correctly on Windows/Desktop and allow longer first-run startup when `npx -y` downloads MCP packages.
+- **RAG fallback memory**: if the optional external `rag_server.py` vector service is not running, `ingestRAG` saves to `.sentinel/rag/local-memory.jsonl` and `queryRAG` searches that local fallback instead of failing with only “server not available.”
+
 ## New in 3.16.20
 
 - **Fixed Auto-only chat model selector regression**: the chat dropdown now keeps showing configured/discovered provider models instead of collapsing to only `Auto` when one live provider catalog request fails or returns temporarily incomplete metadata.
@@ -215,32 +225,33 @@ These profiles follow production agent patterns from OpenAI-style routines/hando
 
 ### Media & Document Studio
 
-The Studio view lets you browse, preview, inspect, edit, and reuse generated or workspace assets.
+The Studio view is a workspace asset manager, not only an image gallery. It lets you browse, preview, inspect, edit, version, rename, duplicate, delete, and reuse generated or workspace assets from one VS Code panel.
 
 Supported workflows include:
 
-- Generated image previews.
-- Azure Sora 2 video generation and MP4 playback.
-- Azure Speech audio generation.
-- Speechmatics transcription.
-- PDF/Office/image/audio/video inspection where local tooling is available.
-- DOCX/XLSX/PPTX generation.
-- Organized generated folders under `.sentinel/generated/`.
-- Version snapshots for edited text/data files.
-- Sending files or selected content back to chat for rewrite, OCR, summarization, transcription, regeneration, or transformation.
+- **Azure Sora 2 video generation** through `generateVideo` using `azure:sora-2`, saved as MP4 under `.sentinel/generated/videos/`.
+- **Sora storyboard planning** with generated JSON storyboards for shot-by-shot prompts, duration, aspect ratio, target platform, continuation notes, quality defaults, and negative prompts.
+- **Video preview with sound controls** using native VS Code webview media controls. If the MP4 contains an audio track, unmute/adjust volume in the player. If the model returns silent video, generate narration with Azure Speech and combine externally or ask Sentinel to prepare a post-production plan.
+- **Image generation** through `generateImage` using tested Azure deployments `azure:gpt-image-2` and `azure:MAI-Image-2e`, saved under `.sentinel/generated/images/` and previewed in Studio.
+- **Azure Speech audio generation** for voiceovers, narration, launch clips, product demos, and accessibility drafts.
+- **Speechmatics transcription** for generated or imported audio/video assets.
+- **PDF/Office/image/audio/video inspection** where local tooling is available.
+- **DOCX/XLSX/PPTX generation** for briefs, reports, spreadsheets, and pitch material.
+- **Full generated-file management**: create, open, reveal in OS, save editable text/data, duplicate, rename, delete with version snapshot where possible, restore versions, and add review comments.
+- **AI actions from assets**: send selected text/file context back to Sentinel Chat for rewrite, OCR, summarization, transcription, regeneration, storyboard expansion, or transformation.
 
 Generated outputs are organized as:
 
 ```text
 .sentinel/generated/
-  images/
-  videos/
-  audio/
-  documents/
-  presentations/
-  data/
-  reports/
-  templates/
+  images/          # azure:gpt-image-2 and azure:MAI-Image-2e PNGs
+  videos/          # azure:sora-2 MP4s plus storyboards/
+  audio/           # Azure Speech MP3/WAV outputs
+  documents/       # DOCX/PDF/Markdown briefs
+  presentations/   # PPTX and pitch assets
+  data/            # JSON/CSV/SQL/XML support files
+  reports/         # transcripts, audits, analysis outputs
+  templates/       # reusable Studio writing/storyboard templates
 ```
 
 ---
@@ -315,22 +326,71 @@ Open Studio from the Sentinel activity-bar view or Command Palette:
 Sentinel Coder: Open Media & Document Studio
 ```
 
-Example image request:
+### Discover configured media models
+
+Before promising a production asset, ask Sentinel to inspect the configured media capability surface:
 
 ```text
-Generate a premium web hero image for a developer AI agent using azure:gpt-image-2. Save it and show it in Studio.
+Run discoverMediaModels and tell me which image, video, speech, transcription, and vision/OCR tools are configured right now. Do not assume quota if the provider does not confirm it.
 ```
+
+`discoverMediaModels` reports the wired/tested Azure media surface:
+
+- Images: `azure:gpt-image-2`, `azure:MAI-Image-2e`.
+- Video: `azure:sora-2` through Azure Foundry `/openai/v1/videos`.
+- Speech: Azure Speech TTS.
+- Transcription: Speechmatics.
+- Vision/OCR: Azure GPT-4.1 vision where configured.
+
+Actual generation still depends on your Azure account, deployment access, region, content policy, and quota. Run a smoke test after changing keys or deployments.
+
+### Image generation: GPT Image and MAI Image
+
+Example GPT Image request:
+
+```text
+Generate a premium web hero image for a developer AI agent using azure:gpt-image-2 at 1024x1024. Save it in .sentinel/generated/images and open it in Studio.
+```
+
+Example MAI Image request:
+
+```text
+Generate a cinematic enterprise presentation image using azure:MAI-Image-2e at 1024x1024. Use clean composition, no unreadable text, and save it in Studio.
+```
+
+Tips:
+
+- Specify aspect ratio/size, style, subject, lighting, brand palette, and negative constraints.
+- Avoid requesting exact logos, protected IP, or tiny text unless you provide compliant source assets.
+- Use Studio actions to duplicate, rename, reveal, comment, or ask Sentinel to regenerate variations.
+
+### Video generation: Azure Sora 2
 
 Example Sora 2 video request:
 
 ```text
-Ask me for the missing scenario, style, duration, target platform, and continuation goal. Then generate a Sora 2 video using azure:sora-2 and save the MP4 in Studio.
+Ask me for the missing scenario, style, duration, target platform, camera motion, audio expectation, and continuation goal. Then generate a Sora 2 video using azure:sora-2, size 720x1280, duration 4 seconds, and save the MP4 in Studio.
 ```
+
+Production-quality Sora prompts should include:
+
+- Scene and setting.
+- Characters/objects and action.
+- Camera movement and framing.
+- Mood, lighting, color, realism level, and target platform.
+- Duration and size, for example `4` seconds and `720x1280` vertical.
+- Continuation notes if it follows a previous shot.
+- Negative constraints: no warped logos, no unreadable text overlays, no watermarks, no distorted anatomy, no flicker.
+- Audio expectation: ambient sound, generated dialogue if supported by the deployment, or silent video plus separate Azure Speech narration.
+
+Studio plays generated MP4 files with native media controls. If a generated Sora MP4 contains audio, use the player volume/unmute controls. If it is silent, use Azure Speech to generate voiceover and ask Sentinel to prepare an FFmpeg/post-production command for Desktop mode.
+
+### Audio, transcription, and documents
 
 Example audio request:
 
 ```text
-Generate a professional launch voiceover with Azure Speech and save the MP3.
+Generate a professional launch voiceover with Azure Speech and save the MP3 in .sentinel/generated/audio.
 ```
 
 Example transcription request:
@@ -344,6 +404,22 @@ Example document request:
 ```text
 Create a DOCX one-page product brief from this plan and save it in generated documents.
 ```
+
+### Studio file management
+
+Inside Studio you can:
+
+- Refresh the indexed workspace/generated assets.
+- Create a new managed Markdown/JSON file.
+- Create a writing template.
+- Create a Sora storyboard.
+- Open a file in VS Code.
+- Reveal a file in the OS file manager.
+- Duplicate, rename, or delete files with workspace safety checks.
+- Save editable text/data files with version snapshots.
+- Restore previous snapshots.
+- Add review comments.
+- Send selected content/file context back to Sentinel Chat for AI actions.
 
 ---
 

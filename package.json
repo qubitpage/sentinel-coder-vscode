@@ -2,7 +2,7 @@
   "name": "sentinel-coder",
   "displayName": "Sentinel Coder One Studio",
   "description": "Sentinel Coder One Studio - autonomous AI coding with single-model full-capability mode, opt-in Agentic Profiles, live provider model/context discovery, operation-aware native tool routing, VS Code Web remote-tool bridge support, media/document Studio, safer tools, dynamic context, and multi-provider orchestration.",
-  "version": "3.16.20",
+  "version": "3.16.21",
   "publisher": "Qubitpage",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -391,7 +391,8 @@
     "test:web-bridge": "node tests/web-bridge-manifest-regression.cjs",
     "test:model-selector": "node tests/model-selector-regression.cjs",
     "test:agentic-profiles": "node tests/agentic-profiles-regression.cjs",
-    "test": "npm run compile && npm run test:provider-capabilities && npm run test:web-bridge && npm run test:model-selector && npm run test:agentic-profiles"
+    "test:mcp-rag-studio": "node tests/mcp-rag-studio-regression.cjs",
+    "test": "npm run compile && npm run test:provider-capabilities && npm run test:web-bridge && npm run test:model-selector && npm run test:agentic-profiles && npm run test:mcp-rag-studio"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
