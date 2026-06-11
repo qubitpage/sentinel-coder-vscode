@@ -1,0 +1,342 @@
+{
+  "name": "sentinel-coder",
+  "displayName": "Sentinel Coder One Studio",
+  "description": "Sentinel Coder One Studio - autonomous AI coding with standard single-model full-capability mode, opt-in Agentic Profiles, Agentic model dropdown selectors, visible orchestrator/sub-agent model usage, credit-safe context budgeting, Azure Foundry live deployment discovery, authoritative live provider model dropdowns, live provider context-window refresh, dynamic context, focus-safe edits, reader-safe streaming scroll, VS Code Web compatibility mode, media/document Studio, safer tools, and multi-provider orchestration.",
+  "version": "3.16.9",
+  "publisher": "Qubitpage",
+  "icon": "assets/icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/qubitpage/sentinel-coder-vscode"
+  },
+  "homepage": "https://github.com/qubitpage/sentinel-coder-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/qubitpage/sentinel-coder-vscode/issues"
+  },
+  "keywords": [
+    "ai",
+    "copilot",
+    "coding-assistant",
+    "ollama",
+    "groq",
+    "openai",
+    "anthropic",
+    "azure",
+    "kimi",
+    "moonshot",
+    "multi-provider",
+    "code-generation",
+    "chat",
+    "agent",
+    "mcp",
+    "tools",
+    "featherless",
+    "web-extension",
+    "agentic-profiles",
+    "dynamic-context",
+    "focus-safe",
+    "reader-safe-scroll",
+    "stable-chat-scroll",
+    "agentic-model-dropdowns",
+    "configured-model-selector",
+    "live-context-window",
+    "provider-model-metadata",
+    "automatic-context-budget",
+    "agent-model-usage",
+    "subagent-telemetry",
+    "credit-safe-context",
+    "context-budgeting",
+    "cost-optimization",
+    "azure-foundry-model-discovery",
+    "full-provider-model-dropdown"
+  ],
+  "galleryBanner": {
+    "color": "#0e1117",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languageModelChatProviders": [
+      {
+        "vendor": "sentinel-coder",
+        "displayName": "Sentinel Coder One Studio (Agentic Profiles, live model context windows, Azure GPT-5.5 1M, Grok, OpenRouter, Groq + media studio)"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "sentinel-coder.chat",
+        "fullName": "Sentinel Coder One Studio",
+        "name": "sentinel",
+        "description": "Multi-provider AI coding, media and document studio by QubitPage Research. Uses Agentic Profiles, live provider model metadata/context windows, Azure GPT-5.5/GPT-5.4/GPT-4.1/Grok deployments, OpenRouter/free, Groq, Azure Sora 2, image/audio tools, Studio viewer, checkpoints and optional firewall scans.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "create",
+            "description": "Create a new file with generated code"
+          },
+          {
+            "name": "run",
+            "description": "Run a terminal command"
+          },
+          {
+            "name": "edit",
+            "description": "Edit an existing file"
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "sentinel-coder.setEndpoint",
+        "title": "Sentinel Coder: Set Ollama Endpoint"
+      },
+      {
+        "command": "sentinel-coder.clearChat",
+        "title": "Sentinel Coder: Clear Chat History",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "sentinel-coder.refreshStudio",
+        "title": "Sentinel Coder: Refresh Media & Document Studio",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "sentinel-coder.openStudio",
+        "title": "Sentinel Coder: Open Media & Document Studio",
+        "icon": "$(layout-sidebar-right)"
+      },
+      {
+        "command": "sentinel-coder.atlasVoiceBridgeStatus",
+        "title": "Sentinel Coder: Atlas Voice Bridge Status"
+      },
+      {
+        "command": "sentinel-coder.sendAtlasVoiceToCopilot",
+        "title": "Sentinel Coder: Send Last Atlas Voice Command to Copilot"
+      },
+      {
+        "command": "sentinel-coder.webStatus",
+        "title": "Sentinel Coder: Web Compatibility Status"
+      },
+      {
+        "command": "sentinel-coder.openDesktopHelp",
+        "title": "Sentinel Coder: Why Desktop Mode Is Required"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sentinel-coder-sidebar",
+          "title": "Sentinel Coder One Studio",
+          "icon": "assets/activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "sentinel-coder-sidebar": [
+        {
+          "type": "webview",
+          "id": "sentinel-coder.chatView",
+          "name": "Chat",
+          "icon": "assets/icon.png"
+        },
+        {
+          "type": "webview",
+          "id": "sentinel-coder.studioView",
+          "name": "Studio",
+          "icon": "assets/icon.png"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "sentinel-coder.clearChat",
+          "when": "view == sentinel-coder.chatView",
+          "group": "navigation"
+        },
+        {
+          "command": "sentinel-coder.refreshStudio",
+          "when": "view == sentinel-coder.studioView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Sentinel Coder One Studio",
+      "properties": {
+        "sentinelCoder.ollamaUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:11434",
+          "description": "Ollama API base URL"
+        },
+        "sentinelCoder.model": {
+          "type": "string",
+          "default": "sentinel-coder-one:latest",
+          "description": "Ollama model name"
+        },
+        "sentinelCoder.maxTokens": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum tokens to generate per response. 0 = Auto: use the selected model's full output limit so long answers are never truncated mid-response. A non-zero value caps output but is never allowed to exceed the model's real limit."
+        },
+        "sentinelCoder.contextBudgetTokens": {
+          "type": "number",
+          "default": 64000,
+          "description": "Approximate input-context token budget ceiling for long agent sessions. Sentinel detects the selected model window, but will not automatically fill 1M-token contexts unless you explicitly raise this budget; older turns are summarized to prevent runaway cost."
+        },
+        "sentinelCoder.temperature": {
+          "type": "number",
+          "default": 0.3,
+          "description": "Generation temperature (0-1)"
+        },
+        "sentinelCoder.defaultMode": {
+          "type": "string",
+          "default": "agent",
+          "enum": [
+            "agent",
+            "ask",
+            "plan"
+          ],
+          "description": "Default chat mode"
+        },
+        "sentinelCoder.approvalMode": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "bypass",
+            "autopilot"
+          ],
+          "description": "Tool approval mode: default (ask each tool and manual Continue), bypass (auto-approve safe/moderate tools, ask dangerous, manual Continue), autopilot (auto-approve all tools and auto-continue)"
+        },
+        "sentinelCoder.providers": {
+          "type": "array",
+          "default": [],
+          "description": "Configured API providers (auto-managed by the extension)"
+        },
+        "sentinelCoder.apiKeysFile": {
+          "type": "string",
+          "default": "",
+          "description": "(Optional) Path to a text file for bulk-importing API keys. Leave empty to use the Settings > Providers panel instead."
+        },
+        "sentinelCoder.mcpServers": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "MCP server configurations. Each entry needs `name`, `command`, `args[]`, and optionally `env{}` and `enabled`. Example: `{\"name\": \"filesystem\", \"command\": \"npx\", \"args\": [\"-y\", \"@modelcontextprotocol/server-filesystem\", \".\"], \"enabled\": true}`"
+        },
+        "sentinelCoder.atlasVoiceBridgePort": {
+          "type": "number",
+          "default": 37777,
+          "description": "Localhost HTTP port used by Vultr Atlas to hand off voice commands into VS Code/Copilot Chat."
+        },
+        "sentinelCoder.atlasVoiceAutoOpenChat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open GitHub Copilot Chat with the Atlas voice prompt when a command arrives."
+        },
+        "sentinelCoder.atlasVoiceAutoRunCopilotModel": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also send Atlas voice prompts to the VS Code Language Model API using a Copilot model when user consent is available."
+        },
+        "sentinelCoder.atlasVoiceAllowedOrigins": {
+          "type": "array",
+          "default": [
+            "https://atlas.qubitpage.com",
+            "http://localhost",
+            "http://127.0.0.1"
+          ],
+          "description": "Origins allowed to call the local Atlas Voice Bridge."
+        },
+        "sentinelCoder.dynamicContextEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic dynamic context injection (active file, tabs, diagnostics, git, provider metadata) into agent turns."
+        },
+        "sentinelCoder.dynamicContextMaxChars": {
+          "type": "number",
+          "default": 8000,
+          "description": "Maximum characters of auto-refreshed dynamic context included per turn to control token/cost usage."
+        },
+        "sentinelCoder.dynamicContext.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic dynamic context injection (active file, tabs, diagnostics, git, provider metadata) into agent turns."
+        },
+        "sentinelCoder.dynamicContext.maxChars": {
+          "type": "number",
+          "default": 8000,
+          "minimum": 2000,
+          "maximum": 50000,
+          "description": "Maximum characters of auto-refreshed dynamic context included per turn to control token/cost usage."
+        },
+        "sentinelCoder.dynamicContext.includeActiveFile": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include active editor/selection preview in automatic dynamic context."
+        },
+        "sentinelCoder.dynamicContext.includeOpenTabs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include open tab names in automatic dynamic context."
+        },
+        "sentinelCoder.dynamicContext.includeDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include current VS Code diagnostics summary in automatic dynamic context."
+        },
+        "sentinelCoder.dynamicContext.includeGitStatus": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include git status/recent change summary in automatic dynamic context when available."
+        },
+        "sentinelCoder.dynamicContext.includeProviderMetadata": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include selected model/provider and Agentic Profile metadata in automatic dynamic context."
+        }
+      }
+    }
+  },
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": "limited",
+      "description": "Sentinel Coder can activate in VS Code for the Web and virtual workspaces with safe status/settings webviews. Full autonomous agent tools require VS Code Desktop with a local workspace."
+    },
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Sentinel Coder can activate in Restricted Mode with safe status/settings guidance. File edits, terminals, SSH, Docker, MCP, and other autonomous tools require a trusted desktop workspace."
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-dependencies",
+    "package:desktop": "vsce package --no-dependencies -o sentinel-coder-%npm_package_version%.vsix",
+    "package:web": "vsce package --no-dependencies --target web -o sentinel-coder-web-%npm_package_version%.vsix",
+    "publish": "vsce publish --no-dependencies",
+    "publish:web": "vsce publish --no-dependencies --target web",
+    "verify:web-manifest": "node scripts/verify-web-manifest.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.104.0",
+    "typescript": "^5.5.0"
+  },
+  "browser": "./out/extensionWeb.js",
+  "extensionKind": [
+    "ui"
+  ]
+}

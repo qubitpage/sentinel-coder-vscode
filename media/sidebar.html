@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource};">
+  <title>Sentinel Coder</title>
+  <link rel="stylesheet" href="${styleUri}">
+</head>
+<body>
+  <div class="top-bar">
+    <div class="model-select">
+      <select id="model-select" title="Select model">
+        <option value="">Loading models...</option>
+      </select>
+    </div>
+    <button class="icon-btn" id="btn-refresh" title="Refresh models">&#x21bb;</button>
+    <button class="icon-btn" id="btn-new-chat" title="New chat">&#x2716;</button>
+    <button class="icon-btn" id="btn-history" title="Chat history">&#x1F5C2;</button>
+    <button class="icon-btn" id="btn-settings" title="Configure tools, providers, skills, agentic profiles and context">&#x2699;</button>
+  </div>
+  <div class="mode-bar">
+    <button class="mode-tab active" data-mode="agent">Agent</button>
+    <button class="mode-tab" data-mode="ask">Ask</button>
+    <button class="mode-tab" data-mode="plan">Plan</button>
+    <button class="boss-toggle" id="boss-toggle" title="Legacy boss mode; Agentic Profiles are preferred">Boss</button>
+  </div>
+  <div class="approval-bar" id="approval-bar">
+    <label>Approvals:</label>
+    <button class="approval-btn active" data-approval="default" title="Ask before each tool use and show manual Continue">Default</button>
+    <button class="approval-btn" data-approval="bypass" title="Auto-approve safe/moderate tools, ask for dangerous, manual Continue">Bypass</button>
+    <button class="approval-btn" data-approval="autopilot" title="Auto-approve all tools and auto-continue until done">Autopilot</button>
+    <button class="approval-btn firewall-toggle" id="btn-firewall" title="When enabled, ask the agent to run firewallScan before finalizing risky code or publish/deploy steps">Firewall: Off</button>
+  </div>
+  <div class="status-bar">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Connecting...</span>
+    <span style="flex:1"></span>
+    <span id="mode-label">Agent</span>
+  </div>
+  <div class="chat-container" id="chat-container"></div>
+  <div class="typing-indicator" id="typing">Sentinel is thinking...</div>
+  <div class="input-toolbar" id="input-toolbar">
+    <button class="mini-btn" id="btn-attach" title="Attach image/file path to prompt">Attach</button>
+    <button class="mini-btn" id="btn-paste-path" title="Paste clipboard as a quoted path/reference">Paste Path</button>
+    <span class="input-hint">Drop images/files or paste paths. Use Firewall for security scan prompts.</span>
+  </div>
+  <input id="file-input" type="file" multiple accept="image/*,.txt,.md,.json,.yaml,.yml,.log,.csv" hidden>
+  <div class="input-area">
+    <textarea id="user-input" placeholder="Ask Sentinel Coder..." rows="1"></textarea>
+    <button class="send-btn" id="send-btn">Send</button>
+    <button class="stop-btn" id="stop-btn">Stop</button>
+  </div>
+  <div class="sessions-overlay" id="sessions-panel">
+    <div class="settings-header">
+      <span>Chat History</span>
+      <button class="icon-btn" id="btn-close-sessions">&times;</button>
+    </div>
+    <div class="settings-toolbar">
+      <button class="action-btn primary" id="btn-session-new">New chat</button>
+    </div>
+    <div id="session-list" class="session-list"></div>
+  </div>
+  <div class="settings-overlay" id="settings-panel">
+    <div class="settings-header">
+      <span>Sentinel Settings</span>
+      <button class="icon-btn" id="btn-close-settings">&times;</button>
+    </div>
+    <div class="settings-tabs">
+      <button class="settings-tab active" data-stab="agentic">Agentic</button>
+      <button class="settings-tab" data-stab="context">Context</button>
+      <button class="settings-tab" data-stab="models">Models</button>
+      <button class="settings-tab" data-stab="providers">Providers</button>
+      <button class="settings-tab" data-stab="skills">Skills</button>
+      <button class="settings-tab" data-stab="tools">Tools</button>
+      <button class="settings-tab" data-stab="mcp">MCP</button>
+      <button class="settings-tab" data-stab="general">General</button>
+    </div>
+    <div class="settings-content" id="settings-content">
+      <section class="settings-pane" id="settings-agentic">
+        <h3>Agentic Profiles</h3>
+        <p class="settings-help">Create/delete/edit orchestration workflows: choose the main model, worker pool, reviewer pool, cost policy, and max parallel sub-agents. Profiles appear dynamically in the chat model selector as <strong>Agentic: ...</strong>.</p>
+        <div class="settings-toolbar">
+          <button class="action-btn primary" id="btn-agentic-new">+ New profile</button>
+          <button class="action-btn" id="btn-agentic-refresh">Refresh</button>
+        </div>
+        <div id="agentic-profile-list"></div>
+        <div id="agentic-editor" class="inline-editor" style="display:none">
+          <input id="agentic-id" type="hidden">
+          <label>Name <input id="agentic-name" type="text" placeholder="Premium Architect"></label>
+          <label>Description <input id="agentic-desc" type="text" placeholder="GPT-5.5 boss, GPT-4.1/Grok workers"></label>
+          <label>Main/orchestrator model <select id="agentic-main"></select></label>
+          <label>Worker models <select id="agentic-workers" multiple size="6"></select><span class="settings-help">Hold Ctrl/Cmd or Shift to select multiple configured models.</span></label>
+          <label>Reviewer models <select id="agentic-reviewers" multiple size="5"></select><span class="settings-help">Choose from configured Azure/OpenRouter/Groq/local/etc models.</span></label>
+          <label>Default worker <select id="agentic-default-worker"></select></label>
+          <div class="form-row">
+            <label>Cost policy <select id="agentic-cost"><option value="quality-first">quality-first</option><option value="balanced">balanced</option><option value="cost-first">cost-first</option><option value="novelty-lab">novelty-lab</option></select></label>
+            <label>Max parallel <input id="agentic-max" type="number" min="1" max="5" value="3"></label>
+          </div>
+          <label class="checkbox-row"><input id="agentic-premium" type="checkbox" checked> Allow premium workers for hard tasks</label>
+          <label class="checkbox-row"><input id="agentic-cheap-fallback" type="checkbox" checked> Allow cheap/free fallback</label>
+          <label>Profile instructions<textarea id="agentic-instructions" rows="5"></textarea></label>
+          <div class="settings-toolbar"><button class="action-btn primary" id="btn-agentic-save">Save profile</button><button class="action-btn" id="btn-agentic-cancel">Cancel</button></div>
+        </div>
+      </section>
+      <section class="settings-pane" id="settings-context" style="display:none">
+        <h3>Dynamic Context</h3>
+        <p class="settings-help">Automatically refresh current editor, open tabs, diagnostics, git status, recent diff summary, and provider/model metadata into each turn. This reduces manual context updates while staying bounded to save tokens.</p>
+        <div class="inline-editor">
+          <label class="checkbox-row"><input id="ctx-enabled" type="checkbox" checked> Enable automatic dynamic context</label>
+          <label class="checkbox-row"><input id="ctx-active" type="checkbox" checked> Include active file/selection snapshot</label>
+          <label class="checkbox-row"><input id="ctx-tabs" type="checkbox" checked> Include open tabs</label>
+          <label class="checkbox-row"><input id="ctx-diag" type="checkbox" checked> Include VS Code diagnostics</label>
+          <label class="checkbox-row"><input id="ctx-git" type="checkbox" checked> Include git status</label>
+          <label class="checkbox-row"><input id="ctx-diff" type="checkbox" checked> Include recent diff summary</label>
+          <label class="checkbox-row"><input id="ctx-provider" type="checkbox" checked> Include provider/model metadata</label>
+          <label>Token-saving character budget <input id="ctx-maxchars" type="number" min="2000" max="50000" value="12000"></label>
+          <div class="settings-toolbar"><button class="action-btn primary" id="btn-ctx-save">Save dynamic context settings</button></div>
+        </div>
+      </section>
+      <section class="settings-pane" id="settings-models" style="display:none"><h3>Models</h3><div class="settings-toolbar"><button class="action-btn" id="btn-model-refresh">Refresh models</button><button class="action-btn" id="btn-pull-model">Pull Ollama model</button></div><div id="model-list-settings"></div></section>
+      <section class="settings-pane" id="settings-providers" style="display:none"><h3>Providers</h3><div id="provider-list"></div></section>
+      <section class="settings-pane" id="settings-skills" style="display:none"><h3>Skills</h3><div class="settings-toolbar"><button class="action-btn primary" id="btn-skill-new">+ New skill</button><button class="action-btn" id="btn-skill-import">Import from workspace</button><button class="action-btn" id="btn-skill-refresh">Refresh</button></div><div id="skill-list"></div><div id="skill-editor" class="inline-editor" style="display:none"><label>Name <input id="skill-name" type="text"></label><label>Description <input id="skill-desc" type="text"></label><label>Body <textarea id="skill-body" rows="10"></textarea></label><div class="settings-toolbar"><button class="action-btn primary" id="btn-skill-save">Save skill</button><button class="action-btn" id="btn-skill-cancel">Cancel</button></div></div></section>
+      <section class="settings-pane" id="settings-tools" style="display:none"><h3>Tools</h3><div id="tool-list"></div></section>
+      <section class="settings-pane" id="settings-mcp" style="display:none"><h3>MCP Servers</h3><div class="settings-toolbar"><button class="action-btn" id="btn-mcp-import">Import from VS Code</button><button class="action-btn" id="btn-mcp-refresh">Refresh</button></div><div id="mcp-result"></div><div id="mcp-server-list"></div></section>
+      <section class="settings-pane" id="settings-general" style="display:none"><h3>General</h3><div class="inline-editor"><label>Temperature <input id="set-temp" type="range" min="0" max="100" value="30"><span id="set-temp-val">0.30</span></label><label>Max output tokens <input id="set-tokens" type="number" min="0" value="0"></label><div id="set-tokens-hint" class="settings-help"></div><label>Context budget tokens <input id="set-ctxbudget" type="number" min="4000" value="96000"></label><label>Ollama URL <input id="set-url" type="text" placeholder="http://127.0.0.1:11434"></label><div class="settings-toolbar"><button class="action-btn primary" id="btn-save-settings">Save general settings</button></div></div></section>
+    </div>
+  </div>
+  <script src="${scriptUri}"></script>
+</body>
+</html>

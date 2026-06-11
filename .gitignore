@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build/package outputs
+out/
+*.vsix
+*.zip
+*.tgz
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local VS Code/dev state
+.vscode/
+.history/
+*.code-workspace
+
+# Generated/test scratch folders
+.sentinel/
+temp/
+_agent_e2e_ws/
+_persist_test_ws/
+_inspect_vsix/
+_inspect*/
+_inspect_*/
+
+# Local one-off scripts and generated assets
+_*.js
+_*.py
+*.ps1
+assets/icon_new.png
+
+# Environment/secrets
+.env
+.env.*
+*.local
+secrets.*
+*.pem
+*.key
