@@ -303,6 +303,7 @@ Command Palette commands include:
 ## Full documentation
 
 - [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md)
+- [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md)
 - [VS Code Web Marketplace Fix 3.16.9](docs/VS_CODE_WEB_MARKETPLACE_FIX_3_16_9.md)
 - [Azure Cost Hard Critique and Agentic Routing Plan](docs/AZURE_COST_HARD_CRITIQUE_AND_AGENTIC_ROUTING_PLAN.md)
 - [Agentic Context Cost Optimization Report](docs/AGENTIC_CONTEXT_COST_OPTIMIZATION_REPORT.md)
