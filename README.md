@@ -4,11 +4,11 @@
 
 ### Autonomous AI coding + Agentic Profiles + Media & Document Studio for Visual Studio Code
 
-**Multi-provider chat · Categorized live model selector · Single-model full-capability mode · Opt-in Agentic orchestration · Azure/OpenAI/Anthropic/Groq/OpenRouter/Ollama and OpenAI-compatible providers · Sora video · Image/audio/document Studio · VS Code Web + Remote Tool Bridge**
+**Multi-provider chat Ã‚Â· Categorized live model selector Ã‚Â· Single-model full-capability mode Ã‚Â· Opt-in Agentic orchestration Ã‚Â· Azure/OpenAI/Anthropic/Groq/OpenRouter/Ollama and OpenAI-compatible providers Ã‚Â· Sora video Ã‚Â· Image/audio/document Studio Ã‚Â· VS Code Web + Remote Tool Bridge**
 
-Built by [QubitPage Research](https://github.com/qubitpage) · MIT licensed
+Built by [QubitPage Research](https://github.com/qubitpage) Ã‚Â· MIT licensed
 
-[GitHub repository](https://github.com/qubitpage/sentinel-coder-vscode) · [Contributing guide](https://github.com/qubitpage/sentinel-coder-vscode/blob/main/CONTRIBUTING.md) · [Issues and feature requests](https://github.com/qubitpage/sentinel-coder-vscode/issues)
+[GitHub repository](https://github.com/qubitpage/sentinel-coder-vscode) Ã‚Â· [Contributing guide](https://github.com/qubitpage/sentinel-coder-vscode/blob/main/CONTRIBUTING.md) Ã‚Â· [Issues and feature requests](https://github.com/qubitpage/sentinel-coder-vscode/issues)
 
 </div>
 
@@ -25,7 +25,7 @@ It is designed around two safe defaults:
 
 ---
 
-## New in 3.16.12
+## New in 3.16.13
 
 - **Security-hardened webviews**: Chat sidebar and Studio renderers now avoid scattered raw HTML assignment for user/workspace data; dynamic cards/lists are rendered through DOM-safe builders or centralized sanitized fragments.
 - **Publish-ready Web compatibility verification**: desktop and web VSIX builds are verified with the web manifest checker and archive hygiene checks before Marketplace upload.
@@ -327,11 +327,11 @@ If the Marketplace says the extension is unavailable on vscode.dev, maintainers 
 cd vscode-ext
 npm run compile
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.12.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.13.vsix
 npm run publish:web
 ```
 
-See [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md) plus this 3.16.12 README for the current web-compatible publish workflow, live Agentic dropdown/add-agent fix, categorized model picker, and adaptive provider-profile templates.
+See [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md) plus this 3.16.13 README for the current web-compatible publish workflow, live Agentic dropdown/add-agent fix, categorized model picker, and adaptive provider-profile templates.
 
 ---
 
@@ -381,7 +381,7 @@ cd vscode-ext
 npm run compile
 npm run package:desktop
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.12.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.13.vsix
 ```
 
 Publish both Marketplace paths when releasing web compatibility:

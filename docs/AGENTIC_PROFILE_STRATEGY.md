@@ -1,6 +1,6 @@
 # Sentinel Coder Agentic Profile Strategy
 
-This document explains the built-in Agentic Profile presets shipped with Sentinel Coder One Studio 3.16.12 and how they should behave across providers.
+This document explains the built-in Agentic Profile presets shipped with Sentinel Coder One Studio 3.16.13 and how they should behave across providers.
 
 ## Core rule
 

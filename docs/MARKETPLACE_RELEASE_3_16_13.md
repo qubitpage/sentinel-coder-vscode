@@ -1,6 +1,6 @@
-# Marketplace Release Notes - 3.16.12
+# Marketplace Release Notes - 3.16.13
 
-Sentinel Coder One Studio 3.16.12 focuses on enterprise readiness, security hardening, documentation, and public onboarding.
+Sentinel Coder One Studio 3.16.13 focuses on enterprise readiness, security hardening, documentation, and public onboarding.
 
 ## Highlights
 

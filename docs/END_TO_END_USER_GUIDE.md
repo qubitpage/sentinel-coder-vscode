@@ -38,7 +38,7 @@ If vscode.dev says the extension is not available, the Marketplace needs the web
 cd vscode-ext
 npm run compile
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.12.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.13.vsix
 npm run publish:web
 ```
 
@@ -411,13 +411,13 @@ cd vscode-ext
 npm run compile
 npm run package:desktop
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.12.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.13.vsix
 ```
 
 Check the packaged README:
 
 ```powershell
-tar -tf sentinel-coder-web-3.16.12.vsix | Select-String "extension/readme.md"
+tar -tf sentinel-coder-web-3.16.13.vsix | Select-String "extension/readme.md"
 ```
 
 Publish:

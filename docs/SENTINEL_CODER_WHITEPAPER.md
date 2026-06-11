@@ -2,7 +2,7 @@
 
 ## Enterprise AI Coding, Multi-Provider Orchestration, and Media-Aware Development inside VS Code
 
-Version target: 3.16.12+
+Version target: 3.16.13+
 
 ---
 
