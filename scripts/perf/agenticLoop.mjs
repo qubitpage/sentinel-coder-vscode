@@ -11,6 +11,10 @@
 
 import https from "node:https";
 
+function writeLine(value = "") {
+  process.stdout.write(String(value) + "\n");
+}
+
 const BASE = process.env.PERF_BASE || "https://api.groq.com/openai/v1";
 const KEY = process.env.PERF_KEY;
 const MODELS = (process.env.PERF_MODELS ||
@@ -93,9 +97,9 @@ async function runAgentic(model) {
 }
 
 (async () => {
-  console.log(`\nAgentic loop E2E (base=${url.hostname})\n`);
-  console.log("model".padEnd(42) + "tool-call".padEnd(12) + "grounded-answer".padEnd(18) + "sample");
-  console.log("-".repeat(100));
+  writeLine(`\nAgentic loop E2E (base=${url.hostname})\n`);
+  writeLine("model".padEnd(42) + "tool-call".padEnd(12) + "grounded-answer".padEnd(18) + "sample");
+  writeLine("-".repeat(100));
   let pass = 0, total = 0;
   for (const model of MODELS) {
     total++;
@@ -103,16 +107,16 @@ async function runAgentic(model) {
       const r = await runAgentic(model);
       const ok = r.step1 && r.step2;
       if (ok) pass++;
-      console.log(
+      writeLine(
         model.padEnd(42) +
         (r.step1 ? "yes" : "NO").padEnd(12) +
         (r.step2 ? "yes" : "NO").padEnd(18) +
         (r.final || r.note)
       );
     } catch (e) {
-      console.log(model.padEnd(42) + ("err: " + e.message.slice(0, 50)));
+      writeLine(model.padEnd(42) + ("err: " + e.message.slice(0, 50)));
     }
   }
-  console.log(`\nAgentic E2E: ${pass}/${total} models completed plan→tool→grounded-answer.\n`);
+  writeLine(`\nAgentic E2E: ${pass}/${total} models completed plan→tool→grounded-answer.\n`);
   process.exit(pass === total ? 0 : 1);
 })();

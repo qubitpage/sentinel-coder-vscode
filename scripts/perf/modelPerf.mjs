@@ -14,6 +14,10 @@
 
 import https from "node:https";
 
+function writeLine(value = "") {
+  process.stdout.write(String(value) + "\n");
+}
+
 const BASE = process.env.PERF_BASE || "https://api.groq.com/openai/v1";
 const KEY = process.env.PERF_KEY;
 const RUNS = Number(process.env.PERF_RUNS || 3);
@@ -172,9 +176,9 @@ const pad = (s, n) => String(s).padEnd(n);
 const num = (v) => (Number.isFinite(v) ? v.toFixed(0) : "-");
 
 (async () => {
-  console.log(`\nSentinel Coder — model perf harness  (base=${url.hostname}, runs=${RUNS})\n`);
-  console.log(pad("model", 42) + pad("TTFT(ms) avg/std", 20) + pad("total(ms) avg", 14) + pad("tok/s avg/min", 16) + "tools");
-  console.log("-".repeat(108));
+  writeLine(`\nSentinel Coder — model perf harness  (base=${url.hostname}, runs=${RUNS})\n`);
+  writeLine(pad("model", 42) + pad("TTFT(ms) avg/std", 20) + pad("total(ms) avg", 14) + pad("tok/s avg/min", 16) + "tools");
+  writeLine("-".repeat(108));
   const summary = [];
   for (const model of MODELS) {
     const ttfts = [], totals = [], tokss = [];
@@ -193,7 +197,7 @@ const num = (v) => (Number.isFinite(v) ? v.toFixed(0) : "-");
     }
     const tt = stats(ttfts), to = stats(totals), tk = stats(tokss);
     const toolStr = toolTotal ? `${toolPass}/${toolTotal}` : "err";
-    console.log(
+    writeLine(
       pad(model, 42) +
       pad(`${num(tt.avg)}/${num(tt.std)}`, 20) +
       pad(num(to.avg), 14) +
@@ -202,10 +206,10 @@ const num = (v) => (Number.isFinite(v) ? v.toFixed(0) : "-");
     );
     summary.push({ model, ttft: tt, total: to, toks: tk, tool: toolStr, err: lastErr });
   }
-  console.log("\nDeviation notes:");
+  writeLine("\nDeviation notes:");
   for (const s of summary) {
     const jitter = s.ttft.avg > 0 ? ((s.ttft.std / s.ttft.avg) * 100).toFixed(0) : "0";
-    console.log(`  ${pad(s.model, 42)} TTFT jitter ${jitter}%  | throughput ${s.toks.avg.toFixed(1)} tok/s  | tool-calling ${s.tool}`);
+    writeLine(`  ${pad(s.model, 42)} TTFT jitter ${jitter}%  | throughput ${s.toks.avg.toFixed(1)} tok/s  | tool-calling ${s.tool}`);
   }
-  console.log("");
+  writeLine("");
 })();

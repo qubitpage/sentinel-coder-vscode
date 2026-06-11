@@ -51,7 +51,7 @@ OpenRouter is especially useful because it can expose many vendor families behin
 | `nex-agi/nex-n2-pro:free` | Free multimodal-capable entry observed in the live catalog snapshot. |
 | `nvidia/nemotron-3.5-content-safety:free` | Free guardrail/safety-oriented model observed in the live catalog snapshot. |
 
-Important: OpenRouter IDs, pricing, rate limits, context windows, and availability can change. Sentinel’s strategy is therefore to use **live discovery** and fallback metadata, not to promise that a static list is complete forever.
+Important: OpenRouter IDs, pricing, rate limits, context windows, and availability can change. Sentinel's strategy is therefore to use **live discovery** and fallback metadata, not to promise that a static list is complete forever.
 
 ### How to use latest Claude/Fable/Opus-style models through OpenRouter
 
@@ -133,7 +133,7 @@ Built-in profile patterns include:
 
 ## What Sentinel can do in VS Code Web / vscode.dev
 
-Browser extensions cannot directly run local terminals, Docker, native SSH, local Ollama, or native MCP tools. Sentinel’s web strategy is to expose as much as possible through:
+Browser extensions cannot directly run local terminals, Docker, native SSH, local Ollama, or native MCP tools. Sentinel's web strategy is to expose as much as possible through:
 
 - VS Code Web-compatible extension entry point,
 - browser-safe UI and workspace APIs,
@@ -154,7 +154,7 @@ Sentinel includes a Studio workflow for generated and inspected assets:
 
 ## Enterprise-grade safeguards
 
-Sentinel’s release workflow emphasizes:
+Sentinel's release workflow emphasizes:
 
 - TypeScript compile checks.
 - Regression tests.

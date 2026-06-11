@@ -4,11 +4,11 @@
 
 ### Autonomous AI coding + Agentic Profiles + Media & Document Studio for Visual Studio Code
 
-**Multi-provider chat · Categorized live model selector · Single-model full-capability mode · Opt-in Agentic orchestration · Azure/OpenAI/Anthropic/Groq/OpenRouter/Ollama and OpenAI-compatible providers · Sora video · Image/audio/document Studio · VS Code Web + Remote Tool Bridge**
+**Multi-provider chat | Categorized live model selector | Single-model full-capability mode | Opt-in Agentic orchestration | Azure/OpenAI/Anthropic/Groq/OpenRouter/Ollama and OpenAI-compatible providers | Sora video | Image/audio/document Studio | VS Code Web + Remote Tool Bridge**
 
-Built by [QubitPage Research](https://github.com/qubitpage) · MIT licensed
+Built by [QubitPage Research](https://github.com/qubitpage) | MIT licensed
 
-[GitHub repository](https://github.com/qubitpage/sentinel-coder-vscode) · [Contributing guide](https://github.com/qubitpage/sentinel-coder-vscode/blob/main/CONTRIBUTING.md) · [Issues and feature requests](https://github.com/qubitpage/sentinel-coder-vscode/issues)
+[GitHub repository](https://github.com/qubitpage/sentinel-coder-vscode) | [Contributing guide](https://github.com/qubitpage/sentinel-coder-vscode/blob/main/CONTRIBUTING.md) | [Issues and feature requests](https://github.com/qubitpage/sentinel-coder-vscode/issues)
 
 </div>
 
@@ -24,6 +24,12 @@ It is designed around two safe defaults:
 2. **Agentic orchestration is opt-in.** Worker/reviewer routing activates only when you intentionally choose a real `Agentic:` profile.
 
 ---
+
+## New in 3.16.18
+
+- **ASCII-safe Marketplace/GitHub landing page**: rebuilt the public README/CHANGELOG text without mojibake-prone separators so feature bullets render cleanly on GitHub and the Visual Studio Marketplace.
+- **Canonical documentation hub**: removed duplicate historical docs and kept one clear path for providers, security/release, donation/community, enterprise setup, whitepaper, pitch deck, VS Code Web, Remote Workspace, and Agentic strategy.
+- **No feature rollback**: preserves the verified 3.16.17/3.16.16 runtime features: multi-session terminal pool, memory guardrails, Remote Workspace command support, Agentic fallback hardening, web package compatibility, and enterprise release gates.
 
 ## New in 3.16.17
 
@@ -65,7 +71,7 @@ It is designed around two safe defaults:
 - **Add follow-up while running**: the Send button becomes a highlighted **Add follow-up** action during active runs so you can queue extra instructions without stopping the agent.
 - **Live provider catalogs and context metadata**: Azure/OpenAI-compatible, OpenRouter, Groq, Anthropic/OpenAI-style, Ollama, and other configured catalogs can refresh model lists, context windows, supported parameters, pricing notes, and capability badges where APIs expose them.
 - **VS Code Web / vscode.dev compatibility workflow**: browser entry point, web workspace capability declarations, web VSIX packaging, and Remote Tool Bridge settings are included.
-- **Expanded public documentation**: see the [Documentation Hub](docs/README.md), [Provider and Settings Guide](docs/PROVIDER_AND_SETTINGS_GUIDE.md), [Enterprise Setup and Operations Guide](docs/ENTERPRISE_SETUP_AND_OPERATIONS.md), [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md), [Agentic Profile Strategy](docs/AGENTIC_PROFILE_STRATEGY.md), [Whitepaper](docs/WHITEPAPER.md), [Pitch Deck](docs/PITCH_DECK.md), [Browser Pitch Deck](docs/pitchdeck.html), [Enterprise Code Quality Audit](docs/ENTERPRISE_CODE_QUALITY_AUDIT.md), and [Security Release Checklist](docs/SECURITY_RELEASE_CHECKLIST.md).
+- **Expanded public documentation**: see the [Documentation Hub](docs/README.md), [Provider and Settings Guide](docs/PROVIDER_AND_SETTINGS_GUIDE.md), [Enterprise Setup and Operations Guide](docs/ENTERPRISE_SETUP_AND_OPERATIONS.md), [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md), [Agentic Profile Strategy](docs/AGENTIC_PROFILE_STRATEGY.md), [Whitepaper](docs/WHITEPAPER.md), [Pitch Deck](docs/PITCH_DECK.md), [Browser Pitch Deck](docs/pitchdeck.html), [Enterprise Code Quality Audit](docs/ENTERPRISE_CODE_QUALITY_AUDIT.md), and [Security and Release Checklist](docs/SECURITY_AND_RELEASE_CHECKLIST.md).
 - **Open-source sustainability**: added public support/donation documentation with PayPal donation link and QR code so users who benefit from the project can help keep it frequently updated.
 
 ---
@@ -83,7 +89,7 @@ It is designed around two safe defaults:
 - [Pitch Deck](docs/PITCH_DECK.md)
 - [Browser Pitch Deck](docs/pitchdeck.html)
 - [Enterprise Code Quality Audit](docs/ENTERPRISE_CODE_QUALITY_AUDIT.md)
-- [Security Release Checklist](docs/SECURITY_RELEASE_CHECKLIST.md)
+- [Security and Release Checklist](docs/SECURITY_AND_RELEASE_CHECKLIST.md)
 - [Donation and Community Guide](docs/DONATION_AND_COMMUNITY.md)
 
 ---
@@ -357,7 +363,7 @@ npm run verify:web-manifest -- sentinel-coder-web-3.16.13.vsix
 npm run publish:web
 ```
 
-See [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md) plus this 3.16.13 README for the current web-compatible publish workflow, live Agentic dropdown/add-agent fix, categorized model picker, and adaptive provider-profile templates.
+See [VS Code Web Browser Support Plan](docs/VS_CODE_WEB_BROWSER_SUPPORT_PLAN.md) plus this README for the current web-compatible publish workflow, live Agentic dropdown/add-agent fix, categorized model picker, and adaptive provider-profile templates.
 
 ---
 
@@ -391,8 +397,7 @@ Command Palette commands include:
 
 - [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md)
 - [Agentic Profile Strategy](docs/AGENTIC_PROFILE_STRATEGY.md)
-- [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md)
-- [VS Code Web Marketplace Fix 3.16.9](docs/VS_CODE_WEB_MARKETPLACE_FIX_3_16_9.md)
+- [VS Code Web Browser Support Plan](docs/VS_CODE_WEB_BROWSER_SUPPORT_PLAN.md)
 - [Azure Cost Hard Critique and Agentic Routing Plan](docs/AZURE_COST_HARD_CRITIQUE_AND_AGENTIC_ROUTING_PLAN.md)
 - [Agentic Context Cost Optimization Report](docs/AGENTIC_CONTEXT_COST_OPTIMIZATION_REPORT.md)
 

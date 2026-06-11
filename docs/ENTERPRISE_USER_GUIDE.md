@@ -1,4 +1,4 @@
-# Sentinel Coder One Studio — Enterprise User Guide
+# Sentinel Coder One Studio - Enterprise User Guide
 
 Sentinel Coder One Studio is an open-source VS Code extension for autonomous coding, multi-provider AI chat, opt-in Agentic Profiles, media/document generation, and secure project automation.
 
@@ -41,9 +41,9 @@ Never commit API keys, provider tokens, `.env` files, local VS Code storage, or 
 
 The chat model selector is organized for real operations:
 
-1. **Agentic Modes** — explicit orchestration profiles. These run worker/reviewer logic only when selected.
-2. **Most used models and modes** — fast access to common daily choices.
-3. **All models by provider** — grouped by provider and pricing category: Local, Free, Free-tier, Subscription, Paid, or Unknown.
+1. **Agentic Modes** - explicit orchestration profiles. These run worker/reviewer logic only when selected.
+2. **Most used models and modes** - fast access to common daily choices.
+3. **All models by provider** - grouped by provider and pricing category: Local, Free, Free-tier, Subscription, Paid, or Unknown.
 
 ### Single-model mode
 
@@ -59,12 +59,12 @@ If you choose an `Agentic:` profile, Sentinel runs deterministic worker/reviewer
 
 Use these as starting points and edit them with live dropdowns:
 
-- **Standard: Single Model** — no orchestration; best for normal coding.
-- **Cost-Saving Boss Orchestrator** — premium model manages low-cost/free workers.
-- **Azure Cost-Smart Production** — strong Azure orchestrator, targeted premium review only when justified.
-- **Free Multi-Provider Agentic Lab** — free/free-tier workers for experimentation and benchmarking.
-- **Security Review Ensemble** — different provider families for adversarial review.
-- **Local/Private Coding** — Ollama or private deployments for sensitive code.
+- **Standard: Single Model** - no orchestration; best for normal coding.
+- **Cost-Saving Boss Orchestrator** - premium model manages low-cost/free workers.
+- **Azure Cost-Smart Production** - strong Azure orchestrator, targeted premium review only when justified.
+- **Free Multi-Provider Agentic Lab** - free/free-tier workers for experimentation and benchmarking.
+- **Security Review Ensemble** - different provider families for adversarial review.
+- **Local/Private Coding** - Ollama or private deployments for sensitive code.
 
 Hard rule: do not use premium workers for every tiny task. Use premium models for architecture, hard debugging, security, financial decisions, and final review.
 
@@ -109,7 +109,7 @@ Hard rule: do not use premium workers for every tiny task. Use premium models fo
 
 ## 6. VS Code Web and Remote Tool Bridge
 
-Browser-hosted VS Code cannot access local machine primitives directly. Sentinel’s web strategy is:
+Browser-hosted VS Code cannot access local machine primitives directly. Sentinel's web strategy is:
 
 - Show browser-safe chat, Studio, settings, and help.
 - Keep web entry code free of Node-only imports.

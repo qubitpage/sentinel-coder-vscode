@@ -315,7 +315,7 @@ Sentinel now refreshes model context-window and max-output metadata from live pr
 
 When an Agentic Profile is selected, Sentinel now resolves `agentic:<profileId>` to the profile's actual main/orchestrator model before choosing the automatic context budget and max-output cap. This ensures live provider metadata such as Azure GPT-5.5 1M context or effective Grok deployment caps are applied correctly in profile mode instead of falling back to the raw `agentic:` selector value.
 
-## 3.16.6 update — Make model usage visible and cap context spend
+## 3.16.6 update - Make model usage visible and cap context spend
 
 The extension now treats large model windows as capacity, not permission to spend the whole window on every turn. Provider metadata can advertise 1M-token context windows, but Sentinel uses the configured `sentinelCoder.contextBudgetTokens` as a deliberate ceiling and summarizes older turns when the conversation exceeds it. This prevents accidental 800K+ token prompts during long autonomous work.
 

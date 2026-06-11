@@ -17,6 +17,10 @@
 
 import https from "node:https";
 
+function writeLine(value = "") {
+  process.stdout.write(String(value) + "\n");
+}
+
 const BASE = process.env.PERF_BASE || "https://api.groq.com/openai/v1";
 const KEY = process.env.PERF_KEY;
 const MODELS = (process.env.PERF_MODELS ||
@@ -135,35 +139,35 @@ async function runOne(model) {
 }
 
 (async () => {
-  console.log(`QA consumption monitor — ${MODELS.length} model(s) building a 3-file Node app`);
-  console.log(`Endpoint: ${BASE}\n`);
+  writeLine(`QA consumption monitor — ${MODELS.length} model(s) building a 3-file Node app`);
+  writeLine(`Endpoint: ${BASE}\n`);
   const rows = [];
   for (const m of MODELS) {
     process.stdout.write(`• ${m} … `);
     try {
       const r = await runOne(m);
       rows.push(r);
-      console.log(
+      writeLine(
         `${r.filesWritten}/3 files, ${r.totalToks} tok (${r.promptToks} in / ${r.completionToks} out), ` +
         `${r.toolCalls} tool call(s), ${r.steps} step(s), ${(r.elapsed / 1000).toFixed(1)}s` +
         (r.cost !== null ? `, ~$${r.cost.toFixed(5)}` : "")
       );
     } catch (e) {
-      console.log(`FAILED: ${e.message}`);
+      writeLine(`FAILED: ${e.message}`);
     }
   }
 
   const ok = rows.filter((r) => r.filesWritten >= 3);
-  console.log("\n── Summary ──────────────────────────────────────────");
-  console.log(`Completed (3/3 files): ${ok.length}/${rows.length}`);
+  writeLine("\n── Summary ──────────────────────────────────────────");
+  writeLine(`Completed (3/3 files): ${ok.length}/${rows.length}`);
   if (ok.length) {
     const leastToks = [...ok].sort((a, b) => a.totalToks - b.totalToks)[0];
     const fastest = [...ok].sort((a, b) => a.elapsed - b.elapsed)[0];
-    console.log(`Most token-efficient: ${leastToks.model} (${leastToks.totalToks} tok)`);
-    console.log(`Fastest end-to-end:   ${fastest.model} (${(fastest.elapsed / 1000).toFixed(1)}s)`);
+    writeLine(`Most token-efficient: ${leastToks.model} (${leastToks.totalToks} tok)`);
+    writeLine(`Fastest end-to-end:   ${fastest.model} (${(fastest.elapsed / 1000).toFixed(1)}s)`);
     const priced = ok.filter((r) => r.cost !== null).sort((a, b) => a.cost - b.cost)[0];
-    if (priced) console.log(`Cheapest (priced):    ${priced.model} (~$${priced.cost.toFixed(5)})`);
-    console.log(`\nRecommended production config: ${leastToks.model} ` +
+    if (priced) writeLine(`Cheapest (priced):    ${priced.model} (~$${priced.cost.toFixed(5)})`);
+    writeLine(`\nRecommended production config: ${leastToks.model} ` +
       `(best token economy at ${leastToks.totalToks} tok, ${(leastToks.elapsed / 1000).toFixed(1)}s, ${leastToks.filesWritten}/3 files).`);
   }
   // Exit non-zero only if NO model completed the build.

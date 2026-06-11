@@ -10,8 +10,7 @@ Welcome to the public documentation for Sentinel Coder One Studio.
 - [Remote Workspace Tools](REMOTE_WORKSPACE_TOOLS.md) - VS Code Remote SSH / Dev Containers / WSL / Codespaces / Tunnels workflow using `remoteWorkspaceCommand` without asking for SSH keys again.
 - [Multi-Provider Model Article](MULTI_PROVIDER_MODEL_ARTICLE.md) - live catalogs, OpenRouter Claude/Fable/Opus-style access, paid/free strategy, Agentic Profiles, Studio, VS Code Web, and enterprise safeguards.
 - [Enterprise Setup and Operations Guide](ENTERPRISE_SETUP_AND_OPERATIONS.md) - Desktop/Web deployment, enterprise workstations, packaging, and operations.
-- [Security Release Checklist](SECURITY_RELEASE_CHECKLIST.md) - scans, package hygiene, secret checks, and publish checklist.
-- [Security and Release Checklist](SECURITY_AND_RELEASE_CHECKLIST.md) - build, package, secret scan, webview hardening, provider/tool routing, and Marketplace gates.
+- [Security and Release Checklist](SECURITY_AND_RELEASE_CHECKLIST.md) - build, package, secret scan, archive hygiene, webview hardening, provider/tool routing, and Marketplace gates.
 
 ## Agentic workflows
 
@@ -22,8 +21,6 @@ Welcome to the public documentation for Sentinel Coder One Studio.
 ## VS Code Web
 
 - [VS Code Web Browser Support Plan](VS_CODE_WEB_BROWSER_SUPPORT_PLAN.md)
-- [VS Code Web and Agentic 3.16.10](VS_CODE_WEB_AND_AGENTIC_3_16_10.md)
-- [VS Code Web Marketplace Fix 3.16.9](VS_CODE_WEB_MARKETPLACE_FIX_3_16_9.md)
 
 ## Public presentation materials
 
