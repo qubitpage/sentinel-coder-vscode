@@ -270,7 +270,7 @@ npm run verify:web-manifest -- sentinel-coder-web-3.16.10.vsix
 npm run publish:web
 ```
 
-See [VS Code Web Marketplace Fix 3.16.9](docs/VS_CODE_WEB_MARKETPLACE_FIX_3_16_9.md).
+See [VS Code Web + Agentic Profile Fix 3.16.10](docs/VS_CODE_WEB_AND_AGENTIC_3_16_10.md) for the current web-compatible publish workflow and live Agentic dropdown/add-agent fix.
 
 ---
 

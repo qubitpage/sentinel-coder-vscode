@@ -1509,9 +1509,9 @@
     var reviewers = selectedAgenticModels("agentic-reviewers");
     return {
       mainModel: (($("agentic-main") && $("agentic-main").value) || "azure:gpt-4.1"),
-      workerModels: workers.length ? workers : ["azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"],
-      reviewerModels: reviewers.length ? reviewers : ["azure:gpt-5.5", "azure:gpt-4.1"],
-      defaultWorkerModel: (($("agentic-default-worker") && $("agentic-default-worker").value) || workers[0] || "azure:gpt-4.1")
+      workerModels: workers,
+      reviewerModels: reviewers,
+      defaultWorkerModel: (($("agentic-default-worker") && $("agentic-default-worker").value) || workers[0] || "")
     };
   }
 
@@ -1522,10 +1522,11 @@
 
   function refreshAgenticModelDropdowns(profile) {
     var draft = profile || currentAgenticEditorDraft();
+    var hasProfile = !!profile;
     var main = draft.mainModel || "azure:gpt-4.1";
-    var workers = (draft.workerModels && draft.workerModels.length) ? draft.workerModels : ["azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"];
-    var reviewers = (draft.reviewerModels && draft.reviewerModels.length) ? draft.reviewerModels : ["azure:gpt-5.5", "azure:gpt-4.1"];
-    var defaultWorker = draft.defaultWorkerModel || workers[0] || "azure:gpt-4.1";
+    var workers = (draft.workerModels && draft.workerModels.length) ? draft.workerModels : (hasProfile ? ["azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"] : []);
+    var reviewers = (draft.reviewerModels && draft.reviewerModels.length) ? draft.reviewerModels : (hasProfile ? ["azure:gpt-5.5", "azure:gpt-4.1"] : []);
+    var defaultWorker = draft.defaultWorkerModel || workers[0] || (hasProfile ? "azure:gpt-4.1" : "");
     populateAgenticModelSelect("agentic-main", main, false);
     populateAgenticModelSelect("agentic-workers", workers, false);
     populateAgenticModelSelect("agentic-reviewers", reviewers, false);
