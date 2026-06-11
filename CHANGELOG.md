@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.16.22 - Chat Model and Agentic Selector Visibility Fix
+
+- Fixed the post-3.16.10 chat selector regression where the top chat dropdown could collapse to an Auto/no-model state when live provider discovery returned no normal models, even though Agentic profiles and fallback model choices were available.
+- The chat model dropdown now always renders Auto routing, Agentic profile modes, most-used choices, and any cached/provider fallback models instead of replacing the selector with a dead "No configured models" option.
+- Agentic profile list updates now immediately refresh the chat selector, so built-in and custom Agentic modes appear even when profile data arrives before or after the provider model list.
+- Strengthened the model selector regression test to block future releases that remove Auto/Agentic dropdown visibility or reintroduce the no-model placeholder.
+
 ## 3.16.21 - Studio Video, Image, File Manager, MCP and RAG Polish
 
 - Expanded Marketplace/GitHub documentation for Studio media generation beyond image-only workflows, including Azure Sora 2 video generation, MP4 playback, sound/volume expectations, storyboard prompts, smoke testing, MAI Image, GPT Image, Azure Speech, Speechmatics transcription, and troubleshooting notes.

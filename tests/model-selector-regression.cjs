@@ -14,6 +14,10 @@ assert(sidebar.includes('appendProviderCostGroups'), 'selector must group all mo
 assert(sidebar.includes('Free') && sidebar.includes('Paid / metered') && sidebar.includes('Local / self-hosted'), 'selector must classify free/paid/local cost groups');
 assert(sidebar.includes('effectiveContextWindow') && sidebar.includes('contextSource') && sidebar.includes('supportsTools'), 'selector labels/tooltips must surface live context/tool metadata');
 assert(sidebar.includes('renderCategorizedChatModelSelect'), 'modelList branch must use categorized renderer');
+assert(sidebar.includes('appendAutoModelOption'), 'chat selector must always include a visible Auto routing option');
+assert(sidebar.includes('renderCategorizedChatModelSelect(data.selected || currentModel || "auto")'), 'modelList branch must render selector even when no provider models are discovered');
+assert(sidebar.includes('renderCategorizedChatModelSelect(currentModel || "auto")'), 'agenticProfileList branch must refresh chat selector when profiles arrive');
+assert(!sidebar.includes('No configured models - add a provider key or enable Ollama'), 'selector must never be replaced with a no-model placeholder that removes Agentic/profile options');
 assert(!sidebar.includes('sentinelFinalProviderDisplayName'), 'stale late selector override must be removed');
 assert(!sidebar.includes('sentinelFinalModelValue'), 'modelList branch must not call undefined sentinelFinalModelValue');
 assert(sidebar.includes('lastGoodModelList'), 'selector must preserve last good model list when live discovery sends Auto-only');

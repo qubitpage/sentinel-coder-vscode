@@ -1816,14 +1816,23 @@
     });
   }
 
+  function appendAutoModelOption(select, selectedValues) {
+    if (!select) return;
+    var group = document.createElement("optgroup");
+    group.label = "Auto routing";
+    group.appendChild(createOption("auto", "Auto (best configured model for this task)", selectedValues, "Sentinel chooses the best available configured model for the task."));
+    select.appendChild(group);
+  }
+
   function renderCategorizedChatModelSelect(selected) {
     if (!modelSelect) return;
     var previous = selected || modelSelect.value || currentModel || "auto";
     var selectedValues = [previous];
     clearNode(modelSelect);
+    appendAutoModelOption(modelSelect, selectedValues);
     appendAgenticModeGroups(modelSelect, selectedValues);
-    appendMostUsedGroup(modelSelect, configuredChatModels(true), selectedValues, true);
-    appendProviderCostGroups(modelSelect, configuredChatModels(true), selectedValues);
+    appendMostUsedGroup(modelSelect, configuredChatModels(false), selectedValues, true);
+    appendProviderCostGroups(modelSelect, configuredChatModels(false), selectedValues);
     appendMissingModelOption(modelSelect, previous);
     modelSelect.value = previous;
   }
@@ -2215,14 +2224,11 @@
           var value = modelOptionValue(m);
           return value && value !== "auto" && value.indexOf("agentic:") !== 0;
         });
+        renderCategorizedChatModelSelect(data.selected || currentModel || "auto");
         if (normalModels.length === 0) {
-          clearNode(modelSelect);
-          var empty = document.createElement("option"); empty.value = ""; empty.textContent = "No configured models - add a provider key or enable Ollama";
-          modelSelect.appendChild(empty);
           statusDot.className = "status-dot disconnected";
-          statusText.textContent = "No configured models";
+          statusText.textContent = "No live provider models discovered - Auto and Agentic profile choices remain available; refresh or configure providers/Ollama.";
         } else {
-          renderCategorizedChatModelSelect();
           statusDot.className = "status-dot connected";
           statusText.textContent = "Connected (" + normalModels.length + " models, categorized by Agentic modes, most used, provider, free/paid, context and tools)";
         }
@@ -2486,6 +2492,7 @@
 
       case "agenticProfileList":
         renderAgenticProfiles(data.profiles || [], data.currentId || "");
+        renderCategorizedChatModelSelect(currentModel || "auto");
         hideAgenticEditor();
         break;
 

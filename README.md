@@ -25,6 +25,12 @@ It is designed around two safe defaults:
 
 ---
 
+## New in 3.16.22
+
+- **Fixed post-3.16.10 chat dropdown visibility regression**: the top chat selector now keeps showing Auto routing, Agentic profile modes, most-used choices, and cached/provider fallback models even when a live provider refresh temporarily returns no normal models.
+- **Agentic modes always remain selectable**: profile updates immediately refresh the chat selector, so built-in and custom Agentic profiles are not hidden by provider catalog outages.
+- **Regression protected**: the model selector test now blocks any future build that replaces the selector with a dead "No configured models" placeholder or removes Auto/Agentic visibility.
+
 ## New in 3.16.21
 
 - **Studio video generation documentation upgrade**: the Marketplace README now explains Azure Sora 2 video generation, MP4 output, prompt structure, size/duration options, audio expectations, smoke testing, and troubleshooting.
