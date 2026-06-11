@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.16.19 - Marketplace Cache Refresh + Verified Enterprise Docs
+
+- Republishes the verified 3.16.18 ASCII-safe landing page, canonical documentation cleanup, and enterprise release-gate updates under a fresh patch version so Microsoft Marketplace Desktop/Web CDN indexes refresh cleanly.
+- Keeps the public GitHub and Marketplace text encoding-safe, with no mojibake-prone separators in the feature headline.
+- Preserves all verified runtime features from 3.16.18, 3.16.17, and 3.16.16: multi-session terminal pool, memory guardrails, Remote Workspace command support, resilient Agentic fallback, VS Code Web compatibility, and strict package hygiene.
+
 ## 3.16.18 - ASCII-Safe Marketplace Landing + Documentation Cleanup
 
 - Rebuilt the GitHub and Visual Studio Marketplace landing text with ASCII-safe separators so broken middle-dot/mojibake characters no longer appear in the feature headline.

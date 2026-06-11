@@ -25,6 +25,12 @@ It is designed around two safe defaults:
 
 ---
 
+## New in 3.16.19
+
+- **Marketplace refresh release**: republishes the verified 3.16.18 ASCII-safe landing page, canonical docs cleanup, and enterprise release-gate updates under a fresh patch version so Microsoft Marketplace CDN/index caches refresh correctly for Desktop and Web users.
+- **No feature rollback**: preserves all verified runtime features from 3.16.18, 3.16.17, and 3.16.16, including multi-session terminal pool, memory guardrails, Remote Workspace command support, resilient Agentic fallback, VS Code Web compatibility, and strict package hygiene.
+- **Enterprise documentation remains canonical**: README, CHANGELOG, provider setup, security/release checklist, hard critique roadmap, contribution, donation/community, whitepaper, and pitch deck links stay consolidated and encoding-safe.
+
 ## New in 3.16.18
 
 - **ASCII-safe Marketplace/GitHub landing page**: rebuilt the public README/CHANGELOG text without mojibake-prone separators so feature bullets render cleanly on GitHub and the Visual Studio Marketplace.
