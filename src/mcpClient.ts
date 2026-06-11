@@ -79,13 +79,26 @@ class McpServerConnection {
       throw new Error(this._lastError);
     }
 
-    this._outputChannel.appendLine(`[MCP] Starting server: ${this.config.name} → ${this.config.command} ${this.config.args.join(" ")}`);
+    const command = String(this.config.command || "").trim();
+    const mcpArgv = Array.isArray(this.config.args) ? this.config.args.map((arg) => String(arg)) : [];
+    const commandLooksSafe = /^[A-Za-z0-9_.-]+(?:\.cmd|\.exe|\.bat)?$/.test(command) || path.isAbsolute(command);
+    if (!command || !commandLooksSafe || /[\r\n\u0000<>|&;]/.test(command)) {
+      this._lastError = "Invalid MCP command. Use an executable name such as npx/node/python, or an absolute executable path.";
+      throw new Error(this._lastError);
+    }
+    if (mcpArgv.some((arg) => /[\r\n\u0000]/.test(arg))) {
+      this._lastError = "Invalid MCP argument.";
+      throw new Error(this._lastError);
+    }
+
+    this._outputChannel.appendLine(`[MCP] Starting server: ${this.config.name} -> ${command} ${mcpArgv.join(" ")}`);
 
     try {
-      this._process = child_process.spawn(this.config.command, this.config.args, {
+      this._process = child_process.spawn(command, mcpArgv, {
         stdio: ["pipe", "pipe", "pipe"],
         env: { ...process.env, ...this.config.env },
-        shell: true,
+        shell: false,
+        windowsHide: true,
       });
 
       this._process.on("error", (err) => {

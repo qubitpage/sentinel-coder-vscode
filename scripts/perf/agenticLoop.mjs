@@ -6,7 +6,7 @@
 // tool calling) against a real provider. No mocks.
 //
 // Usage:
-//   $env:PERF_KEY=(Select-String -Path D:\api_keys.txt -Pattern 'gsk_[A-Za-z0-9]{20,}' | Select -First 1).Matches.Value
+//   $env:PERF_KEY="<provider-api-key>"
 //   node scripts/perf/agenticLoop.mjs
 
 import https from "node:https";

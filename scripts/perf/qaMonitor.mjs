@@ -10,8 +10,8 @@
 //   2) create server.js         (writeFile)
 //   3) create README.md         (writeFile) + final summary
 //
-// Usage (Groq, free):
-//   $env:PERF_KEY=(Select-String -Path D:\api_keys.txt -Pattern 'gsk_[A-Za-z0-9]{20,}' | Select -First 1).Matches.Value
+// Usage (OpenAI-compatible provider):
+//   $env:PERF_KEY="<provider-api-key>"
 //   node scripts/perf/qaMonitor.mjs
 // Optional: PERF_BASE, PERF_MODELS (comma list), PERF_PRICES ("model=in/out,..." $ per 1M tokens)
 

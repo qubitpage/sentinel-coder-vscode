@@ -7,7 +7,7 @@
 // Runs each model N times to expose run-to-run deviation (min/max/avg/stdev).
 //
 // Usage (PowerShell):
-//   $env:PERF_KEY=(Select-String -Path D:\api_keys.txt -Pattern 'gsk_[A-Za-z0-9]{20,}' | Select -First 1).Matches.Value
+//   $env:PERF_KEY="<provider-api-key>"
 //   node scripts/perf/modelPerf.mjs
 //
 // No secrets are printed. Real API calls only — no mocks.

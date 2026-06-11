@@ -620,16 +620,18 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
   private _getGitStatusPreview(wsFolder: vscode.WorkspaceFolder): string {
     try {
       const cp = require("child_process");
-      const out = cp.execSync("git status --short", { cwd: wsFolder.uri.fsPath, encoding: "utf8", timeout: 1500, windowsHide: true });
-      return String(out || "").trim().split(/\r?\n/).slice(0, 30).join("\n");
+      const res = cp.spawnSync("git", ["status", "--short"], { cwd: wsFolder.uri.fsPath, encoding: "utf8", timeout: 1500, windowsHide: true });
+      if (res.error || res.status !== 0) return "";
+      return String(res.stdout || "").trim().split(/\r?\n/).slice(0, 30).join("\n");
     } catch { return ""; }
   }
 
   private _getRecentChangesPreview(wsFolder: vscode.WorkspaceFolder): string {
     try {
       const cp = require("child_process");
-      const out = cp.execSync("git diff --stat -- .", { cwd: wsFolder.uri.fsPath, encoding: "utf8", timeout: 1800, windowsHide: true });
-      return String(out || "").trim().split(/\r?\n/).slice(0, 20).join("\n");
+      const res = cp.spawnSync("git", ["diff", "--stat", "--", "."], { cwd: wsFolder.uri.fsPath, encoding: "utf8", timeout: 1800, windowsHide: true });
+      if (res.error || res.status !== 0) return "";
+      return String(res.stdout || "").trim().split(/\r?\n/).slice(0, 20).join("\n");
     } catch { return ""; }
   }
 
@@ -1265,7 +1267,12 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
         case "saveDynamicContextSettings": await this._saveDynamicContextSettings(data.settings || data); break;
         case "pullModel": {
           const cp = require("child_process");
-          const proc = cp.spawn("ollama", ["pull", data.model], { shell: true });
+          const modelName = String(data.model || "").trim();
+          if (!modelName || /[\r\n\u0000]/.test(modelName)) {
+            this._view?.webview.postMessage({ type: "pullProgress", progress: "Error: invalid model name" });
+            break;
+          }
+          const proc = cp.spawn("ollama", ["pull", modelName], { shell: false, windowsHide: true });
           proc.stdout?.on("data", (d: Buffer) => {
             this._view?.webview.postMessage({ type: "pullProgress", progress: d.toString().trim() });
           });

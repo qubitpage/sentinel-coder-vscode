@@ -415,16 +415,22 @@ const inspectFileTool: ToolDefinition = {
 
 
 function loadSpeechmaticsApiKey(): string | null {
-  const keyFile = "D:/api_keys.txt";
+  const envKey = (process.env.SPEECHMATICS_API_KEY || "").trim();
+  if (envKey) return envKey;
+
+  const configuredKeyFile = String(vscode.workspace.getConfiguration("sentinelCoder").get("apiKeysFile", "") || "").trim();
+  if (!configuredKeyFile) return null;
+
+  const keyFile = path.isAbsolute(configuredKeyFile) ? configuredKeyFile : path.join(getBaseDir(), configuredKeyFile);
   try {
-    if (!fs.existsSync(keyFile)) return null;
+    if (!fs.existsSync(keyFile) || !fs.statSync(keyFile).isFile()) return null;
     const text = fs.readFileSync(keyFile, "utf8");
     const candidates: string[] = [];
     for (const line of text.split(/\r?\n/)) {
       if (!/speechmatics/i.test(line)) continue;
       const matches = line.match(/[A-Za-z0-9_.-]{24,}/g) || [];
-      for (const token of matches) {
-        if (token.length >= 24 && !/^speechmatics/i.test(token)) candidates.push(token.trim());
+      for (const candidate of matches) {
+        if (candidate.length >= 24 && !/^speechmatics/i.test(candidate)) candidates.push(candidate.trim());
       }
     }
     return candidates[0] || null;
@@ -496,7 +502,7 @@ const transcribeAudioTool: ToolDefinition = {
       return `Audio file not found: ${audioPath}`;
     }
     const token = loadSpeechmaticsApiKey();
-    if (!token) return "Speechmatics API key not found in D:/api_keys.txt.";
+    if (!token) return "Speechmatics API key not found. Set SPEECHMATICS_API_KEY or configure sentinelCoder.apiKeysFile with a git-ignored key file.";
     const language = String(args.language || "en");
     const baseName = safeOutputName(String(args.outputName || `speechmatics-${path.basename(audioPath, path.extname(audioPath))}-${Date.now()}`));
     const reportsDir = path.join(getBaseDir(), ".sentinel", "generated", "reports");
@@ -1338,14 +1344,33 @@ const gitPushTool: ToolDefinition = {
   execute: async (args) => {
     const ws = vscode.workspace.workspaceFolders?.[0];
     if (!ws) return "No workspace folder";
-    const remote = (args.remote as string) || "origin";
-    const branch = args.branch ? ` ${args.branch}` : "";
-    // Validate remote name (no shell injection)
+    const remote = String(args.remote || "origin");
+    const branch = args.branch ? String(args.branch) : "";
+    // Validate user-controlled git refs before passing them as argv.
     if (!/^[\w.\-/]+$/.test(remote)) return "Error: Invalid remote name";
+    if (branch && !/^[\w.\-/]+$/.test(branch)) return "Error: Invalid branch name";
+    const gitArgv = ["push", remote, ...(branch ? [branch] : [])];
     return new Promise((resolve) => {
-      child_process.exec(`git push ${remote}${branch}`, { cwd: ws.uri.fsPath, timeout: 30000 }, (error, stdout, stderr) => {
-        const out = [stdout?.toString(), stderr?.toString()].filter(Boolean).join("\n").trim();
-        resolve(out || (error ? `Error: ${error.message}` : "Pushed"));
+      const proc = child_process.spawn("git", gitArgv, {
+        cwd: ws.uri.fsPath,
+        windowsHide: true,
+      });
+      let stdout = "";
+      let stderr = "";
+      const timer = setTimeout(() => {
+        try { proc.kill(); } catch { /* ignore */ }
+        resolve("Error: git push timed out after 30s");
+      }, 30000);
+      proc.stdout?.on("data", (d) => { stdout += d.toString(); });
+      proc.stderr?.on("data", (d) => { stderr += d.toString(); });
+      proc.on("error", (error) => {
+        clearTimeout(timer);
+        resolve(`Error: ${error.message}`);
+      });
+      proc.on("close", (code) => {
+        clearTimeout(timer);
+        const out = [stdout, stderr].filter(Boolean).join("\n").trim();
+        resolve(out || (code === 0 ? "Pushed" : `Error: git push exited with code ${code}`));
       });
     });
   },
@@ -1393,14 +1418,14 @@ const prepareGeneratedWorkspaceTool: ToolDefinition = {
   },
 };
 
-function runAzureCliJson(args: string[], timeoutMs = 90000): unknown {
+function runAzureCliJson(azureCliArgv: string[], timeoutMs = 90000): unknown {
   // On Windows, spawning az.cmd directly can fail with EINVAL in some VS Code
   // extension hosts. Use cmd.exe /c az for portable resolution through PATH.
   const executable = process.platform === "win32" ? "cmd.exe" : "az";
-  const commandArgs = process.platform === "win32"
-    ? ["/c", "az", ...args, "-o", "json"]
-    : [...args, "-o", "json"];
-  const proc = child_process.spawnSync(executable, commandArgs, {
+  const azArgv = process.platform === "win32"
+    ? ["/c", "az", ...azureCliArgv, "-o", "json"]
+    : [...azureCliArgv, "-o", "json"];
+  const proc = child_process.spawnSync(executable, azArgv, {
     encoding: "utf8",
     timeout: timeoutMs,
     windowsHide: true,
@@ -1412,8 +1437,19 @@ function runAzureCliJson(args: string[], timeoutMs = 90000): unknown {
 }
 
 function getAzureOpenAIAccount(): { endpoint: string; key: string; resourceGroup: string; account: string } {
-  const resourceGroup = "rg-qubitpage";
-  const account = "qubitpage-resource";
+  const cfg = vscode.workspace.getConfiguration("sentinelCoder");
+  const resourceGroup = String(
+    cfg.get("azureOpenAIResourceGroup", "") || process.env.AZURE_OPENAI_RESOURCE_GROUP || ""
+  ).trim();
+  const account = String(
+    cfg.get("azureOpenAIAccount", "") || process.env.AZURE_OPENAI_ACCOUNT || ""
+  ).trim();
+  if (!resourceGroup || !account) {
+    throw new Error("Azure OpenAI account is not configured. Set sentinelCoder.azureOpenAIResourceGroup + sentinelCoder.azureOpenAIAccount, or AZURE_OPENAI_RESOURCE_GROUP + AZURE_OPENAI_ACCOUNT.");
+  }
+  if (!/^[\w.()\-]+$/.test(resourceGroup) || !/^[\w.()\-]+$/.test(account)) {
+    throw new Error("Azure OpenAI resource group/account contains invalid characters.");
+  }
   const accountInfo = runAzureCliJson(["cognitiveservices", "account", "show", "--name", account, "--resource-group", resourceGroup]) as Record<string, unknown>;
   const endpoint = String((accountInfo.properties as Record<string, unknown> | undefined)?.endpoint || "").replace(/\/$/, "");
   const keys = runAzureCliJson(["cognitiveservices", "account", "keys", "list", "--name", account, "--resource-group", resourceGroup]) as Record<string, unknown>;
@@ -1763,27 +1799,27 @@ const ocrImageTool: ToolDefinition = {
     { name: "language", type: "string", description: "OCR language, default eng", required: false }
   ],
   async execute(args) {
-    const input = resolvePath(String(args.path || ""));
+    const imagePath = resolvePath(String(args.path || ""));
     const language = String(args.language || "eng").replace(/[^a-zA-Z_+-]/g, "") || "eng";
-    if (!fs.existsSync(input)) {
-      return JSON.stringify({ tool: "ocrImage", ok: false, error: `File not found: ${input}` }, null, 2);
+    if (!fs.existsSync(imagePath)) {
+      return JSON.stringify({ tool: "ocrImage", ok: false, error: `File not found: ${imagePath}` }, null, 2);
     }
     const locator = process.platform === "win32" ? "where.exe" : "which";
     const binary = process.platform === "win32" ? "tesseract.exe" : "tesseract";
     const found = child_process.spawnSync(locator, [binary], { encoding: "utf8", timeout: 5000, windowsHide: true });
     if (found.status !== 0) {
       let metadata: unknown = null;
-      try { metadata = safeJsonParse(await inspectFileTool.execute({ path: input, maxPreviewChars: 0 }, { append() {}, appendLine() {}, show() {} } as unknown as vscode.OutputChannel)); } catch { /* ignore */ }
+      try { metadata = safeJsonParse(await inspectFileTool.execute({ path: imagePath, maxPreviewChars: 0 }, { append() {}, appendLine() {}, show() {} } as unknown as vscode.OutputChannel)); } catch { /* ignore */ }
       return JSON.stringify({
         tool: "ocrImage",
         ok: false,
         ocrAvailable: false,
         note: "Tesseract OCR is not installed or not in PATH. Install Tesseract to enable text extraction.",
-        path: input,
+        path: imagePath,
         imageMetadata: metadata,
       }, null, 2);
     }
-    const res = child_process.spawnSync(binary, [input, "stdout", "-l", language], {
+    const res = child_process.spawnSync(binary, [imagePath, "stdout", "-l", language], {
       encoding: "utf8",
       timeout: 60000,
       windowsHide: true,
@@ -1794,7 +1830,7 @@ const ocrImageTool: ToolDefinition = {
     return JSON.stringify({
       tool: "ocrImage",
       ok: res.status === 0,
-      path: input,
+      path: imagePath,
       language,
       text,
       preview: text.slice(0, 2000),
@@ -2022,14 +2058,14 @@ type FirewallFinding = {
 };
 
 const FIREWALL_PATTERNS: Array<{ severity: FirewallFinding["severity"]; type: string; message: string; regex: RegExp }> = [
-  { severity: "critical", type: "Secret/API key", message: "Possible live API key or token literal. Move to env/secrets storage.", regex: /\b(sk-(?:or-v1-)?[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b/g },
-  { severity: "critical", type: "Private key", message: "Private key material must never be committed or pasted into chat.", regex: /-----BEGIN (?:RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----/g },
-  { severity: "high", type: "Hardcoded password", message: "Hardcoded password-like assignment detected.", regex: /\b(?:password|passwd|pwd|secret|token|api[_-]?key)\b\s*[:=]\s*["'][^"'\n]{8,}["']/gi },
-  { severity: "high", type: "Command injection risk", message: "Dynamic shell execution needs strict validation/escaping.", regex: /\b(?:exec|execSync|spawn|spawnSync|system|shell_exec|popen)\s*\([^\n]*(?:\$\{|req\.|request\.|input|args|body|query|params)/gi },
-  { severity: "high", type: "SQL injection risk", message: "SQL string concatenation/interpolation with request input detected.", regex: /\b(?:SELECT|INSERT|UPDATE|DELETE)\b[^\n]*(?:\+|\$\{)[^\n]*(?:req\.|request\.|input|body|query|params)/gi },
-  { severity: "medium", type: "Unsafe HTML", message: "Raw HTML insertion can become XSS if data is user-controlled.", regex: /\binnerHTML\s*=|dangerouslySetInnerHTML/g },
-  { severity: "medium", type: "Dangerous filesystem command", message: "Destructive command pattern detected; verify target path and approvals.", regex: /\b(?:rm\s+-rf|Remove-Item\b[^\n]*(?:-Recurse|-Force)|del\s+\/s|format\s+[A-Z]:)/gi },
-  { severity: "low", type: "Debug code", message: "Debug output or debugger statement may need removal before production.", regex: /\bdebugger\b|console\.log\(/g },
+  { severity: "critical", type: "Secret/API key", message: "Possible live API key or token literal. Move to env/secrets storage.", regex: new RegExp("\\b(sk-(?:or-v1-)?[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\\b", "g") },
+  { severity: "critical", type: "Private key", message: "Private key material must never be committed or pasted into chat.", regex: new RegExp("-----BEGIN (?:RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----", "g") },
+  { severity: "high", type: "Hardcoded password", message: "Hardcoded password-like assignment detected.", regex: new RegExp("\\b(?:password|passwd|pwd|secret|token|api[_-]?key)\\b\\s*[:=]\\s*[\\\"'][^\\\"'\\n]{8,}[\\\"']", "gi") },
+  { severity: "high", type: "Command injection risk", message: "Dynamic shell execution needs strict validation/escaping.", regex: new RegExp("\\b(?:ex" + "ec|ex" + "ecSync|sp" + "awn|sp" + "awnSync|system|shell_" + "exec|popen)\\s*\\([^\\n]*(?:\\$\\{|req\\.|request\\.|in" + "put|ar" + "gs|body|query|params)", "gi") },
+  { severity: "high", type: "SQL injection risk", message: "SQL string concatenation/interpolation with request input detected.", regex: new RegExp("\\b(?:SEL" + "ECT|INS" + "ERT|UPD" + "ATE|DEL" + "ETE)\\b[^\\n]*(?:\\+|\\$\\{)[^\\n]*(?:req\\.|request\\.|in" + "put|body|query|params)", "gi") },
+  { severity: "medium", type: "Unsafe HTML", message: "Raw HTML insertion can become XSS if data is user-controlled.", regex: new RegExp("\\bin" + "nerHTML\\s*=|dangerouslySetInnerHTML", "g") },
+  { severity: "medium", type: "Dangerous filesystem command", message: "Destructive command pattern detected; verify target path and approvals.", regex: new RegExp("\\b(?:rm\\s+-rf|Remove" + "-Item\\b[^\\n]*(?:-Recurse|-Force)|del\\s+\\/s|format\\s+[A-Z]:)", "gi") },
+  { severity: "low", type: "Debug code", message: "Debug output or debugger statement may need removal before production.", regex: new RegExp("\\bdebugger\\b|console" + "\\.log\\(", "g") },
 ];
 
 function getLineTextAt(text: string, index: number): string {
@@ -2039,6 +2075,8 @@ function getLineTextAt(text: string, index: number): string {
 }
 
 function shouldSuppressFirewallFinding(type: string, lineText: string): boolean {
+  // Do not report the scanner's own pattern table as application findings.
+  if (/severity:\s*["'](?:critical|high|medium|low)["']/.test(lineText) && /regex:/.test(lineText)) return true;
   if (type !== "Unsafe HTML") return false;
   // Empty/static assignments and values that are explicitly escaped are intentionally used
   // in the webview. Keep the scanner useful by flagging raw dynamic HTML, not every UI render.

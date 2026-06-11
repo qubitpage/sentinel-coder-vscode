@@ -69,6 +69,10 @@
     return d.innerHTML;
   }
 
+  function attr(t) {
+    return esc(t).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
   function isChatNearBottom() {
     if (!chatContainer) return true;
     var remaining = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
@@ -264,7 +268,7 @@
     if (!suggestedPrompts || !suggestedPrompts.length) return "";
     return '<div class="suggestion-strip" aria-label="Suggested agent actions">' +
       suggestedPrompts.map(function (item) {
-        return '<button class="suggestion-chip" type="button" data-suggested-prompt="' + esc(item.prompt).replace(/"/g, '&quot;') + '">' + esc(item.label) + '</button>';
+        return '<button class="suggestion-chip" type="button" data-suggested-prompt="' + attr(item.prompt) + '">' + esc(item.label) + '</button>';
       }).join("") +
       '</div>';
   }
@@ -284,7 +288,12 @@
     var div = document.createElement("div");
     div.className = "message " + role;
     if (role === "assistant") div.innerHTML = renderMd(content);
-    else if (role === "system") div.innerHTML = content;
+    else if (role === "system") {
+      var note = document.createElement("div");
+      note.className = "system-note";
+      note.textContent = content;
+      div.appendChild(note);
+    }
     else div.textContent = content;
     chatContainer.appendChild(div);
     followChatOutput();
@@ -292,7 +301,19 @@
   }
 
   function addSystemNote(content) {
-    return addMessage("system", '<div class="system-note">' + content + '</div>');
+    return addMessage("system", content);
+  }
+
+  function addSystemHtml(html) {
+    var div = document.createElement("div");
+    div.className = "message system";
+    var note = document.createElement("div");
+    note.className = "system-note";
+    note.innerHTML = html;
+    div.appendChild(note);
+    chatContainer.appendChild(div);
+    followChatOutput();
+    return div;
   }
 
 
@@ -315,8 +336,8 @@
       '<div class="media-card-title">Generated ' + esc(kind) + '</div>' +
       '<div class="media-card-path">' + safePath + '</div>' +
       '<div class="media-card-actions">' +
-      '<button class="action-btn" data-action="copy-generated-path" data-path="' + safePath.replace(/"/g, '&quot;') + '">Copy path</button>' +
-      '<button class="action-btn primary" data-action="view-in-studio" data-path="' + safePath.replace(/"/g, '&quot;') + '">View in Studio</button>' +
+      '<button class="action-btn" data-action="copy-generated-path" data-path="' + attr(mediaPath) + '">Copy path</button>' +
+      '<button class="action-btn primary" data-action="view-in-studio" data-path="' + attr(mediaPath) + '">View in Studio</button>' +
       '</div>' +
       '<div class="media-card-note">Preview opens automatically when served by the extension; file path is ready for inspection/opening in Studio.</div>' +
       '</div>';
@@ -335,7 +356,7 @@
       var icon = a.kind === "image" ? "IMG" : "FILE";
       var title = esc(a.path || a.name || '');
       var name = esc(a.name || a.path || 'attachment');
-      return '<span class="attachment-chip" title="' + title + '">' +
+      return '<span class="attachment-chip" title="' + attr(a.path || a.name || '') + '">' +
         '<span class="attachment-chip-icon">' + icon + '</span>' +
         '<span class="attachment-chip-name">' + name + '</span>' +
         '<button class="attachment-remove" data-remove-attachment="' + i + '" title="Remove attachment">x</button>' +
@@ -419,12 +440,12 @@
     card.innerHTML =
       '<div class="tool-header"><span class="tool-icon">&#x2699;</span>' +
       '<span class="tool-name">' + esc(toolName) + '</span>' +
-      '<span class="danger-badge ' + dangerLevel + '">' + dangerLevel + '</span></div>' +
+      '<span class="danger-badge ' + attr(dangerLevel) + '">' + esc(dangerLevel) + '</span></div>' +
       '<div class="tool-desc">' + esc(description) + '</div>' +
       '<div class="tool-args"><pre>' + esc(JSON.stringify(args, null, 2)) + '</pre></div>' +
       '<div class="approval-actions">' +
-      '<button class="action-btn primary" data-action="approve" data-tool="' + esc(toolName) + '">Approve</button>' +
-      '<button class="action-btn" data-action="deny" data-tool="' + esc(toolName) + '">Deny</button></div>';
+      '<button class="action-btn primary" data-action="approve" data-tool="' + attr(toolName) + '">Approve</button>' +
+      '<button class="action-btn" data-action="deny" data-tool="' + attr(toolName) + '">Deny</button></div>';
     chatContainer.appendChild(card);
     followChatOutput();
   }
@@ -610,7 +631,7 @@
     if (!files.length) html += '<div class="status-card-empty">No file checkpoints currently tracked.</div>';
     else html += '<ul class="status-list">' + files.map(function (f) { return '<li><strong>' + esc(f.action || 'changed') + '</strong> <code>' + esc(f.path || f.absolutePath || '') + '</code></li>'; }).join('') + '</ul>';
     html += '<div class="status-card-actions"><button class="action-btn danger" data-action="revert-all-checkpoints">Restore these checkpoints</button></div></div>';
-    addMessage('system', html);
+    addSystemHtml(html);
   }
 
   function showTaskSummary(data) {
@@ -620,7 +641,7 @@
       '<div class="status-card-meta">' + messages.length + ' recent message(s), ' + issues.length + ' issue-like item(s), ' + (data.queued || 0) + ' queued input(s), ' + (data.checkpoints || 0) + ' checkpoint(s)</div>';
     if (issues.length) html += '<div class="status-subtitle">Potential issues</div><ul class="status-list">' + issues.map(function (m) { return '<li><strong>' + esc(m.role) + '</strong>: ' + esc(m.preview) + '</li>'; }).join('') + '</ul>';
     html += '<details class="status-details"><summary>Recent task context</summary><ul class="status-list">' + messages.map(function (m) { return '<li><strong>' + esc(m.role) + '</strong>: ' + esc(m.preview) + '</li>'; }).join('') + '</ul></details></div>';
-    addMessage('system', html);
+    addSystemHtml(html);
   }
 
   ['btn-media-help','btn-open-studio','btn-screenshot','btn-ocr','btn-checkpoints','btn-issues','btn-revert-checkpoints'].forEach(function (id) {
@@ -893,7 +914,17 @@
       var key = t.getAttribute("data-key");
       var inp = $("mcp-env-" + server + "-" + key);
       var val = inp ? inp.value.trim() : "";
-      if (!val) { var mr0 = $("mcp-result"); if (mr0) mr0.innerHTML = '<span class="mcp-err">✗ Enter a value first</span>'; return; }
+      if (!val) {
+        var mr0 = $("mcp-result");
+        if (mr0) {
+          mr0.textContent = "";
+          var err = document.createElement("span");
+          err.className = "mcp-err";
+          err.textContent = "ERROR Enter a value first";
+          mr0.appendChild(err);
+        }
+        return;
+      }
       vscode.postMessage({ type: "setMcpEnv", serverName: server, key: key, value: val });
     }
   });
@@ -1223,8 +1254,8 @@
               pricingBadge(m.pricing, m.pricingNote || "", m.provider) +
             '</div>' +
             '<div class="model-card-action">' +
-            (isActive ? '<span class="active-badge">Active</span>' : '<button class="action-btn" data-action="set-active" data-model="' + esc(m.name) + '">Use</button>') +
-            (m.provider === "ollama" ? ' <button class="action-btn danger" data-action="delete-model" data-model="' + esc(m.name) + '" title="Delete">&#x2715;</button>' : '') +
+            (isActive ? '<span class="active-badge">Active</span>' : '<button class="action-btn" data-action="set-active" data-model="' + attr(m.name) + '">Use</button>') +
+            (m.provider === "ollama" ? ' <button class="action-btn danger" data-action="delete-model" data-model="' + attr(m.name) + '" title="Delete">&#x2715;</button>' : '') +
             '</div></div>' +
           '<div class="model-card-meta">' +
             (ctxLabel ? '<span class="meta-chip" title="Context window: ' + (m.contextWindow || 0).toLocaleString() + ' tokens">' + ctxLabel + '</span>' : '') +
@@ -1443,7 +1474,7 @@
     var defaultWorker = $("agentic-default-worker").value || workers[0] || "";
     vscode.postMessage({ type:"saveAgenticProfile", profile:{ id:$("agentic-id").value||undefined, name:$("agentic-name").value.trim(), description:$("agentic-desc").value.trim(), mainModel:$("agentic-main").value, workerModels:workers, reviewerModels:reviewers, defaultWorkerModel:defaultWorker, costPolicy:$("agentic-cost").value, maxParallelAgents:parseInt($("agentic-max").value||"3"), allowPremiumWorkers:$("agentic-premium").checked, allowCheapFallback:$("agentic-cheap-fallback").checked, instructions:$("agentic-instructions").value.trim() }});
   }
-  function renderAgenticProfiles(profiles,currentId){ agenticProfiles=profiles||[]; currentAgenticProfileId=currentId||currentAgenticProfileId||""; var list=$("agentic-profile-list"); if(!list)return; if(!agenticProfiles.length){list.innerHTML='<p style="font-size:12px;color:var(--desc-fg)">No agentic profiles yet.</p>';return;} list.innerHTML=agenticProfiles.map(function(p){ var active=p.id===currentAgenticProfileId; return '<div class="skill-card"><div style="display:flex;justify-content:space-between;gap:8px"><div><strong>'+esc(p.name)+'</strong> '+(active?'<span class="pill">active</span>':'')+'<br><span style="font-size:11px;color:var(--desc-fg)">'+esc(p.description||'')+'</span></div><div><button class="action-btn" data-agentic-action="select" data-profile="'+esc(p.id)+'">Use</button><button class="action-btn" data-agentic-action="edit" data-profile="'+esc(p.id)+'">Edit</button><button class="action-btn danger" data-agentic-action="delete" data-profile="'+esc(p.id)+'">Delete</button></div></div><div style="font-size:11px;color:var(--desc-fg);margin-top:6px">Main: <code>'+esc(p.mainModel)+'</code><br>Workers: '+esc((p.workerModels||[]).join(', '))+'<br>Reviewers: '+esc((p.reviewerModels||[]).join(', '))+'<br>Policy: '+esc(p.costPolicy||'balanced')+', max: '+esc(String(p.maxParallelAgents||3))+', premium workers: '+(p.allowPremiumWorkers?'yes':'no')+'</div></div>'; }).join(''); }
+  function renderAgenticProfiles(profiles,currentId){ agenticProfiles=profiles||[]; currentAgenticProfileId=currentId||currentAgenticProfileId||""; var list=$("agentic-profile-list"); if(!list)return; if(!agenticProfiles.length){list.innerHTML='<p style="font-size:12px;color:var(--desc-fg)">No agentic profiles yet.</p>';return;} list.innerHTML=agenticProfiles.map(function(p){ var active=p.id===currentAgenticProfileId; return '<div class="skill-card"><div style="display:flex;justify-content:space-between;gap:8px"><div><strong>'+esc(p.name)+'</strong> '+(active?'<span class="pill">active</span>':'')+'<br><span style="font-size:11px;color:var(--desc-fg)">'+esc(p.description||'')+'</span></div><div><button class="action-btn" data-agentic-action="select" data-profile="'+attr(p.id)+'">Use</button><button class="action-btn" data-agentic-action="edit" data-profile="'+attr(p.id)+'">Edit</button><button class="action-btn danger" data-agentic-action="delete" data-profile="'+attr(p.id)+'">Delete</button></div></div><div style="font-size:11px;color:var(--desc-fg);margin-top:6px">Main: <code>'+esc(p.mainModel)+'</code><br>Workers: '+esc((p.workerModels||[]).join(', '))+'<br>Reviewers: '+esc((p.reviewerModels||[]).join(', '))+'<br>Policy: '+esc(p.costPolicy||'balanced')+', max: '+esc(String(p.maxParallelAgents||3))+', premium workers: '+(p.allowPremiumWorkers?'yes':'no')+'</div></div>'; }).join(''); }
 
 
   function renderDynamicContextSettings(settings) {
@@ -1552,15 +1583,15 @@
         '<div class="provider-info">' +
         '<span class="provider-name">' + esc(p.name) + '</span>' +
         '<span class="provider-type">' + esc(p.type) + ' &middot; ' + p.modelCount + ' models</span>' +
-        '<span class="provider-status" id="prov-stat-' + esc(p.id) + '">' + statusLabel + ' &middot; ' + enabledLabel + '</span></div>' +
+        '<span class="provider-status" id="prov-stat-' + attr(p.id) + '">' + statusLabel + ' &middot; ' + enabledLabel + '</span></div>' +
         '<div class="provider-actions">' +
-        (p.type !== "ollama" ? '<input class="provider-key-input" id="provider-key-' + esc(p.id) + '" type="password" placeholder="' + (p.hasKey ? 'Key saved — enter to replace' : 'Paste API key…') + '" value="">' +
-          '<button class="action-btn primary" data-action="save-provider-key" data-provider="' + esc(p.id) + '">Save</button>' +
-          (p.hasKey ? '<button class="action-btn" data-action="test-provider" data-provider="' + esc(p.id) + '">Test</button>' : '') : '') +
-        (p.type !== "ollama" && p.hasKey ? '<button class="action-btn" data-action="provider-balance" data-provider="' + esc(p.id) + '">Balance</button>' : '') +
-        '<button class="action-btn" data-action="toggle-provider" data-provider="' + esc(p.id) + '" data-enabled="' + p.enabled + '">' +
+        (p.type !== "ollama" ? '<input class="provider-key-input" id="provider-key-' + attr(p.id) + '" type="password" placeholder="' + (p.hasKey ? 'Key saved — enter to replace' : 'Paste API key…') + '" value="">' +
+          '<button class="action-btn primary" data-action="save-provider-key" data-provider="' + attr(p.id) + '">Save</button>' +
+          (p.hasKey ? '<button class="action-btn" data-action="test-provider" data-provider="' + attr(p.id) + '">Test</button>' : '') : '') +
+        (p.type !== "ollama" && p.hasKey ? '<button class="action-btn" data-action="provider-balance" data-provider="' + attr(p.id) + '">Balance</button>' : '') +
+        '<button class="action-btn" data-action="toggle-provider" data-provider="' + attr(p.id) + '" data-enabled="' + attr(String(!!p.enabled)) + '">' +
         (p.enabled ? 'Disable' : 'Enable') + '</button></div>' +
-        '<div class="provider-balance" id="prov-bal-' + esc(p.id) + '" style="display:none"></div>';
+        '<div class="provider-balance" id="prov-bal-' + attr(p.id) + '" style="display:none"></div>';
       list.appendChild(item);
     });
   }
@@ -1831,7 +1862,7 @@
         document.querySelectorAll(".approval-btn").forEach(function (b) {
           b.classList.toggle("active", b.getAttribute("data-approval") === data.mode);
         });
-        addMessage("system", "Approval mode changed to <b>" + esc(data.mode) + "</b>");
+        addSystemNote("Approval mode changed to " + (data.mode || "default"));
         break;
 
       case "toolApproval":
@@ -1981,7 +2012,7 @@
           var mcw = typeof data.modelContextWindow === "number" ? data.modelContextWindow : 0;
           var lbl = data.modelLabel ? String(data.modelLabel).split(":").pop() : "model";
           var parts = "<strong>0 = Auto</strong> \u2014 use the selected model's full output limit so long answers are never cut off mid-response.";
-          if (mmo > 0) { parts += " Current model <strong>" + lbl + "</strong>: up to <strong>" + mmo.toLocaleString() + "</strong> output tokens"; if (mcw > 0) { parts += ", <strong>" + mcw.toLocaleString() + "</strong> context window"; } parts += "."; }
+          if (mmo > 0) { parts += " Current model <strong>" + esc(lbl) + "</strong>: up to <strong>" + mmo.toLocaleString() + "</strong> output tokens"; if (mcw > 0) { parts += ", <strong>" + mcw.toLocaleString() + "</strong> context window"; } parts += "."; }
           sth.innerHTML = parts;
         }
         break;
@@ -2023,9 +2054,12 @@
       case "mcpResult": {
         var mr = $("mcp-result");
         if (mr) {
-          mr.innerHTML = '<span class="' + (data.ok ? "mcp-ok" : "mcp-err") + '">' +
-            (data.ok ? "✓ " : "✗ ") + esc(data.message || "") + '</span>';
-          if (data.ok) setTimeout(function () { if (mr) mr.innerHTML = ""; }, 6000);
+          mr.textContent = "";
+          var span = document.createElement("span");
+          span.className = data.ok ? "mcp-ok" : "mcp-err";
+          span.textContent = (data.ok ? "OK " : "ERROR ") + (data.message || "");
+          mr.appendChild(span);
+          if (data.ok) setTimeout(function () { if (mr) mr.textContent = ""; }, 6000);
         }
         break;
       }
@@ -2035,9 +2069,12 @@
   function renderMcpServerList(servers) {
     var list = $("mcp-server-list");
     if (!list) return;
-    list.innerHTML = "";
     if (servers.length === 0) {
-      list.innerHTML = '<p style="font-size:12px;color:var(--desc-fg)">No MCP servers configured. Add servers in VS Code settings (sentinelCoder.mcpServers) or click "Import from VS Code".</p>';
+      var empty = document.createElement("p");
+      empty.style.fontSize = "12px";
+      empty.style.color = "var(--desc-fg)";
+      empty.textContent = 'No MCP servers configured. Add servers in VS Code settings (sentinelCoder.mcpServers) or click "Import from VS Code".';
+      list.appendChild(empty);
       return;
     }
     servers.forEach(function (s) {
@@ -2055,8 +2092,8 @@
             '<label class="mcp-env-label">' + esc(k) +
               (ok ? ' <span class="mcp-ok">● set</span>' : ' <span class="mcp-err">● required</span>') + '</label>' +
             '<div class="mcp-env-input">' +
-              '<input id="mcp-env-' + esc(s.name) + '-' + esc(k) + '" type="' + (isSecret ? 'password' : 'text') + '" placeholder="' + (ok ? 'Saved — enter to replace' : 'Enter value…') + '">' +
-              '<button class="action-btn primary" data-mcp-action="save-env" data-server="' + esc(s.name) + '" data-key="' + esc(k) + '">Save</button>' +
+              '<input id="mcp-env-' + attr(s.name) + '-' + attr(k) + '" type="' + (isSecret ? 'password' : 'text') + '" placeholder="' + (ok ? 'Saved — enter to replace' : 'Enter value…') + '">' +
+              '<button class="action-btn primary" data-mcp-action="save-env" data-server="' + attr(s.name) + '" data-key="' + attr(k) + '">Save</button>' +
             '</div>' +
           '</div>';
       });
@@ -2077,8 +2114,8 @@
           '</div>' +
           '<div class="mcp-server-actions">' +
             (s.connected
-              ? '<button class="action-btn danger" data-mcp-action="stop" data-server="' + esc(s.name) + '">Stop</button>'
-              : '<button class="action-btn primary" data-mcp-action="connect" data-server="' + esc(s.name) + '"' + (canConnect ? '' : ' disabled title="Fill required settings first"') + '>Connect</button>') +
+              ? '<button class="action-btn danger" data-mcp-action="stop" data-server="' + attr(s.name) + '">Stop</button>'
+              : '<button class="action-btn primary" data-mcp-action="connect" data-server="' + attr(s.name) + '"' + (canConnect ? '' : ' disabled title="Fill required settings first"') + '>Connect</button>') +
           '</div>' +
         '</div>' +
         (s.description ? '<div class="mcp-server-desc">' + esc(s.description) + '</div>' : '') +

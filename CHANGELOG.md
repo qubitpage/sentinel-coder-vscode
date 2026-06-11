@@ -151,7 +151,7 @@
 ## 3.15.12
 
 - Added Featherless as a first-class OpenAI-compatible provider with Pro-account model entries and capability metadata.
-- Verified Featherless live API access using the local `D:\api_keys.txt` key without printing secrets.
+- Verified Featherless live API access using a local git-ignored key source without printing secrets.
 - Improved chat file handling for Explorer/clipboard paths: pasted or dropped Windows paths are inserted visibly as local file references, while images/files still save under `.sentinel/attachments`.
 - Preserves queued additional input, visible attachment chips, detailed firewall scan output, and corrected approval-mode semantics.
 

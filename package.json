@@ -231,6 +231,16 @@
           "default": "",
           "description": "(Optional) Path to a text file for bulk-importing API keys. Leave empty to use the Settings > Providers panel instead."
         },
+        "sentinelCoder.azureOpenAIResourceGroup": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Azure OpenAI / Azure AI Foundry resource group used by Azure CLI-backed discovery/media tools. You can also set AZURE_OPENAI_RESOURCE_GROUP."
+        },
+        "sentinelCoder.azureOpenAIAccount": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Azure OpenAI / Azure AI Foundry account/resource name used by Azure CLI-backed discovery/media tools. You can also set AZURE_OPENAI_ACCOUNT."
+        },
         "sentinelCoder.mcpServers": {
           "type": "array",
           "default": [],
