@@ -25,15 +25,16 @@ It is designed around two safe defaults:
 
 ---
 
-## New in 3.16.9
+## New in 3.16.10
 
-- **Standard Single-Model behavior fixed**: stored/current Agentic profiles no longer silently hijack ordinary model selections.
-- **Built-in Standard profile reference**: Settings -> Agentic includes a Standard profile that documents non-orchestrated behavior without forcing worker/reviewer routing.
-- **Dropdown-based Agentic model selection**: Agentic profile model fields use configured model dropdowns instead of typo-prone manual text entry.
+- **Deterministic Agentic orchestration**: when you explicitly select an `Agentic:` profile and the task is substantial, Sentinel now proactively runs the profile worker/reviewer preflight and injects those findings into the main orchestrator turn.
+- **Single models still work at maximum potential**: choosing a normal model keeps a direct single-model flow with the model's detected context/output capability; orchestration only activates for selected Agentic profiles.
+- **Live dropdown Agentic profile editor**: Settings -> Agentic now uses provider/model dropdowns for the main orchestrator and multi-select live model lists for adding worker and reviewer agents under each profile.
+- **Selection preservation during provider refresh**: if Azure/Groq/OpenRouter/OpenAI-compatible provider discovery updates while the profile editor is open, selected agents are preserved instead of disappearing.
+- **Visible agent pools**: profile cards show main model, worker agents, default worker, reviewer agents, policy, premium-worker setting, and max parallel count.
+- **Add follow-up while running**: the Send button becomes a highlighted **Add follow-up** action during active runs so you can queue extra instructions without stopping the agent.
 - **Live provider catalogs and context metadata**: Azure/OpenAI-compatible providers can refresh model lists and context windows from provider APIs, with curated fallback only when live data is unavailable.
-- **Credit-safe context budgeting**: large-context models can be used, but Sentinel does not automatically stuff 1M-token prompts every turn.
 - **VS Code Web / vscode.dev compatibility workflow**: browser entry point, web workspace capability declarations, web VSIX packaging, and a packed-manifest verifier are included.
-- **Reader-safe streaming scroll and focus-safe edits**: chat output no longer yanks you to the bottom while you are reading earlier output, and agent-opened files preserve chat focus.
 - **Expanded public documentation**: see [End-to-End User Guide](docs/END_TO_END_USER_GUIDE.md).
 
 ---
@@ -86,15 +87,18 @@ Use the repository for provider requests, Web compatibility reports, Agentic Pro
 
 ### Agentic Profiles
 
-Agentic Profiles let you define opt-in orchestration:
+Agentic Profiles let you define opt-in orchestration from live model selectors:
 
-- Main/orchestrator model.
-- Worker models.
-- Reviewer models.
+- Main/orchestrator model from the configured provider/model dropdown.
+- Worker agent models via multi-select dropdowns populated from Azure, Groq, OpenRouter, OpenAI-compatible providers, Ollama, and other configured catalogs.
+- Reviewer agent models via multi-select dropdowns.
+- Default worker model chosen from selected workers plus the full live model registry.
 - Cost policy.
 - Maximum parallel agents.
 - Premium-worker and cheap/free fallback policy.
 - Profile-specific instructions.
+
+When a real `Agentic:` profile is selected in Agent mode, Sentinel runs deterministic worker/reviewer preflight for substantial tasks and shows the orchestrator plus sub-agent models in the turn footer. Normal model selections remain single-model and do not auto-orchestrate.
 
 Recommended cost-smart pattern:
 
@@ -262,7 +266,7 @@ If the Marketplace says the extension is unavailable on vscode.dev, maintainers 
 cd vscode-ext
 npm run compile
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.9.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.10.vsix
 npm run publish:web
 ```
 
@@ -314,7 +318,7 @@ cd vscode-ext
 npm run compile
 npm run package:desktop
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.9.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.10.vsix
 ```
 
 Publish both Marketplace paths when releasing web compatibility:

@@ -1,8 +1,8 @@
 {
   "name": "sentinel-coder",
   "displayName": "Sentinel Coder One Studio",
-  "description": "Sentinel Coder One Studio - autonomous AI coding with standard single-model full-capability mode, opt-in Agentic Profiles, Agentic model dropdown selectors, visible orchestrator/sub-agent model usage, credit-safe context budgeting, Azure Foundry live deployment discovery, authoritative live provider model dropdowns, live provider context-window refresh, dynamic context, focus-safe edits, reader-safe streaming scroll, VS Code Web compatibility mode, media/document Studio, safer tools, and multi-provider orchestration.",
-  "version": "3.16.9",
+  "description": "Sentinel Coder One Studio - autonomous AI coding with standard single-model full-capability mode, opt-in deterministic Agentic Profile preflight orchestration, live model dropdown selectors for adding worker/reviewer agents, visible orchestrator/sub-agent model usage, Add follow-up while runs are active, credit-safe context budgeting, Azure Foundry live deployment discovery, authoritative live provider model dropdowns, live provider context-window refresh, dynamic context, focus-safe edits, reader-safe streaming scroll, VS Code Web compatibility mode, media/document Studio, safer tools, and multi-provider orchestration.",
+  "version": "3.16.10",
   "publisher": "Qubitpage",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -49,7 +49,11 @@
     "context-budgeting",
     "cost-optimization",
     "azure-foundry-model-discovery",
-    "full-provider-model-dropdown"
+    "full-provider-model-dropdown",
+    "deterministic-agentic-preflight",
+    "add-follow-up",
+    "agentic-worker-selector",
+    "agentic-reviewer-selector"
   ],
   "galleryBanner": {
     "color": "#0e1117",

@@ -33,13 +33,13 @@ Package locally:
 ```powershell
 npm run package:desktop
 npm run package:web
-npm run verify:web-manifest -- sentinel-coder-web-3.16.9.vsix
+npm run verify:web-manifest -- sentinel-coder-web-3.16.10.vsix
 ```
 
 Install the desktop VSIX locally:
 
 ```powershell
-code --install-extension sentinel-coder-3.16.9.vsix --force
+code --install-extension sentinel-coder-3.16.10.vsix --force
 ```
 
 ## Pull request checklist
@@ -48,7 +48,7 @@ Before opening a pull request:
 
 1. Keep secrets out of source, docs, media, and packaged output.
 2. Run `npm run compile`.
-3. If touching web compatibility, run `npm run package:web` and `npm run verify:web-manifest -- sentinel-coder-web-3.16.9.vsix`.
+3. If touching web compatibility, run `npm run package:web` and `npm run verify:web-manifest -- sentinel-coder-web-3.16.10.vsix`.
 4. If touching packaging/Marketplace docs, verify the packed VSIX includes the intended README/docs.
 5. Add or update documentation for user-visible behavior.
 6. Explain the risk, test evidence, and compatibility impact in the PR description.

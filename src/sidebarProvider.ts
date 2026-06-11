@@ -346,6 +346,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
   private _dynamicContext: DynamicContextSettings = { ...DEFAULT_DYNAMIC_CONTEXT };
   private _lastDynamicContextHash: string = "";
   private _turnAgentUsage: TurnAgentUsage[] = [];
+  private _agenticPreflightContext = "";
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -1847,6 +1848,73 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     }).join("; ");
   }
 
+  private _shouldRunAgenticPreflight(userMessage: string, profile: AgenticProfile | undefined): profile is AgenticProfile {
+    if (!profile || this._mode !== "agent") return false;
+    const text = (userMessage || "").trim();
+    if (text.length < 80) return false;
+    if (/^(continue|ok|yes|no|thanks?|go on)$/i.test(text)) return false;
+    return true;
+  }
+
+  private _agenticPreflightTasks(userMessage: string, profile: AgenticProfile): Array<{ task: string; model: string; label: string }> {
+    const tasks: Array<{ task: string; model: string; label: string }> = [];
+    const trimmed = userMessage.replace(/\s+/g, " ").slice(0, 2000);
+    const defaultWorker = this._resolveSubModel("worker", userMessage, this._profileMainModel(profile));
+    tasks.push({
+      model: defaultWorker,
+      label: "profile worker",
+      task: `Preflight as the active Agentic Profile worker for ${profile.name}. Read the user request, identify concrete implementation/research/test steps, pitfalls, and concise recommendations for the main orchestrator. User request: ${trimmed}`,
+    });
+
+    const highRisk = /\b(publish|marketplace|deploy|production|security|secret|api key|token|firewall|finance|financial|architecture|refactor|database|payment|auth|oauth|ssh|server)\b/i.test(userMessage);
+    if (highRisk && profile.reviewerModels.length && profile.maxParallelAgents > 1) {
+      const reviewer = this._resolveSubModel("reviewer", userMessage, this._profileMainModel(profile));
+      if (reviewer !== defaultWorker || profile.allowPremiumWorkers) {
+        tasks.push({
+          model: reviewer,
+          label: "profile reviewer",
+          task: `Preflight hard review for ${profile.name}. Critique risks, security/cost/performance tradeoffs, missing verification, and what the main orchestrator must not skip. User request: ${trimmed}`,
+        });
+      }
+    }
+    return tasks.slice(0, Math.max(1, Math.min(profile.maxParallelAgents || 1, 2)));
+  }
+
+  private async _runAgenticPreflightIfNeeded(userMessage: string, modelId: string, temperature: number, maxTokens: number): Promise<void> {
+    this._agenticPreflightContext = "";
+    const profile = this._activeAgenticProfile();
+    if (!this._shouldRunAgenticPreflight(userMessage, profile)) return;
+
+    const tasks = this._agenticPreflightTasks(userMessage, profile);
+    if (!tasks.length) return;
+    this._emit({
+      type: "systemNote",
+      content: `Agentic Profile preflight active: ${profile.name}. Running ${tasks.length} profile sub-agent(s) before the main orchestrator.`,
+    });
+
+    const runs = tasks.map(async (t) => {
+      const started = Date.now();
+      try {
+        const result = await this._runSubAgent(t.task, t.model, `Active profile: ${profile.name}\nMain model: ${modelId}\nCost policy: ${profile.costPolicy}\nInstructions: ${profile.instructions}`, temperature, Math.min(maxTokens, 8192));
+        this._recordAgentUsage("subagent", t.model, t.label, t.task, Date.now() - started, result.length);
+        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: "success", content: `${t.label} (${t.model})\n${result.slice(0, 3000)}` });
+        return `### ${t.label} (${t.model})\n${result.slice(0, 5000)}`;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this._recordAgentUsage("subagent", t.model, t.label, t.task, Date.now() - started, msg.length);
+        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: "error", content: `${t.label} (${t.model}) failed: ${msg}` });
+        return `### ${t.label} (${t.model})\nERROR: ${msg}`;
+      }
+    });
+
+    const results = await Promise.all(runs);
+    this._agenticPreflightContext = `\n\nAGENTIC PREFLIGHT RESULTS (already run by the selected profile; use them, verify them, and do not repeat them blindly):\n${results.join("\n\n").slice(0, 12000)}`;
+  }
+
+  private _systemPromptWithAgenticPreflight(): string {
+    return this._getSystemPrompt() + (this._agenticPreflightContext || "");
+  }
+
   /** Separate thinking from visible content */
   private _processStreamChunk(rawResponse: string) {
     const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
@@ -1867,7 +1935,9 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
   private async _runSimpleChat(modelId: string, temperature: number, maxTokens: number) {
     this._resetTurnAgentUsage(modelId);
     const hist = this._activeTurnHistory || this._conversationHistory;
-    const messages: ChatMessage[] = [{ role: "system", content: this._getSystemPrompt() }, ...this._budgetHistory(hist, maxTokens)];
+    const latestUser = [...hist].reverse().find(m => m.role === "user")?.content || "";
+    await this._runAgenticPreflightIfNeeded(latestUser, modelId, temperature, maxTokens);
+    const messages: ChatMessage[] = [{ role: "system", content: this._systemPromptWithAgenticPreflight() }, ...this._budgetHistory(hist, maxTokens)];
     let rawResponse = "";
     let lastThinkSent = "";
 
@@ -1902,14 +1972,16 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
    */
   private async _runNativeAgentLoop(modelId: string, temperature: number, maxTokens: number) {
     this._resetTurnAgentUsage(modelId);
+    const hist = this._activeTurnHistory || this._conversationHistory;
+    const latestUser = [...hist].reverse().find(m => m.role === "user")?.content || "";
+    await this._runAgenticPreflightIfNeeded(latestUser, modelId, temperature, maxTokens);
     const MAX_ITER = 30;
     const toolSpecs = [...this._toolRegistry.getToolSpecs(), ...this._orchestrationSpecs()];
     let assistantTextForHistory = "";
     let completed = false;
 
-    // Session-bound history + live assistant message (updated in place + persisted
-    // as tokens arrive) so partial agent output survives reloads and chat switches.
-    const hist = this._activeTurnHistory || this._conversationHistory;
+    // Session-bound live assistant message (updated in place + persisted as tokens
+    // arrive) so partial agent output survives reloads and chat switches.
     const live: ChatMessage = { role: "assistant", content: "" };
     hist.push(live);
     this._activeTurnAssistant = live;
@@ -1932,7 +2004,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
 
     // Working message list for this turn (includes tool role messages, not persisted verbatim).
     const working: ChatMessage[] = [
-      { role: "system", content: this._getSystemPrompt() },
+      { role: "system", content: this._systemPromptWithAgenticPreflight() },
       ...this._budgetHistory(hist, maxTokens),
     ];
 
@@ -2187,10 +2259,12 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     let completed = false;
     let fullResponse = "";
     const hist = this._activeTurnHistory || this._conversationHistory;
+    const latestUser = [...hist].reverse().find(m => m.role === "user")?.content || "";
+    await this._runAgenticPreflightIfNeeded(latestUser, modelId, temperature, maxTokens);
 
     while (iteration < MAX_ITER) {
       iteration++;
-      const messages: ChatMessage[] = [{ role: "system", content: this._getSystemPrompt() }, ...this._budgetHistory(hist, maxTokens)];
+      const messages: ChatMessage[] = [{ role: "system", content: this._systemPromptWithAgenticPreflight() }, ...this._budgetHistory(hist, maxTokens)];
       let rawIter = "";
       let lastThinkSent = "";
 
@@ -3044,7 +3118,15 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
           <div class="settings-row" style="margin-bottom:8px;flex-wrap:wrap;gap:6px"><button class="action-btn primary" id="btn-agentic-new">+ New profile</button><button class="action-btn" id="btn-agentic-refresh">Refresh</button></div>
           <div id="agentic-editor" class="agentic-editor" style="display:none">
             <input type="hidden" id="agentic-id"><input type="text" id="agentic-name" placeholder="Profile name" style="width:100%;margin-bottom:6px"><input type="text" id="agentic-desc" placeholder="Short description" style="width:100%;margin-bottom:6px">
-            <label>Main/orchestrator model</label><input type="text" id="agentic-main" placeholder="azure:gpt-4.1" style="width:100%;margin-bottom:6px"><label>Worker models</label><textarea id="agentic-workers" rows="3" style="width:100%;margin-bottom:6px"></textarea><label>Reviewer models</label><textarea id="agentic-reviewers" rows="2" style="width:100%;margin-bottom:6px"></textarea><label>Default worker model</label><input type="text" id="agentic-default-worker" style="width:100%;margin-bottom:6px">
+            <label>Main/orchestrator model</label><select id="agentic-main" style="width:100%;margin-bottom:6px"></select>
+            <p style="font-size:11px;color:var(--desc-fg);margin:0 0 6px">Models are populated from the live provider/model registry. Refresh providers first if a deployment is missing.</p>
+            <label>Worker agent models</label>
+            <select id="agentic-workers" multiple size="7" class="agentic-model-multiselect" style="width:100%;margin-bottom:4px"></select>
+            <p style="font-size:11px;color:var(--desc-fg);margin:0 0 6px">Select one or more live models to add as worker agents under this profile. Use Ctrl/Cmd-click or Shift-click for multiple.</p>
+            <label>Reviewer agent models</label>
+            <select id="agentic-reviewers" multiple size="5" class="agentic-model-multiselect" style="width:100%;margin-bottom:4px"></select>
+            <p style="font-size:11px;color:var(--desc-fg);margin:0 0 6px">Reviewers are used for high-risk code, security, architecture, and final-quality checks.</p>
+            <label>Default worker model</label><select id="agentic-default-worker" style="width:100%;margin-bottom:6px"></select>
             <div class="settings-row" style="gap:6px;flex-wrap:wrap"><label>Cost policy <select id="agentic-cost"><option value="quality-first">quality-first</option><option value="balanced">balanced</option><option value="cost-first">cost-first</option><option value="novelty-lab">novelty-lab</option></select></label><label>Max parallel <input type="number" id="agentic-max" min="1" max="5" value="3" style="width:60px"></label><label><input type="checkbox" id="agentic-premium"> Allow premium workers</label><label><input type="checkbox" id="agentic-cheap-fallback" checked> Allow cheap fallback</label></div>
             <textarea id="agentic-instructions" rows="5" placeholder="Profile-specific delegation rules..." style="width:100%;margin:6px 0"></textarea><div class="settings-row" style="gap:6px"><button class="action-btn primary" id="btn-agentic-save">Save profile</button><button class="action-btn" id="btn-agentic-cancel">Cancel</button></div>
           </div><div id="agentic-profile-list"></div>

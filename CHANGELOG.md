@@ -1,3 +1,13 @@
+## 3.16.10 - Deterministic Agentic Profiles + Live Agent Dropdowns
+
+- Added deterministic Agentic Profile preflight for substantial Agent-mode requests: when a real `Agentic:` profile is selected, Sentinel proactively runs the profile worker and, for high-risk tasks, reviewer preflight before the main orchestrator response instead of waiting for the LLM to voluntarily call delegation tools.
+- Preserved standard single-model behavior: normal model selections still use the selected model directly at its detected capability and do not auto-orchestrate.
+- Fixed Agentic Profile settings regression by using live provider/model dropdowns for the main orchestrator plus multi-select worker/reviewer agent pools.
+- Added preservation for open Agentic profile editor selections while live provider discovery refreshes the model registry.
+- Improved Agentic profile cards so selected worker agents, default worker, reviewer agents, policy, and max parallel settings are visible at a glance.
+- Restored a clearly visible **Add follow-up** button state while an agent run is active so users can queue additional instructions without stopping the current run.
+- Kept the web-compatible package path and manifest verification workflow for vscode.dev/VS Code Web.
+
 ## 3.16.9 - Standard Single-Model Mode + VS Code Web Marketplace Packaging
 
 - Added public GitHub community links for Marketplace users: repository, issues/feature requests, and a contribution guide at `https://github.com/qubitpage/sentinel-coder-vscode`.

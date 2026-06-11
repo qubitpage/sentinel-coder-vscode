@@ -1226,9 +1226,27 @@ body {
   white-space: nowrap; flex-shrink: 0;
 }
 .send-btn:hover, .stop-btn:hover { background: var(--btn-hover); }
+.send-btn.queue-active {
+  background: linear-gradient(135deg, #1f7a4d, #2ea043);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(46, 160, 67, 0.45), 0 0 10px rgba(46, 160, 67, 0.22);
+  min-width: 110px;
+}
+.send-btn.queue-active:hover { background: linear-gradient(135deg, #238c58, #3fb950); }
 .stop-btn { display: none; background: #c62828; }
 .stop-btn.active { display: inline-block; }
 .send-btn.hidden { display: none; }
+
+.agentic-model-multiselect {
+  background: var(--input-bg);
+  color: var(--input-fg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  padding: 4px;
+  min-height: 120px;
+}
+.agentic-model-multiselect option { padding: 3px 5px; }
+.agentic-model-multiselect option:checked { background: var(--btn-bg); color: var(--btn-fg); }
 
 .settings-overlay {
   display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;

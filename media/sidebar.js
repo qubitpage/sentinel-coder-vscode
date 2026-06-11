@@ -399,8 +399,9 @@
 
   function setSendButtonQueuedState() {
     if (!sendBtn) return;
-    sendBtn.textContent = isGenerating ? "Add" : "Send";
-    sendBtn.title = isGenerating ? "Send additional instructions without stopping the current run" : "Send message";
+    sendBtn.textContent = isGenerating ? "Add follow-up" : "Send";
+    sendBtn.title = isGenerating ? "Queue/send additional instructions without stopping the current run" : "Send message";
+    sendBtn.classList.toggle("queue-active", !!isGenerating);
   }
 
   function createAssistantMessage() {
@@ -985,7 +986,10 @@
         if (target === "providers") vscode.postMessage({ type: "getProviders" });
         if (target === "mcp") vscode.postMessage({ type: "getMcpStatus" });
         if (target === "skills") vscode.postMessage({ type: "getSkills" });
-        if (target === "agentic") vscode.postMessage({ type: "getAgenticProfiles" });
+        if (target === "agentic") {
+          vscode.postMessage({ type: "refreshModels" });
+          vscode.postMessage({ type: "getAgenticProfiles" });
+        }
         if (target === "context") vscode.postMessage({ type: "getDynamicContextSettings" });
         if (target === "general") vscode.postMessage({ type: "getSettings" });
       });
@@ -1114,6 +1118,14 @@
       });
     }
 
+    var settingsContentChange = $("settings-content");
+    if (settingsContentChange) {
+      settingsContentChange.addEventListener("change", function (e) {
+        if (e.target && (e.target.id === "agentic-workers" || e.target.id === "agentic-reviewers" || e.target.id === "agentic-default-worker")) {
+          refreshAgenticDefaultWorkerFromSelection();
+        }
+      });
+    }
     var tempSlider = $("set-temp");
     if (tempSlider) {
       tempSlider.addEventListener("input", function () {
@@ -1441,15 +1453,83 @@
     return Array.prototype.slice.call(select.selectedOptions || []).map(function (o) { return o.value; }).filter(Boolean);
   }
 
+  function populateAgenticDefaultWorkerSelect(selected, workers) {
+    var select = $("agentic-default-worker");
+    if (!select) return;
+    var preferred = [];
+    (workers || []).forEach(function (value) { if (value && preferred.indexOf(value) === -1) preferred.push(value); });
+    var wanted = selected || preferred[0] || "";
+    select.innerHTML = "";
+    var used = {};
+    if (preferred.length) {
+      var workerGroup = document.createElement("optgroup");
+      workerGroup.label = "Selected worker agents";
+      preferred.forEach(function (value) {
+        var opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = value;
+        opt.title = "Worker agent selected for this profile";
+        workerGroup.appendChild(opt);
+        used[value] = true;
+      });
+      select.appendChild(workerGroup);
+    }
+    var groups = {};
+    configuredChatModels(false).forEach(function (m) {
+      var value = modelOptionValue(m);
+      if (used[value]) return;
+      var provider = (m && m.provider) || (value.split(":")[0] || "configured");
+      if (!groups[provider]) groups[provider] = [];
+      groups[provider].push(m);
+    });
+    Object.keys(groups).sort().forEach(function (provider) {
+      var group = document.createElement("optgroup");
+      group.label = provider.charAt(0).toUpperCase() + provider.slice(1);
+      groups[provider].forEach(function (m) {
+        var opt = document.createElement("option");
+        opt.value = modelOptionValue(m);
+        opt.textContent = modelOptionLabel(m);
+        opt.title = (m && m.pricingNote) || opt.value;
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    });
+    appendMissingModelOption(select, wanted);
+    select.value = wanted || (select.options[0] && select.options[0].value) || "";
+  }
+
+  function refreshAgenticDefaultWorkerFromSelection() {
+    var current = $("agentic-default-worker") ? $("agentic-default-worker").value : "";
+    var workers = selectedAgenticModels("agentic-workers");
+    populateAgenticDefaultWorkerSelect(current || workers[0] || "azure:gpt-4.1", workers);
+  }
+
+  function currentAgenticEditorDraft() {
+    var workers = selectedAgenticModels("agentic-workers");
+    var reviewers = selectedAgenticModels("agentic-reviewers");
+    return {
+      mainModel: (($("agentic-main") && $("agentic-main").value) || "azure:gpt-4.1"),
+      workerModels: workers.length ? workers : ["azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"],
+      reviewerModels: reviewers.length ? reviewers : ["azure:gpt-5.5", "azure:gpt-4.1"],
+      defaultWorkerModel: (($("agentic-default-worker") && $("agentic-default-worker").value) || workers[0] || "azure:gpt-4.1")
+    };
+  }
+
+  function refreshAgenticDropdownsFromCurrentForm() {
+    if (!$("agentic-main") && !$("agentic-workers") && !$("agentic-reviewers")) return;
+    refreshAgenticModelDropdowns(currentAgenticEditorDraft());
+  }
+
   function refreshAgenticModelDropdowns(profile) {
-    var main = profile ? (profile.mainModel || "azure:gpt-4.1") : (($("agentic-main") && $("agentic-main").value) || "azure:gpt-4.1");
-    var workers = profile ? (profile.workerModels || ["azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"]) : (selectedAgenticModels("agentic-workers").length ? selectedAgenticModels("agentic-workers") : ["azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"]);
-    var reviewers = profile ? (profile.reviewerModels || ["azure:gpt-5.5", "azure:gpt-4.1"]) : (selectedAgenticModels("agentic-reviewers").length ? selectedAgenticModels("agentic-reviewers") : ["azure:gpt-5.5", "azure:gpt-4.1"]);
-    var defaultWorker = profile ? (profile.defaultWorkerModel || workers[0] || "azure:gpt-4.1") : (($("agentic-default-worker") && $("agentic-default-worker").value) || workers[0] || "azure:gpt-4.1");
+    var draft = profile || currentAgenticEditorDraft();
+    var main = draft.mainModel || "azure:gpt-4.1";
+    var workers = (draft.workerModels && draft.workerModels.length) ? draft.workerModels : ["azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"];
+    var reviewers = (draft.reviewerModels && draft.reviewerModels.length) ? draft.reviewerModels : ["azure:gpt-5.5", "azure:gpt-4.1"];
+    var defaultWorker = draft.defaultWorkerModel || workers[0] || "azure:gpt-4.1";
     populateAgenticModelSelect("agentic-main", main, false);
     populateAgenticModelSelect("agentic-workers", workers, false);
     populateAgenticModelSelect("agentic-reviewers", reviewers, false);
-    populateAgenticModelSelect("agentic-default-worker", defaultWorker, false);
+    populateAgenticDefaultWorkerSelect(defaultWorker, workers);
   }
 
   function findAgenticProfile(id) { return (agenticProfiles || []).find(function (p) { return p.id === id; }); }
@@ -1474,7 +1554,25 @@
     var defaultWorker = $("agentic-default-worker").value || workers[0] || "";
     vscode.postMessage({ type:"saveAgenticProfile", profile:{ id:$("agentic-id").value||undefined, name:$("agentic-name").value.trim(), description:$("agentic-desc").value.trim(), mainModel:$("agentic-main").value, workerModels:workers, reviewerModels:reviewers, defaultWorkerModel:defaultWorker, costPolicy:$("agentic-cost").value, maxParallelAgents:parseInt($("agentic-max").value||"3"), allowPremiumWorkers:$("agentic-premium").checked, allowCheapFallback:$("agentic-cheap-fallback").checked, instructions:$("agentic-instructions").value.trim() }});
   }
-  function renderAgenticProfiles(profiles,currentId){ agenticProfiles=profiles||[]; currentAgenticProfileId=currentId||currentAgenticProfileId||""; var list=$("agentic-profile-list"); if(!list)return; if(!agenticProfiles.length){list.innerHTML='<p style="font-size:12px;color:var(--desc-fg)">No agentic profiles yet.</p>';return;} list.innerHTML=agenticProfiles.map(function(p){ var active=p.id===currentAgenticProfileId; return '<div class="skill-card"><div style="display:flex;justify-content:space-between;gap:8px"><div><strong>'+esc(p.name)+'</strong> '+(active?'<span class="pill">active</span>':'')+'<br><span style="font-size:11px;color:var(--desc-fg)">'+esc(p.description||'')+'</span></div><div><button class="action-btn" data-agentic-action="select" data-profile="'+attr(p.id)+'">Use</button><button class="action-btn" data-agentic-action="edit" data-profile="'+attr(p.id)+'">Edit</button><button class="action-btn danger" data-agentic-action="delete" data-profile="'+attr(p.id)+'">Delete</button></div></div><div style="font-size:11px;color:var(--desc-fg);margin-top:6px">Main: <code>'+esc(p.mainModel)+'</code><br>Workers: '+esc((p.workerModels||[]).join(', '))+'<br>Reviewers: '+esc((p.reviewerModels||[]).join(', '))+'<br>Policy: '+esc(p.costPolicy||'balanced')+', max: '+esc(String(p.maxParallelAgents||3))+', premium workers: '+(p.allowPremiumWorkers?'yes':'no')+'</div></div>'; }).join(''); }
+  function renderAgenticProfiles(profiles,currentId){
+    agenticProfiles=profiles||[]; currentAgenticProfileId=currentId||currentAgenticProfileId||"";
+    var list=$("agentic-profile-list"); if(!list)return;
+    if(!agenticProfiles.length){list.innerHTML='<p style="font-size:12px;color:var(--desc-fg)">No agentic profiles yet.</p>';return;}
+    list.innerHTML=agenticProfiles.map(function(p){
+      var active=p.id===currentAgenticProfileId;
+      var workers=(p.workerModels||[]);
+      var reviewers=(p.reviewerModels||[]);
+      var defaultWorker=p.defaultWorkerModel||workers[0]||"";
+      return '<div class="skill-card"><div style="display:flex;justify-content:space-between;gap:8px">'+
+        '<div><strong>'+esc(p.name)+'</strong> '+(active?'<span class="pill">active</span>':'')+'<br><span style="font-size:11px;color:var(--desc-fg)">'+esc(p.description||'')+'</span></div>'+
+        '<div><button class="action-btn" data-agentic-action="select" data-profile="'+attr(p.id)+'">Use</button><button class="action-btn" data-agentic-action="edit" data-profile="'+attr(p.id)+'">Edit</button><button class="action-btn danger" data-agentic-action="delete" data-profile="'+attr(p.id)+'">Delete</button></div></div>'+
+        '<div style="font-size:11px;color:var(--desc-fg);margin-top:6px">Main/orchestrator: <code>'+esc(p.mainModel||'auto')+'</code><br>'+
+        'Worker agents ('+workers.length+'): '+(workers.length?esc(workers.join(', ')):'<em>none</em>')+'<br>'+
+        'Default worker: '+(defaultWorker?'<code>'+esc(defaultWorker)+'</code>':'<em>none</em>')+'<br>'+
+        'Reviewer agents ('+reviewers.length+'): '+(reviewers.length?esc(reviewers.join(', ')):'<em>none</em>')+'<br>'+
+        'Policy: '+esc(p.costPolicy||'balanced')+', max parallel: '+esc(String(p.maxParallelAgents||3))+', premium workers: '+(p.allowPremiumWorkers?'yes':'no')+'</div></div>';
+    }).join('');
+  }
 
 
   function renderDynamicContextSettings(settings) {
@@ -1689,7 +1787,8 @@
       case "modelList":
         modelSelect.innerHTML = "";
         cachedModels = data.models || [];
-        if ($("agentic-editor") && $("agentic-editor").style.display !== "none") refreshAgenticModelDropdowns(null);
+        refreshAgenticDropdownsFromCurrentForm();
+        if ($("agentic-editor") && $("agentic-editor").style.display !== "none") refreshAgenticDropdownsFromCurrentForm();
         if (data.agenticProfiles) renderAgenticProfiles(data.agenticProfiles || [], data.currentAgenticProfileId || "");
         if (cachedModels.length === 0) {
           var o = document.createElement("option"); o.value = ""; o.textContent = "No models";
