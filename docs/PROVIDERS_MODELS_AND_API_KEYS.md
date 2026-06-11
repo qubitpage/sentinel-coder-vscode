@@ -53,12 +53,12 @@ Do not place real keys in:
 Example placeholder style:
 
 ```text
-AZURE_OPENAI_API_KEY=<redacted>
-OPENROUTER_API_KEY=<redacted>
-GROQ_API_KEY=<redacted>
+Azure OpenAI API key: store in VS Code Secret Storage or your local environment only.
+OpenRouter API key: store in VS Code Secret Storage or your local environment only.
+Groq API key: store in VS Code Secret Storage or your local environment only.
 ```
 
-Never publish the real value.
+Never publish the real value, and avoid writing assignment-style examples that look like real credentials in public docs.
 
 ---
 
