@@ -1596,12 +1596,49 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
       this._view?.webview.postMessage({ type: "modelList", models: modelItems, selected: this._selectedModel, agenticProfiles: this._agenticProfiles, currentAgenticProfileId: this._currentAgenticProfileId });
     } catch (err) {
       this._outputChannel.appendLine("Refresh models error: " + String(err));
+      const autoOption = {
+        name: "auto", displayName: "Auto (best for task)", provider: "auto", providerType: "auto",
+        contextWindow: 0, maxOutputTokens: 0, pricing: "free", pricingNote: "Picks best model per task",
+        supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true,
+      };
+      const profileItems = this._agenticProfiles.map(p => ({
+        name: `agentic:${p.id}`,
+        displayName: `Agentic: ${p.name}`,
+        provider: "agentic",
+        providerType: "agentic",
+        contextWindow: 0,
+        maxOutputTokens: 0,
+        pricing: p.costPolicy,
+        pricingNote: `Main ${p.mainModel}; workers ${p.workerModels.slice(0, 3).join(", ")}${p.workerModels.length > 3 ? "..." : ""}`,
+        supportsTools: true,
+        supportsThinking: true,
+        supportsVision: false,
+        supportsStreaming: true,
+      }));
+      const cachedItems = this._cachedModels.map(m => ({
+        name: m.id,
+        displayName: m.displayName,
+        provider: m.provider,
+        providerType: m.providerType,
+        contextWindow: m.contextWindow,
+        effectiveContextWindow: m.effectiveContextWindow,
+        maxOutputTokens: m.maxOutputTokens,
+        pricing: m.pricing,
+        pricingNote: m.pricingNote,
+        supportsTools: m.supportsTools,
+        supportedParameters: m.supportedParameters,
+        supportsThinking: m.supportsThinking,
+        supportsVision: m.supportsVision,
+        supportsStreaming: m.supportsStreaming,
+        contextSource: m.contextSource,
+        contextUpdatedAt: m.contextUpdatedAt,
+      }));
       this._view?.webview.postMessage({
         type: "modelList",
-        models: [{ name: "auto", displayName: "Auto (best for task)", provider: "auto", providerType: "auto",
-          contextWindow: 0, maxOutputTokens: 0, pricing: "free", pricingNote: "", supportsTools: true,
-          supportsThinking: true, supportsVision: false, supportsStreaming: true }],
-        selected: this._selectedModel
+        models: [autoOption, ...profileItems, ...cachedItems],
+        selected: this._selectedModel,
+        agenticProfiles: this._agenticProfiles,
+        currentAgenticProfileId: this._currentAgenticProfileId,
       });
     }
   }

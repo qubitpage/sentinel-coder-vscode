@@ -25,6 +25,13 @@ It is designed around two safe defaults:
 
 ---
 
+## New in 3.16.20
+
+- **Fixed Auto-only chat model selector regression**: the chat dropdown now keeps showing configured/discovered provider models instead of collapsing to only `Auto` when one live provider catalog request fails or returns temporarily incomplete metadata.
+- **Fixed model-list JavaScript refresh error**: removed a stale selector helper call that could stop the categorized model picker after the backend sent refreshed models.
+- **Safer provider discovery fallback**: provider catalog/metadata outages are isolated per provider, and unexpected refresh failures reuse cached/provider/profile model data instead of sending an Auto-only list.
+- **Regression tested**: the model selector test now blocks undefined selector helpers and Auto-only replacement behavior before packaging.
+
 ## New in 3.16.19
 
 - **Marketplace refresh release**: republishes the verified 3.16.18 ASCII-safe landing page, canonical docs cleanup, and enterprise release-gate updates under a fresh patch version so Microsoft Marketplace CDN/index caches refresh correctly for Desktop and Web users.

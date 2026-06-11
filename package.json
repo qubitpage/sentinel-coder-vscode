@@ -2,7 +2,7 @@
   "name": "sentinel-coder",
   "displayName": "Sentinel Coder One Studio",
   "description": "Sentinel Coder One Studio - autonomous AI coding with single-model full-capability mode, opt-in Agentic Profiles, live provider model/context discovery, operation-aware native tool routing, VS Code Web remote-tool bridge support, media/document Studio, safer tools, dynamic context, and multi-provider orchestration.",
-  "version": "3.16.19",
+  "version": "3.16.20",
   "publisher": "Qubitpage",
   "icon": "assets/icon.png",
   "license": "MIT",

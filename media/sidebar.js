@@ -54,6 +54,7 @@
   ];
   var maxAutoContinuesPerTask = 50;
   var cachedModels = [];
+  var lastGoodModelList = [];
   var lastSkills = [];
   var editingSkillId = null;
   var dynamicContextSettings = {};
@@ -2191,23 +2192,37 @@
         break;
 
       case "modelList":
-        cachedModels = data.models || [];
+        var incomingModels = Array.isArray(data.models) ? data.models : [];
+        var incomingNormalModels = incomingModels.filter(function (m) {
+          var value = modelOptionValue(m);
+          return value && value !== "auto" && value.indexOf("agentic:") !== 0;
+        });
+        // Never replace a useful dropdown with Auto-only if live provider discovery temporarily fails.
+        // Keep the last known/provider-fallback list so the user can still choose explicit models.
+        if (incomingNormalModels.length > 0) {
+          cachedModels = incomingModels;
+          lastGoodModelList = incomingModels.slice();
+        } else if (lastGoodModelList.length > 0) {
+          cachedModels = lastGoodModelList.slice();
+        } else {
+          cachedModels = incomingModels;
+        }
         if (data.agenticProfiles) renderAgenticProfiles(data.agenticProfiles || [], data.currentAgenticProfileId || "");
         currentModel = data.selected || currentModel || "auto";
         refreshAgenticDropdownsFromCurrentForm();
         if ($("agentic-editor") && $("agentic-editor").style.display !== "none") refreshAgenticDropdownsFromCurrentForm();
-        if (cachedModels.length === 0) {
+        var normalModels = (cachedModels || []).filter(function (m) {
+          var value = modelOptionValue(m);
+          return value && value !== "auto" && value.indexOf("agentic:") !== 0;
+        });
+        if (normalModels.length === 0) {
           clearNode(modelSelect);
-          var empty = document.createElement("option"); empty.value = ""; empty.textContent = "No models";
+          var empty = document.createElement("option"); empty.value = ""; empty.textContent = "No configured models - add a provider key or enable Ollama";
           modelSelect.appendChild(empty);
           statusDot.className = "status-dot disconnected";
           statusText.textContent = "No configured models";
         } else {
           renderCategorizedChatModelSelect();
-          var normalModels = (cachedModels || []).filter(function (m) {
-            var value = sentinelFinalModelValue(m);
-            return value && value !== "auto" && value.indexOf("agentic:") !== 0;
-          });
           statusDot.className = "status-dot connected";
           statusText.textContent = "Connected (" + normalModels.length + " models, categorized by Agentic modes, most used, provider, free/paid, context and tools)";
         }

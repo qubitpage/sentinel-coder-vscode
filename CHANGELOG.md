@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.16.20 - Model Selector Regression Fix
+
+- Fixed the published 3.16.19 chat model selector regression where the picker could show only `Auto` after a live provider model refresh failed, returned an incomplete list, or hit a frontend refresh error.
+- Replaced the stale undefined selector helper call in the `modelList` webview handler with the canonical model-value helper.
+- Hardened model refresh fallback so provider catalog/metadata failures are provider-local and the UI reuses cached/provider/profile model data instead of collapsing to an Auto-only list.
+- Extended regression tests to block undefined selector helpers and Auto-only model replacement before Marketplace packaging.
+
 ## 3.16.19 - Marketplace Cache Refresh + Verified Enterprise Docs
 
 - Republishes the verified 3.16.18 ASCII-safe landing page, canonical documentation cleanup, and enterprise release-gate updates under a fresh patch version so Microsoft Marketplace Desktop/Web CDN indexes refresh cleanly.

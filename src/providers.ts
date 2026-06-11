@@ -920,7 +920,14 @@ export class MultiProviderClient {
 
     for (const provider of this._providers.values()) {
       if (!provider.enabled) continue;
-      const liveMetadata = await this._getProviderLiveModelMetadata(provider);
+      let liveMetadata: Map<string, LiveModelMetadata> | undefined;
+      try {
+        liveMetadata = await this._getProviderLiveModelMetadata(provider);
+      } catch {
+        // Provider catalog/metadata outages must not collapse the whole chat selector to Auto.
+        // Each provider still falls back to its configured curated model list below.
+        liveMetadata = undefined;
+      }
 
       if (provider.type === "ollama") {
         try {
