@@ -82,4 +82,16 @@ const changelogLower = changelog.toLowerCase();
 assert(readme.includes('New in 3.16.16') && readmeLower.includes('multi-session terminal pool'), 'Marketplace README must describe 3.16.16 multi-session terminal pool');
 assert(readme.includes('sentinelCoder.terminalMaxSessions') && readme.includes('sentinelCoder.terminalMinFreeMemoryMb'), 'Marketplace README must document terminal guardrail settings');
 assert(changelog.includes('3.16.16') && changelogLower.includes('multi-session terminal'), 'CHANGELOG must describe 3.16.16 multi-session terminals');
+const sidebar = fs.readFileSync(path.join(root, 'media', 'sidebar.js'), 'utf8');
+
+// 3.16.35+: Agentic Settings CRUD must work when users click nested text/icons inside buttons.
+// Regression: the delegated Settings handler resolved targetEl but some actions still read raw e.target,
+// so Edit/Delete/Select did nothing when the actual click target was a child node.
+assert(sidebar.includes('targetEl = targetEl.closest("button,[data-agentic-action],[data-action],[data-skill-action]") || targetEl'), 'Agentic settings handler must resolve nested clicks to the nearest actionable element');
+assert(!sidebar.includes('e.target.getAttribute("data-agentic-action")'), 'Agentic CRUD actions must not read raw e.target attributes');
+assert(sidebar.includes('targetEl.getAttribute("data-agentic-action") === "edit"'), 'Agentic profile edit action must be wired through delegated targetEl');
+assert(sidebar.includes('showAgenticEditor(ep)'), 'Agentic profile edit must open the in-webview editor');
+assert(sidebar.includes('targetEl.getAttribute("data-agentic-action") === "select"'), 'Agentic profile select action must be wired through delegated targetEl');
+assert(sidebar.includes('targetEl.getAttribute("data-agentic-action") === "delete"'), 'Agentic profile delete action must be wired through delegated targetEl');
+
 process.stdout.write('agentic-profiles-regression: ok\n');

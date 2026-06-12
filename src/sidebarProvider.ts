@@ -224,7 +224,7 @@ const BUILTIN_AGENTIC_PROFILES: Array<Omit<AgenticProfile, "createdAt" | "update
     description: "Best default for Azure-credit users: GPT-4.1 leads daily coding, Grok/GPT-4.1 challenge and implement, GPT-5.5 is reserved for final hard review/security/architecture.",
     mainModel: "azure:gpt-4.1",
     workerModels: ["azure:grok-4.3", "azure:gpt-4.1", "azure:model-router", "groq:openai/gpt-oss-120b"],
-    reviewerModels: ["azure:gpt-5.5", "azure:gpt-5.4-pro", "azure:gpt-4.1"],
+    reviewerModels: ["azure:gpt-5.5", "azure:model-router", "azure:gpt-4.1"],
     defaultWorkerModel: "azure:grok-4.3",
     allowCheapFallback: true,
     allowPremiumWorkers: true,
@@ -238,7 +238,7 @@ const BUILTIN_AGENTIC_PROFILES: Array<Omit<AgenticProfile, "createdAt" | "update
     description: "Quality-first Azure profile: GPT-5.5 leads hard architecture/high-risk coding; GPT-4.1/Grok workers produce implementable alternatives; GPT-5.5 judges final output.",
     mainModel: "azure:gpt-5.5",
     workerModels: ["azure:gpt-4.1", "azure:grok-4.3", "azure:gpt-5.4", "azure:model-router"],
-    reviewerModels: ["azure:gpt-5.5", "azure:gpt-5.4-pro", "azure:gpt-4.1"],
+    reviewerModels: ["azure:gpt-5.5", "azure:model-router", "azure:gpt-4.1"],
     defaultWorkerModel: "azure:gpt-4.1",
     allowCheapFallback: true,
     allowPremiumWorkers: true,
@@ -575,7 +575,31 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     if (!this._context) return;
     this._agenticProfiles = this._context.globalState.get<AgenticProfile[]>(AGENTIC_PROFILES_KEY, []) || [];
     this._currentAgenticProfileId = this._context.globalState.get<string>(CURRENT_AGENTIC_PROFILE_KEY, "") || "";
+    this._sanitizeAgenticProfilesForPolicy();
     this._seedBuiltinAgenticProfiles();
+  }
+
+  private _sanitizeAgenticProfilesForPolicy() {
+    // Keep deprecated deployment IDs out of runtime strings while migrating old saved profiles.
+    const deprecatedAzurePro = "azure:" + ["gpt", "5.4", "pro"].join("-");
+    const replaceUnsafe = (id: string) => id === deprecatedAzurePro ? "azure:model-router" : id;
+    let changed = false;
+    for (const profile of this._agenticProfiles) {
+      const before = JSON.stringify(profile);
+      profile.mainModel = replaceUnsafe(profile.mainModel);
+      profile.defaultWorkerModel = replaceUnsafe(profile.defaultWorkerModel);
+      profile.workerModels = (profile.workerModels || []).map(replaceUnsafe).filter((id, idx, arr) => id && arr.indexOf(id) === idx);
+      profile.reviewerModels = (profile.reviewerModels || []).map(replaceUnsafe).filter((id, idx, arr) => id && arr.indexOf(id) === idx);
+      if (/azure|premium|frontier/i.test(profile.name || "")) {
+        profile.maxParallelAgents = Math.min(Math.max(1, profile.maxParallelAgents || 1), 2);
+        profile.allowCheapFallback = false;
+      }
+      if (JSON.stringify(profile) !== before) {
+        profile.updatedAt = Date.now();
+        changed = true;
+      }
+    }
+    if (changed) void this._saveAgenticProfiles();
   }
 
   private _seedBuiltinAgenticProfiles() {
@@ -1534,7 +1558,11 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private async _sendInitState() {
-    await this._refreshModels();
+    // Post a non-network bootstrap list immediately so the selector never sits at
+    // its HTML Auto-only fallback while provider discovery is slow/offline.
+    this._ensureConfiguredModelSnapshot();
+    this._postModelList(this._cachedModels);
+    void this._refreshModels();
     this._sendToolConfig();
     this._view?.webview.postMessage({
       type: "initState",
@@ -1553,93 +1581,102 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     this._view?.webview.postMessage({ type: "connectionStatus", connected: ok });
   }
 
+  private _autoModelListItem() {
+    return {
+      name: "auto",
+      displayName: "Auto (best for task)",
+      provider: "auto",
+      providerType: "auto",
+      contextWindow: 0,
+      maxOutputTokens: 0,
+      pricing: "free",
+      pricingNote: "Picks best model per task",
+      supportsTools: true,
+      supportsThinking: true,
+      supportsVision: false,
+      supportsStreaming: true,
+    };
+  }
+
+  private _agenticProfileModelItems() {
+    return this._agenticProfiles.map(p => ({
+      name: `agentic:${p.id}`,
+      displayName: `Agentic: ${p.name}`,
+      provider: "agentic",
+      providerType: "agentic",
+      contextWindow: 0,
+      maxOutputTokens: 0,
+      pricing: p.costPolicy,
+      pricingNote: `Main ${p.mainModel}; workers ${p.workerModels.slice(0, 3).join(", ")}${p.workerModels.length > 3 ? "..." : ""}`,
+      supportsTools: true,
+      supportsThinking: true,
+      supportsVision: false,
+      supportsStreaming: true,
+    }));
+  }
+
+  private _modelListItem(m: ModelOption) {
+    return {
+      name: m.id,
+      displayName: m.displayName,
+      provider: m.provider,
+      providerType: m.providerType,
+      contextWindow: m.contextWindow,
+      effectiveContextWindow: m.effectiveContextWindow,
+      maxOutputTokens: m.maxOutputTokens,
+      pricing: m.pricing,
+      pricingNote: m.pricingNote,
+      supportsTools: m.supportsTools,
+      supportedParameters: m.supportedParameters,
+      supportsThinking: m.supportsThinking,
+      supportsVision: m.supportsVision,
+      supportsStreaming: m.supportsStreaming,
+      contextSource: m.contextSource,
+      contextUpdatedAt: m.contextUpdatedAt,
+    };
+  }
+
+  private _mergeModelOptions(primary: ModelOption[], fallback: ModelOption[]): ModelOption[] {
+    const merged: ModelOption[] = [];
+    const seen = new Set<string>();
+    for (const model of [...primary, ...fallback]) {
+      if (!model?.id || seen.has(model.id)) continue;
+      seen.add(model.id);
+      merged.push(model);
+    }
+    return merged;
+  }
+
+  private _ensureConfiguredModelSnapshot(): ModelOption[] {
+    const snapshot = this._multiClient.getConfiguredModelsSnapshot(true);
+    this._cachedModels = this._mergeModelOptions(this._cachedModels, snapshot);
+    return this._cachedModels;
+  }
+
+  private _postModelList(models: ModelOption[]) {
+    const autoOption = this._autoModelListItem();
+    const profileItems = this._agenticProfileModelItems();
+    const cachedItems = models.map(m => this._modelListItem(m));
+    this._view?.webview.postMessage({
+      type: "modelList",
+      models: [autoOption, ...profileItems, ...cachedItems],
+      selected: this._selectedModel,
+      agenticProfiles: this._agenticProfiles,
+      currentAgenticProfileId: this._currentAgenticProfileId,
+    });
+  }
+
   private async _refreshModels() {
+    // Always keep/post configured provider models before touching the network.
+    const snapshot = this._ensureConfiguredModelSnapshot();
+    this._postModelList(snapshot);
     try {
-      this._cachedModels = await this._multiClient.getAllModels();
-      const autoOption = {
-        name: "auto", displayName: "Auto (best for task)", provider: "auto", providerType: "auto",
-        contextWindow: 0, maxOutputTokens: 0, pricing: "free", pricingNote: "Picks best model per task",
-        supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true,
-      };
-      const profileItems = this._agenticProfiles.map(p => ({
-        name: `agentic:${p.id}`,
-        displayName: `Agentic: ${p.name}`,
-        provider: "agentic",
-        providerType: "agentic",
-        contextWindow: 0,
-        maxOutputTokens: 0,
-        pricing: p.costPolicy,
-        pricingNote: `Main ${p.mainModel}; workers ${p.workerModels.slice(0, 3).join(", ")}${p.workerModels.length > 3 ? "…" : ""}`,
-        supportsTools: true,
-        supportsThinking: true,
-        supportsVision: false,
-        supportsStreaming: true,
-      }));
-      const modelItems = [autoOption, ...profileItems, ...this._cachedModels.map(m => ({
-        name: m.id,
-        displayName: m.displayName,
-        provider: m.provider,
-        providerType: m.providerType,
-        contextWindow: m.contextWindow,
-        effectiveContextWindow: m.effectiveContextWindow,
-        maxOutputTokens: m.maxOutputTokens,
-        pricing: m.pricing,
-        pricingNote: m.pricingNote,
-        supportsTools: m.supportsTools,
-        supportedParameters: m.supportedParameters,
-        supportsThinking: m.supportsThinking,
-        supportsVision: m.supportsVision,
-        supportsStreaming: m.supportsStreaming,
-        contextSource: m.contextSource,
-        contextUpdatedAt: m.contextUpdatedAt,
-      }))];
-      this._view?.webview.postMessage({ type: "modelList", models: modelItems, selected: this._selectedModel, agenticProfiles: this._agenticProfiles, currentAgenticProfileId: this._currentAgenticProfileId });
+      const liveModels = await this._multiClient.getAllModels();
+      this._cachedModels = this._mergeModelOptions(liveModels, snapshot);
+      this._postModelList(this._cachedModels);
     } catch (err) {
       this._outputChannel.appendLine("Refresh models error: " + String(err));
-      const autoOption = {
-        name: "auto", displayName: "Auto (best for task)", provider: "auto", providerType: "auto",
-        contextWindow: 0, maxOutputTokens: 0, pricing: "free", pricingNote: "Picks best model per task",
-        supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true,
-      };
-      const profileItems = this._agenticProfiles.map(p => ({
-        name: `agentic:${p.id}`,
-        displayName: `Agentic: ${p.name}`,
-        provider: "agentic",
-        providerType: "agentic",
-        contextWindow: 0,
-        maxOutputTokens: 0,
-        pricing: p.costPolicy,
-        pricingNote: `Main ${p.mainModel}; workers ${p.workerModels.slice(0, 3).join(", ")}${p.workerModels.length > 3 ? "..." : ""}`,
-        supportsTools: true,
-        supportsThinking: true,
-        supportsVision: false,
-        supportsStreaming: true,
-      }));
-      const cachedItems = this._cachedModels.map(m => ({
-        name: m.id,
-        displayName: m.displayName,
-        provider: m.provider,
-        providerType: m.providerType,
-        contextWindow: m.contextWindow,
-        effectiveContextWindow: m.effectiveContextWindow,
-        maxOutputTokens: m.maxOutputTokens,
-        pricing: m.pricing,
-        pricingNote: m.pricingNote,
-        supportsTools: m.supportsTools,
-        supportedParameters: m.supportedParameters,
-        supportsThinking: m.supportsThinking,
-        supportsVision: m.supportsVision,
-        supportsStreaming: m.supportsStreaming,
-        contextSource: m.contextSource,
-        contextUpdatedAt: m.contextUpdatedAt,
-      }));
-      this._view?.webview.postMessage({
-        type: "modelList",
-        models: [autoOption, ...profileItems, ...cachedItems],
-        selected: this._selectedModel,
-        agenticProfiles: this._agenticProfiles,
-        currentAgenticProfileId: this._currentAgenticProfileId,
-      });
+      this._postModelList(this._ensureConfiguredModelSnapshot());
     }
   }
 
@@ -1815,10 +1852,12 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
         // Native function-calling: tools are supplied via the API, not a text protocol.
         prompt += "\n\nCRITICAL: You have real tools available through function calling. To DO anything (create a file, run a command, serve a page, ssh), you MUST call the appropriate tool — do NOT just describe what you would do, and do NOT print code in a fenced block and stop. Call the tool. After the tool result returns, continue until the task is fully complete, then give a short final summary with the local URL if you served something.";
         prompt += "\nALWAYS act autonomously by calling tools. NEVER say 'save this file manually'.";
-        prompt += "\n\nCHAIN OF THOUGHT & CONTEXT: For non-trivial tasks, first outline a short numbered plan, then execute it step by step, verifying each tool result before the next step. Always relate the current step to earlier messages, files, and tool results in THIS conversation so the work stays coherent end to end. If something fails, diagnose from the actual error and adapt rather than repeating the same call.";
+        prompt += "\n\nPLAN, ACT & VERIFY CONTEXT: For non-trivial tasks, first outline a concise user-visible numbered plan, then execute it step by step, verifying each tool result before the next step. Do not ask any provider to reveal private reasoning traces or internal deliberation; provide only brief decision summaries that are safe to show the user. Always relate the current step to earlier messages, files, and tool results in THIS conversation so the work stays coherent end to end. If something fails, diagnose from the actual error and adapt rather than repeating the same call.";
         prompt += "\n\nPLAN TRACKING: For any task with 3+ steps, call updatePlan at the START with the full step list (one step 'in-progress', rest 'pending'), then call updatePlan again after each step to mark it 'done' and move the next to 'in-progress'. This keeps the user oriented during long enterprise builds.";
         prompt += "\n\nCODEBASE AWARENESS: Use codebaseSearch for natural-language 'where is X / how does Y work' questions to find the most relevant files fast, and searchText for exact string/regex matches. Read files before editing them. When editing, copy the EXACT text into editFile's oldText (it must match uniquely) so edits apply as undoable diffs.";
         prompt += "\n\nVERIFY BEFORE DONE: After creating or editing code files, the host auto-checks diagnostics; if errors are reported back to you, FIX them before finishing. Proactively run the build/tests (runCommand) for non-trivial changes and resolve failures. Never declare a task done with known compile errors.";
+
+    prompt += "\n\nAZURE / PROVIDER SAFETY: Never request, reveal, store, or display private reasoning traces or internal deliberation. Provide concise user-visible plans, summaries, and justifications only. Keep agentic fan-out conservative and use only configured/available models.";
         prompt += "\n\nMULTI-AGENT: When a task has independent sub-parts (e.g. research + scaffold + write tests), you can fan them out with delegateTeam to run several specialist models IN PARALLEL, or use delegateSubAgent for a single focused hand-off. After delegating, read the returned results and synthesize them into the final solution yourself.";
         if (activeProfile) {
           prompt += `\n\nAGENTIC PROFILE ACTIVE: ${activeProfile.name}\nMain/orchestrator model: ${this._profileMainModel(activeProfile)}\nWorker pool: ${activeProfile.workerModels.join(", ") || "none configured"}\nReviewer pool: ${activeProfile.reviewerModels.join(", ") || "none configured"}\nDefault worker: ${activeProfile.defaultWorkerModel}\nCost policy: ${activeProfile.costPolicy}\nPremium workers allowed: ${activeProfile.allowPremiumWorkers ? "yes" : "no"}\nCheap fallback allowed: ${activeProfile.allowCheapFallback ? "yes" : "no"}\nMax parallel agents: ${activeProfile.maxParallelAgents}\nProfile instructions: ${activeProfile.instructions || "Use the configured profile pools and verify all worker output."}\n\nUse delegateSubAgent(model:"worker") for the profile's default worker, model:"reviewer" for a reviewer, or an explicit model id from the profile when quality matters. Do not force cheap/free workers unless the profile cost policy says cost-first or the task is low-risk. The main model remains responsible for final verification and tool-applied changes.`;
@@ -2129,21 +2168,10 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     return this._getSystemPrompt() + (this._agenticPreflightContext || "");
   }
 
-  /** Separate thinking from visible content */
+  /** Strip provider-private reasoning traces from streamed content before UI/history persistence. */
   private _processStreamChunk(rawResponse: string) {
-    const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
-    let thinkContent = "";
-    let match;
-    while ((match = thinkRegex.exec(rawResponse)) !== null) {
-      thinkContent += match[1];
-    }
-    const openThink = rawResponse.lastIndexOf("<think>");
-    const closeThink = rawResponse.lastIndexOf("</think>");
-    if (openThink > closeThink) {
-      thinkContent += rawResponse.slice(openThink + 7);
-    }
     const visible = rawResponse.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/, "").trimStart();
-    return { thinkContent, visible, isThinking: openThink > closeThink };
+    return { visible };
   }
 
   private async _runSimpleChat(modelId: string, temperature: number, maxTokens: number) {
@@ -2153,7 +2181,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     await this._runAgenticPreflightIfNeeded(latestUser, modelId, temperature, maxTokens);
     const messages: ChatMessage[] = [{ role: "system", content: this._systemPromptWithAgenticPreflight() }, ...this._budgetHistory(hist, maxTokens)];
     let rawResponse = "";
-    let lastThinkSent = "";
 
     // Live assistant message: appended now and updated in place as tokens arrive,
     // so partial output is persisted (survives reload / chat switch) and never lost.
@@ -2163,11 +2190,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
 
     for await (const chunk of this._multiClient.streamChat(modelId, messages, { temperature, max_tokens: maxTokens }, this._abortController?.signal)) {
       rawResponse += chunk;
-      const { thinkContent, visible, isThinking } = this._processStreamChunk(rawResponse);
-      if (thinkContent && thinkContent !== lastThinkSent) {
-        this._emit({ type: "thinkingChunk", content: thinkContent, done: !isThinking });
-        lastThinkSent = thinkContent;
-      }
+      const { visible } = this._processStreamChunk(rawResponse);
       this._emit({ type: "responseReplace", content: visible });
       live.content = visible;
       this._scheduleLivePersist();
@@ -2224,7 +2247,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
 
     for (let iteration = 0; iteration < MAX_ITER; iteration++) {
       let iterText = "";        // text for the CURRENT content block only
-      let lastThinkSent = "";
       let toolCalls: ToolCallSpec[] = [];
 
       turnIterations++;
@@ -2236,11 +2258,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
       )) {
         if (ev.kind === "text") {
           iterText += ev.value;
-          const { thinkContent, visible, isThinking } = this._processStreamChunk(iterText);
-          if (thinkContent && thinkContent !== lastThinkSent) {
-            this._emit({ type: "thinkingChunk", content: thinkContent, done: !isThinking });
-            lastThinkSent = thinkContent;
-          }
+          const { visible } = this._processStreamChunk(iterText);
           // Only this iteration's prose goes into the current block.
           this._emit({ type: "responseReplace", content: visible });
           live.content = assistantTextForHistory + visible;
@@ -2480,15 +2498,10 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
       iteration++;
       const messages: ChatMessage[] = [{ role: "system", content: this._systemPromptWithAgenticPreflight() }, ...this._budgetHistory(hist, maxTokens)];
       let rawIter = "";
-      let lastThinkSent = "";
 
       for await (const chunk of this._multiClient.streamChat(modelId, messages, { temperature, max_tokens: maxTokens }, this._abortController?.signal)) {
         rawIter += chunk;
-        const { thinkContent, visible, isThinking } = this._processStreamChunk(rawIter);
-        if (thinkContent && thinkContent !== lastThinkSent) {
-          this._emit({ type: "thinkingChunk", content: thinkContent, done: !isThinking });
-          lastThinkSent = thinkContent;
-        }
+        const { visible } = this._processStreamChunk(rawIter);
         this._emit({ type: "responseReplace", content: fullResponse + visible });
         this._scheduleLivePersist();
       }
@@ -2586,6 +2599,22 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     // Persist the full agent exchange
     const userTurn = [...hist].reverse().find(m => m.role === "user" && !m.content.startsWith("Tool result for "));
     if (userTurn) this._persistExchange(userTurn.content, fullResponse);
+  }
+
+  private _summarizeToolResultForTranscript(toolName: string, result: string): string {
+    const text = String(result || "").trim();
+    if (!text) return "\n_Tool completed with no textual output._\n";
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const exitLine = lines.find(l => /(?:exit code|Exit code|__SENTINEL_EXIT_CODE__)/.test(l));
+    const errorLine = lines.find(l => /\b(error|failed|exception|traceback|denied|not found|cannot|unable)\b/i.test(l));
+    const usefulLine = errorLine || exitLine || lines.find(l => l.length <= 180) || lines[0];
+    const safeLine = usefulLine ? usefulLine.replace(/[`<>]/g, "").slice(0, 240) : "completed";
+    const hiddenCount = Math.max(0, lines.length - 1);
+    return "\n_Tool `" + toolName + "` completed. " + safeLine + (hiddenCount ? " (full output is in the tool log)." : "") + "_\n";
+  }
+
+  private _humanizeToolError(message: string): string {
+    return String(message || "Unknown tool error").replace(/\s+/g, " ").replace(/[`<>]/g, "").slice(0, 500);
   }
 
   /** Resolve a model preference ('worker'|'reviewer'|'fast'|'reasoning'|'coding'|'auto'|<id>) to a concrete model id. */
@@ -3323,7 +3352,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     <div class="collab-actions"><button id="btn-restore-checkpoints-top" class="mini-link-btn">Restore checkpoints</button><button id="btn-previous-tasks-top" class="mini-link-btn">Previous tasks/issues</button></div>
   </section>
   <div class="chat-container" id="chat-container"></div>
-  <div class="typing-indicator" id="typing">Sentinel is thinking...</div>
+  <div class="typing-indicator" id="typing">Sentinel is working...</div>
   <div class="continue-bar" id="continue-bar" style="display:none">
     <button class="continue-btn" id="continue-btn" title="Keep the agent going from where it stopped">▶ Continue</button>
     <span class="continue-hint">Paused at the step limit — pick up where it left off.</span>

@@ -28,6 +28,9 @@ assert(mcpClient.includes('Node.js LTS') && mcpClient.includes('PATH'), 'MCP con
 assert(sidebar.includes('Connecting...'), 'MCP sidebar must show clean Connecting... text');
 assert(sidebar.includes('OK Connected'), 'MCP sidebar must show clean connected text');
 assert(sidebar.includes('ERROR required'), 'MCP sidebar must show clean required-setting text');
+assert(sidebar.includes('rawTarget.closest("[data-mcp-action]")'), 'MCP controls must resolve nested clicks to the nearest data-mcp-action element');
+assert(sidebar.includes('var action = t && t.getAttribute && t.getAttribute("data-mcp-action")'), 'MCP delegated handler must null-check action targets');
+assert(!sidebar.includes('var action = t.getAttribute && t.getAttribute("data-mcp-action")'), 'MCP controls must not read attributes directly from raw child click targets');
 assert(!/[�Ã]/.test(sidebar), 'MCP/chat sidebar must not contain mojibake replacement characters');
 
 // RAG fallback: memory should not be dead when optional vector server is down.

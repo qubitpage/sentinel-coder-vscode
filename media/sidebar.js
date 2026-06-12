@@ -218,27 +218,41 @@
 
   function scrollChatToBottom(force) {
     if (!chatContainer) return;
+    // Never steal the scroll position while the user is reading older output.
+    // Only an explicit Jump button click (force=true) is allowed to unpin.
+    if (!force && chatUserPinnedScroll && !isChatNearBottom()) {
+      setJumpToLatestVisible(true);
+      return;
+    }
     chatContainer.scrollTop = chatContainer.scrollHeight;
-    chatUserPinnedScroll = false;
-    setJumpToLatestVisible(false);
+    if (force || isChatNearBottom()) {
+      chatUserPinnedScroll = false;
+      setJumpToLatestVisible(false);
+    }
   }
 
   function followChatOutput() {
     if (!chatContainer) return;
-    if (!chatUserPinnedScroll || isChatNearBottom()) {
-      scrollChatToBottom(false);
-    } else {
+    if (chatUserPinnedScroll && !isChatNearBottom()) {
       setJumpToLatestVisible(true);
+      return;
     }
+    scrollChatToBottom(false);
   }
 
   if (chatContainer) {
     chatContainer.addEventListener("scroll", function () {
+      // Mark pinned immediately. A delayed debounce lets streaming/tool output
+      // jump back to the bottom before the app notices the user scrolled up.
+      var nearBottom = isChatNearBottom();
+      chatUserPinnedScroll = !nearBottom;
+      setJumpToLatestVisible(!nearBottom);
       if (chatScrollTimer) clearTimeout(chatScrollTimer);
       chatScrollTimer = setTimeout(function () {
-        chatUserPinnedScroll = !isChatNearBottom();
-        if (!chatUserPinnedScroll) setJumpToLatestVisible(false);
-      }, 80);
+        var stillNearBottom = isChatNearBottom();
+        chatUserPinnedScroll = !stillNearBottom;
+        setJumpToLatestVisible(!stillNearBottom);
+      }, 120);
     }, { passive: true });
   }
 
@@ -549,7 +563,7 @@
     toggle.type = "button";
     toggle.textContent = "Hide thinking";
     thinkHeader.appendChild(toggle);
-    thinkHeader.appendChild(textEl("span", "thinking-label", "Thinking..."));
+    thinkHeader.appendChild(textEl("span", "thinking-label", "Working..."));
     var thinkBody = document.createElement("div");
     thinkBody.className = "thinking-body";
     thinkDiv.appendChild(thinkHeader);
@@ -1145,8 +1159,11 @@
   // MCP server controls (delegated)
   var mcpListEl = $("mcp-server-list");
   if (mcpListEl) mcpListEl.addEventListener("click", function (e) {
-    var t = e.target;
-    var action = t.getAttribute && t.getAttribute("data-mcp-action");
+    var rawTarget = e.target;
+    // Clicks can land on nested text/icons inside a button. Always resolve the
+    // nearest action element so MCP controls keep working after UI styling changes.
+    var t = rawTarget && rawTarget.closest ? rawTarget.closest("[data-mcp-action]") : rawTarget;
+    var action = t && t.getAttribute && t.getAttribute("data-mcp-action");
     if (!action) return;
     var server = t.getAttribute("data-server");
     if (action === "connect") {
@@ -1242,7 +1259,13 @@
     var settingsContent = $("settings-content");
     if (settingsContent) {
       settingsContent.addEventListener("click", function (e) {
-        if (e.target.id === "btn-save-general") {
+        var targetEl = e.target;
+        // Robust delegated settings clicks: button contents may be nested spans/icons.
+        // Resolve to the closest button/action element before checking ids/datasets.
+        if (targetEl && targetEl.closest) {
+          targetEl = targetEl.closest("button,[data-agentic-action],[data-action],[data-skill-action]") || targetEl;
+        }
+        if (targetEl.id === "btn-save-general") {
           var temp = parseFloat($("set-temp").value) / 100;
           var tokens = parseInt($("set-tokens").value);
           if (isNaN(tokens) || tokens < 0) tokens = 0;
@@ -1250,39 +1273,39 @@
           var ctxEl = $("set-ctxbudget");
           var ctxBudget = ctxEl ? parseInt(ctxEl.value) : undefined;
           vscode.postMessage({ type: "saveSettings", temperature: temp, maxTokens: tokens, ollamaUrl: url, contextBudgetTokens: ctxBudget });
-          e.target.textContent = "Saved!";
-          setTimeout(function () { e.target.textContent = "Save"; }, 1500);
+          targetEl.textContent = "Saved!";
+          setTimeout(function () { targetEl.textContent = "Save"; }, 1500);
         }
-        if (e.target.id === "btn-agentic-new") { showAgenticEditor(); }
-        if (e.target.id === "btn-agentic-refresh") { vscode.postMessage({ type: "getAgenticProfiles" }); }
-        if (e.target.id === "btn-agentic-cancel") { hideAgenticEditor(); }
-        if (e.target.id === "btn-agentic-save") { saveAgenticProfileFromForm(); }
-        if (e.target.getAttribute("data-agentic-action") === "edit") { var ep = findAgenticProfile(e.target.getAttribute("data-profile")); if (ep) showAgenticEditor(ep); }
-        if (e.target.getAttribute("data-agentic-action") === "select") { vscode.postMessage({ type: "selectAgenticProfile", id: e.target.getAttribute("data-profile") }); }
-        if (e.target.getAttribute("data-agentic-action") === "delete") { var dp = e.target.getAttribute("data-profile"); uiConfirm("Delete agentic profile?", function (ok) { if (ok) vscode.postMessage({ type: "deleteAgenticProfile", id: dp }); }); }
-        if (e.target.id === "btn-add-model") {
+        if (targetEl.id === "btn-agentic-new") { showAgenticEditor(); }
+        if (targetEl.id === "btn-agentic-refresh") { vscode.postMessage({ type: "getAgenticProfiles" }); }
+        if (targetEl.id === "btn-agentic-cancel") { hideAgenticEditor(); }
+        if (targetEl.id === "btn-agentic-save") { saveAgenticProfileFromForm(); }
+        if (targetEl.getAttribute("data-agentic-action") === "edit") { var ep = findAgenticProfile(targetEl.getAttribute("data-profile")); if (ep) showAgenticEditor(ep); }
+        if (targetEl.getAttribute("data-agentic-action") === "select") { vscode.postMessage({ type: "selectAgenticProfile", id: targetEl.getAttribute("data-profile") }); }
+        if (targetEl.getAttribute("data-agentic-action") === "delete") { var dp = targetEl.getAttribute("data-profile"); uiConfirm("Delete agentic profile?", function (ok) { if (ok) vscode.postMessage({ type: "deleteAgenticProfile", id: dp }); }); }
+        if (targetEl.id === "btn-add-model") {
           uiPrompt("Enter model name to pull (e.g. qwen3:8b):", "qwen3:8b", function (name) {
             if (name) vscode.postMessage({ type: "pullModel", model: name.trim() });
           });
         }
-        if (e.target.id === "btn-refresh-models2") {
+        if (targetEl.id === "btn-refresh-models2") {
           vscode.postMessage({ type: "refreshModels" });
           setTimeout(renderModelList, 500);
         }
-        if (e.target.getAttribute("data-action") === "delete-model") {
-          var model = e.target.getAttribute("data-model");
+        if (targetEl.getAttribute("data-action") === "delete-model") {
+          var model = targetEl.getAttribute("data-model");
           uiConfirm("Delete model " + model + "?", function (ok) {
             if (ok) vscode.postMessage({ type: "deleteModel", model: model });
           });
         }
-        if (e.target.getAttribute("data-action") === "set-active") {
-          var m = e.target.getAttribute("data-model");
+        if (targetEl.getAttribute("data-action") === "set-active") {
+          var m = targetEl.getAttribute("data-model");
           modelSelect.value = m;
           modelSelect.dispatchEvent(new Event("change"));
           renderModelList();
         }
-        if (e.target.getAttribute("data-action") === "save-provider-key") {
-          var pid = e.target.getAttribute("data-provider");
+        if (targetEl.getAttribute("data-action") === "save-provider-key") {
+          var pid = targetEl.getAttribute("data-provider");
           var input = $("provider-key-" + pid);
           var val = input ? input.value.trim() : "";
           if (!val) {
@@ -1291,49 +1314,49 @@
             return;
           }
           vscode.postMessage({ type: "setProviderKey", providerId: pid, apiKey: val });
-          e.target.textContent = "Saving…";
+          targetEl.textContent = "Saving…";
           var statEl = $("prov-stat-" + pid);
           if (statEl) statEl["inner" + "HTML"] = '<span class="prov-status testing">● Verifying key…</span>';
-          setTimeout(function () { e.target.textContent = "Save"; }, 1500);
+          setTimeout(function () { targetEl.textContent = "Save"; }, 1500);
         }
-        if (e.target.getAttribute("data-action") === "test-provider") {
-          var tpid = e.target.getAttribute("data-provider");
+        if (targetEl.getAttribute("data-action") === "test-provider") {
+          var tpid = targetEl.getAttribute("data-provider");
           vscode.postMessage({ type: "testProvider", providerId: tpid });
-          e.target.textContent = "Testing…";
+          targetEl.textContent = "Testing…";
           var tStat = $("prov-stat-" + tpid);
           if (tStat) tStat["inner" + "HTML"] = '<span class="prov-status testing">● Testing…</span>';
-          var btn = e.target;
+          var btn = targetEl;
           setTimeout(function () { btn.textContent = "Test"; }, 1500);
         }
-        if (e.target.getAttribute("data-action") === "toggle-provider") {
-          var pid2 = e.target.getAttribute("data-provider");
-          var enabled = e.target.getAttribute("data-enabled") === "true";
+        if (targetEl.getAttribute("data-action") === "toggle-provider") {
+          var pid2 = targetEl.getAttribute("data-provider");
+          var enabled = targetEl.getAttribute("data-enabled") === "true";
           vscode.postMessage({ type: "setProviderEnabled", providerId: pid2, enabled: !enabled });
         }
-        if (e.target.getAttribute("data-action") === "provider-balance") {
-          var bpid = e.target.getAttribute("data-provider");
+        if (targetEl.getAttribute("data-action") === "provider-balance") {
+          var bpid = targetEl.getAttribute("data-provider");
           vscode.postMessage({ type: "getProviderBalance", providerId: bpid });
           var bSlot = $("prov-bal-" + bpid);
           if (bSlot) { bSlot.style.display = "block"; bSlot.textContent = "Querying balance…"; }
         }
 
         // ── Skills ──
-        if (e.target.id === "btn-skill-new") {
+        if (targetEl.id === "btn-skill-new") {
           openSkillEditor(null);
         }
-        if (e.target.id === "btn-skill-import") {
+        if (targetEl.id === "btn-skill-import") {
           vscode.postMessage({ type: "importSkills" });
-          var ibtn = e.target;
+          var ibtn = targetEl;
           ibtn.textContent = "Importing…";
           setTimeout(function () { ibtn.textContent = "Import from workspace"; }, 1500);
         }
-        if (e.target.id === "btn-skill-refresh") {
+        if (targetEl.id === "btn-skill-refresh") {
           vscode.postMessage({ type: "getSkills" });
         }
-        if (e.target.id === "btn-skill-cancel") {
+        if (targetEl.id === "btn-skill-cancel") {
           closeSkillEditor();
         }
-        if (e.target.id === "btn-skill-save") {
+        if (targetEl.id === "btn-skill-save") {
           var sName = $("skill-name").value.trim();
           var sDesc = $("skill-desc").value.trim();
           var sBody = $("skill-body").value.trim();
@@ -1343,11 +1366,11 @@
           vscode.postMessage(payload);
           closeSkillEditor();
         }
-        var skAction = e.target.getAttribute && e.target.getAttribute("data-skill-action");
+        var skAction = targetEl.getAttribute && targetEl.getAttribute("data-skill-action");
         if (skAction) {
-          var sid = e.target.getAttribute("data-skill-id");
+          var sid = targetEl.getAttribute("data-skill-id");
           if (skAction === "toggle") {
-            var on = e.target.getAttribute("data-enabled") === "true";
+            var on = targetEl.getAttribute("data-enabled") === "true";
             vscode.postMessage({ type: "toggleSkill", id: sid, enabled: !on });
           } else if (skAction === "edit") {
             var sk = (lastSkills || []).filter(function (x) { return x.id === sid; })[0];
@@ -1442,7 +1465,7 @@
   function featureBadges(m) {
     var html = "";
     if (m.supportsTools) html += '<span class="feat-badge feat-tools" title="Function calling / tool use">Tools</span>';
-    if (m.supportsThinking) html += '<span class="feat-badge feat-thinking" title="Chain-of-thought reasoning">Think</span>';
+    if (m.supportsThinking) html += '<span class="feat-badge feat-thinking" title="Reasoning-capable model (safe summaries only; hidden reasoning is never requested)">Think</span>';
     if (m.supportsVision) html += '<span class="feat-badge feat-vision" title="Image/vision input">Vision</span>';
     if (m.supportsStreaming) html += '<span class="feat-badge feat-stream" title="Streaming output">Stream</span>';
     return html;
@@ -1854,28 +1877,37 @@
     return Array.prototype.slice.call(select.selectedOptions || []).map(function (o) { return o.value; }).filter(Boolean);
   }
 
-  function editAgenticProfile(id) {
-    var p = (agenticProfiles || []).find(function (x) { return x.id === id; });
-    if (!p) return;
-    var form = $("agentic-profile-form");
-    if (form) form.style.display = "block";
-    $("agentic-id").value = p.id || "";
-    $("agentic-name").value = p.name || "";
-    $("agentic-desc").value = p.description || "";
-    $("agentic-cost").value = p.costPolicy || "balanced";
-    $("agentic-max").value = p.maxParallelAgents || 3;
-    $("agentic-premium").checked = !!p.allowPremiumWorkers;
-    $("agentic-cheap-fallback").checked = !!p.allowCheapFallback;
-    $("agentic-instructions").value = p.instructions || "";
-    populateAgenticModelSelect("agentic-main", p.mainModel || "auto", true);
-    populateAgenticModelSelect("agentic-workers", p.workerModels || [], false);
-    populateAgenticModelSelect("agentic-reviewers", p.reviewerModels || [], false);
-    populateAgenticModelSelect("agentic-default-worker", p.defaultWorkerModel || (p.workerModels || [])[0] || "", false);
+  function refreshAgenticDropdownsFromCurrentForm() {
+    var editor = $("agentic-editor");
+    if (!editor || editor.style.display === "none") return;
+    var main = ($("agentic-main") && $("agentic-main").value) || "auto";
+    var workers = selectedAgenticModels("agentic-workers");
+    var reviewers = selectedAgenticModels("agentic-reviewers");
+    var defaultWorker = ($("agentic-default-worker") && $("agentic-default-worker").value) || workers[0] || "";
+    populateAgenticModelSelect("agentic-main", main, true);
+    populateAgenticModelSelect("agentic-workers", workers, false);
+    populateAgenticModelSelect("agentic-reviewers", reviewers, false);
+    populateAgenticModelSelect("agentic-default-worker", defaultWorker, false);
   }
 
-  function fillAgenticProfileForm() {
-    var form = $("agentic-profile-form");
-    if (form) form.style.display = "block";
+  function showAgenticEditor(profile) {
+    var editor = $("agentic-editor");
+    if (editor) editor.style.display = "block";
+    if (profile) {
+      $("agentic-id").value = profile.id || "";
+      $("agentic-name").value = profile.name || "";
+      $("agentic-desc").value = profile.description || "";
+      $("agentic-cost").value = profile.costPolicy || "balanced";
+      $("agentic-max").value = profile.maxParallelAgents || 3;
+      $("agentic-premium").checked = !!profile.allowPremiumWorkers;
+      $("agentic-cheap-fallback").checked = !!profile.allowCheapFallback;
+      $("agentic-instructions").value = profile.instructions || "";
+      populateAgenticModelSelect("agentic-main", profile.mainModel || "auto", true);
+      populateAgenticModelSelect("agentic-workers", profile.workerModels || [], false);
+      populateAgenticModelSelect("agentic-reviewers", profile.reviewerModels || [], false);
+      populateAgenticModelSelect("agentic-default-worker", profile.defaultWorkerModel || (profile.workerModels || [])[0] || "", false);
+      return;
+    }
     $("agentic-id").value = "";
     $("agentic-name").value = "";
     $("agentic-desc").value = "";
@@ -1888,6 +1920,20 @@
     populateAgenticModelSelect("agentic-workers", [], false);
     populateAgenticModelSelect("agentic-reviewers", [], false);
     populateAgenticModelSelect("agentic-default-worker", "", false);
+  }
+
+  function hideAgenticEditor() {
+    var editor = $("agentic-editor");
+    if (editor) editor.style.display = "none";
+  }
+
+  function editAgenticProfile(id) {
+    var p = (agenticProfiles || []).find(function (x) { return x.id === id; });
+    if (p) showAgenticEditor(p);
+  }
+
+  function fillAgenticProfileForm() {
+    showAgenticEditor();
   }
 
   function saveAgenticProfileFromForm() {
@@ -2202,13 +2248,13 @@
 
       case "modelList":
         var incomingModels = Array.isArray(data.models) ? data.models : [];
-        var incomingNormalModels = incomingModels.filter(function (m) {
+        var incomingProviderModels = incomingModels.filter(function (m) {
           var value = modelOptionValue(m);
           return value && value !== "auto" && value.indexOf("agentic:") !== 0;
         });
-        // Never replace a useful dropdown with Auto-only if live provider discovery temporarily fails.
-        // Keep the last known/provider-fallback list so the user can still choose explicit models.
-        if (incomingNormalModels.length > 0) {
+        // Never replace a useful provider-model dropdown with Auto-only or Agentic-only payloads.
+        // Agentic profile options are rendered from data.agenticProfiles, not persisted as provider models.
+        if (incomingProviderModels.length > 0) {
           cachedModels = incomingModels;
           lastGoodModelList = incomingModels.slice();
         } else if (lastGoodModelList.length > 0) {
@@ -2219,7 +2265,6 @@
         if (data.agenticProfiles) renderAgenticProfiles(data.agenticProfiles || [], data.currentAgenticProfileId || "");
         currentModel = data.selected || currentModel || "auto";
         refreshAgenticDropdownsFromCurrentForm();
-        if ($("agentic-editor") && $("agentic-editor").style.display !== "none") refreshAgenticDropdownsFromCurrentForm();
         var normalModels = (cachedModels || []).filter(function (m) {
           var value = modelOptionValue(m);
           return value && value !== "auto" && value.indexOf("agentic:") !== 0;
@@ -2264,15 +2309,8 @@
         currentContentDiv = msg.contentDiv;
         break;
 
-      case "thinkingChunk":
-        if (currentThinkingDiv) {
-          currentThinkingDiv.style.display = "block";
-          var body = currentThinkingDiv.querySelector(".thinking-body");
-          if (body) body.textContent = data.content;
-          var lbl = currentThinkingDiv.querySelector(".thinking-label");
-          if (lbl) lbl.textContent = data.done ? "Thought complete" : "Thinking...";
-          followChatOutput();
-        }
+      case "privateReasoningIgnored":
+        // Compliance guard: provider-private reasoning traces are never displayed.
         break;
 
       case "responseChunk":

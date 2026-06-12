@@ -21,7 +21,8 @@ assert(!sidebar.includes('No configured models - add a provider key or enable Ol
 assert(!sidebar.includes('sentinelFinalProviderDisplayName'), 'stale late selector override must be removed');
 assert(!sidebar.includes('sentinelFinalModelValue'), 'modelList branch must not call undefined sentinelFinalModelValue');
 assert(sidebar.includes('lastGoodModelList'), 'selector must preserve last good model list when live discovery sends Auto-only');
-assert(sidebar.includes('incomingNormalModels.length > 0'), 'selector must detect and reject Auto-only replacement lists');
+assert(sidebar.includes('incomingProviderModels.length > 0'), 'selector must detect and reject Auto-only replacement lists');
+assert(sidebar.includes('value.indexOf("agentic:") !== 0'), 'selector must reject Agentic-only replacement lists so provider models are not lost');
 assert(count(/function providerDisplayName\(/g) === 1, 'providerDisplayName must have one canonical definition');
 assert(count(/function populateAgenticModelSelect\(/g) === 1, 'populateAgenticModelSelect must have one canonical definition');
 assert(sidebarProviderTs.includes('effectiveContextWindow'), 'backend must send effectiveContextWindow metadata');

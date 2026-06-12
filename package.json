@@ -2,7 +2,7 @@
   "name": "sentinel-coder",
   "displayName": "Sentinel Coder One Studio",
   "description": "Sentinel Coder One Studio - autonomous AI coding with single-model full-capability mode, opt-in Agentic Profiles, live provider model/context discovery, operation-aware native tool routing, VS Code Web remote-tool bridge support, media/document Studio, safer tools, dynamic context, and multi-provider orchestration.",
-  "version": "3.16.22",
+  "version": "3.16.36",
   "publisher": "Qubitpage",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -263,7 +263,7 @@
         },
         "sentinelCoder.apiKeysFile": {
           "type": "string",
-          "default": "",
+          "default": "D:\\api_keys.txt",
           "description": "(Optional) Path to a text file for bulk-importing API keys. Leave empty to use the Settings > Providers panel instead."
         },
         "sentinelCoder.azureOpenAIResourceGroup": {
@@ -392,7 +392,12 @@
     "test:model-selector": "node tests/model-selector-regression.cjs",
     "test:agentic-profiles": "node tests/agentic-profiles-regression.cjs",
     "test:mcp-rag-studio": "node tests/mcp-rag-studio-regression.cjs",
-    "test": "npm run compile && npm run test:provider-capabilities && npm run test:web-bridge && npm run test:model-selector && npm run test:agentic-profiles && npm run test:mcp-rag-studio"
+    "test": "npm run compile && npm run test:provider-capabilities && npm run test:web-bridge && npm run test:model-selector && npm run test:agentic-profiles && npm run test:mcp-rag-studio",
+    "test:azure-aup": "node tests/azure-aup-compliance.cjs",
+    "test:model-selector-ui": "node tests/model-selector-ui-regression.cjs",
+    "test:provider-policy": "node tests/provider-policy-guard-regression.cjs",
+    "verify:31636": "node scripts/regression_31636_release_gate.cjs",
+    "release:gate": "npm run verify:31636; npm run verify:web; npx tsc -p ."
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -401,7 +406,6 @@
   },
   "browser": "./out/extensionWeb.js",
   "extensionKind": [
-    "workspace",
     "ui"
   ]
 }

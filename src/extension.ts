@@ -76,10 +76,15 @@ export async function activate(context: vscode.ExtensionContext) {
     const apiKeysPath = config.get<string>("apiKeysFile", "");
     if (apiKeysPath) {
       try {
-        multiClient.loadApiKeysFromFile(apiKeysPath);
-        outputChannel.appendLine("API keys loaded from " + apiKeysPath);
-      } catch {
-        outputChannel.appendLine("API keys file not found: " + apiKeysPath + " (optional)");
+        const importedProviders = multiClient.loadApiKeysFromFile(apiKeysPath);
+        if (importedProviders.length) {
+          await multiClient.saveKeysToSecrets();
+          multiClient.saveToConfig(config);
+        }
+        outputChannel.appendLine(`API keys file processed: ${apiKeysPath} (providers imported/enabled: ${importedProviders.length ? importedProviders.join(", ") : "none"})`);
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        outputChannel.appendLine("API keys file could not be processed: " + apiKeysPath + " (" + errMsg + ")");
       }
     }
 

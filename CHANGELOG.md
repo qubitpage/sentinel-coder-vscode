@@ -1,3 +1,9 @@
+﻿
+## 3.16.35 - Agentic CRUD and MCP click reliability
+
+- Fixed Agentic Profiles settings CRUD when clicking nested text/icons inside Edit, Select, or Delete buttons.
+- Hardened MCP server action buttons so Connect/Test/Remove resolve nested click targets reliably.
+- Added regression assertions to prevent Agentic CRUD and MCP delegated-click regressions.
 # Changelog
 
 ## 3.16.22 - Chat Model and Agentic Selector Visibility Fix
@@ -88,3 +94,4 @@
 ## Earlier releases
 
 Earlier 3.14.x and 3.15.x releases introduced persistent chat history, dynamic context budgeting, approval modes, firewall scans, provider catalog refreshes, scroll/focus safety, and Marketplace documentation refreshes. Historical details are intentionally summarized here to keep the public changelog clean and encoding-safe.
+

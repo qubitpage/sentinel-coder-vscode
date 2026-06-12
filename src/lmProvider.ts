@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { MultiProviderClient, ChatMessage } from "./providers";
+import { MultiProviderClient, ChatMessage, ModelOption } from "./providers";
 
 /**
  * Exposes the Sentinel Coder multi-provider models (Azure Grok-4.3, GPT-4.1,
@@ -26,33 +26,72 @@ export class SentinelLanguageModelProvider implements vscode.LanguageModelChatPr
 
   async provideLanguageModelChatInformation(
     _options: { silent: boolean },
-    _token: vscode.CancellationToken
+    token: vscode.CancellationToken
   ): Promise<vscode.LanguageModelChatInformation[]> {
+    const snapshot = this._client.getConfiguredModelsSnapshot(true);
+
     try {
-      const models = await this._client.getAllModels();
-      return models.map((m) => {
-        const isAzureGrok = m.id === "azure:grok-4.3";
-        const detailBits: string[] = [];
-        if (m.provider) detailBits.push(m.provider);
-        if (m.pricingNote) detailBits.push(m.pricingNote);
-        return {
-          id: m.id,
-          name: isAzureGrok ? `${m.displayName} ★` : m.displayName,
-          family: m.provider || m.providerType || "sentinel",
-          version: "1",
-          maxInputTokens: m.contextWindow > 0 ? m.contextWindow : 128000,
-          maxOutputTokens: m.maxOutputTokens > 0 ? m.maxOutputTokens : 8192,
-          tooltip: `${m.displayName} · ${m.provider} (${m.pricing})`,
-          detail: detailBits.join(" · "),
-          capabilities: {
-            imageInput: !!m.supportsVision,
-            toolCalling: !!m.supportsTools,
-          },
-        } as vscode.LanguageModelChatInformation;
-      });
+      // VS Code calls this while opening the native Chat model picker. Do not let
+      // slow/offline provider discovery make Sentinel advertise zero models; that
+      // is the path that leaves the picker showing only Auto/default choices.
+      const liveModels = await this._withTimeout(this._client.getAllModels(), 2500, token);
+      const merged = this._mergeModelOptions(liveModels, snapshot);
+      const infos = this._toLanguageModelInfo(merged.length > 0 ? merged : snapshot);
+      this._output.appendLine(`LM provider: advertising ${infos.length} Sentinel model(s) to VS Code chat picker`);
+      return infos;
     } catch (err) {
-      this._output.appendLine("LM provider: failed to list models — " + String(err));
-      return [];
+      this._output.appendLine("LM provider: live model listing failed; using configured snapshot - " + String(err));
+      const infos = this._toLanguageModelInfo(snapshot);
+      this._output.appendLine(`LM provider: advertising ${infos.length} Sentinel snapshot model(s) to VS Code chat picker`);
+      return infos;
+    }
+  }
+
+  private _toLanguageModelInfo(models: ModelOption[]): vscode.LanguageModelChatInformation[] {
+    return models.map((m) => {
+      const isAzureGrok = m.id === "azure:grok-4.3";
+      const detailBits: string[] = [];
+      if (m.provider) detailBits.push(m.provider);
+      if (m.pricingNote) detailBits.push(m.pricingNote);
+      if (m.contextSource) detailBits.push(m.contextSource);
+      return {
+        id: m.id,
+        name: isAzureGrok ? `${m.displayName} (Azure)` : m.displayName,
+        family: m.provider || m.providerType || "sentinel",
+        version: "1",
+        maxInputTokens: (m.effectiveContextWindow || m.contextWindow) > 0 ? (m.effectiveContextWindow || m.contextWindow) : 128000,
+        maxOutputTokens: m.maxOutputTokens > 0 ? m.maxOutputTokens : 8192,
+        tooltip: `${m.displayName} - ${m.provider || m.providerType || "provider"} (${m.pricing || "pricing unavailable"})`,
+        detail: detailBits.join(" - "),
+        capabilities: {
+          imageInput: !!m.supportsVision,
+          toolCalling: !!m.supportsTools,
+        },
+      } as vscode.LanguageModelChatInformation;
+    });
+  }
+
+  private _mergeModelOptions(primary: ModelOption[], fallback: ModelOption[]): ModelOption[] {
+    const merged: ModelOption[] = [];
+    const seen = new Set<string>();
+    for (const model of [...primary, ...fallback]) {
+      if (!model?.id || seen.has(model.id)) continue;
+      seen.add(model.id);
+      merged.push(model);
+    }
+    return merged;
+  }
+
+  private async _withTimeout<T>(promise: Promise<T>, timeoutMs: number, token: vscode.CancellationToken): Promise<T> {
+    if (token.isCancellationRequested) throw new Error("cancelled");
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`timed out after ${timeoutMs}ms`)), timeoutMs);
+    });
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
