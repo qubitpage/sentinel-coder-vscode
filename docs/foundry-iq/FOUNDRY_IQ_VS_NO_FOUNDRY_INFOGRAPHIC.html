@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Foundry IQ vs No Foundry IQ — Infographic</title>
+<style>
+:root { --bg:#07111f; --card:#0e1b2e; --card2:#12243d; --ink:#eef7ff; --muted:#9fb4d0; --cyan:#54d7ff; --green:#4dff9b; --amber:#ffd36a; --red:#ff7373; --line:#25476d; }
+* { box-sizing:border-box }
+body { margin:0; width:1600px; min-height:1000px; background:radial-gradient(circle at 10% 0%,#123a60 0,#07111f 34%,#030813 100%); color:var(--ink); font-family:Inter,Segoe UI,Arial,sans-serif; }
+.canvas { padding:44px; }
+.header { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; margin-bottom:26px; }
+.brand { display:flex; flex-direction:column; gap:10px; }
+.kicker { color:var(--cyan); font-weight:800; letter-spacing:.12em; text-transform:uppercase; font-size:18px; }
+h1 { margin:0; font-size:52px; line-height:1.02; letter-spacing:-.04em; }
+.subtitle { color:var(--muted); font-size:20px; max-width:1020px; line-height:1.4; }
+.badge { border:1px solid rgba(84,215,255,.45); background:rgba(84,215,255,.12); color:#dff8ff; padding:14px 18px; border-radius:999px; font-weight:800; white-space:nowrap; box-shadow:0 0 28px rgba(84,215,255,.2); }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.card { border:1px solid var(--line); background:linear-gradient(180deg,rgba(18,36,61,.96),rgba(10,19,34,.96)); border-radius:26px; padding:26px; box-shadow:0 24px 70px rgba(0,0,0,.32); }
+.card h2 { margin:0 0 16px; font-size:30px; }
+.score { display:flex; align-items:end; gap:16px; margin-bottom:16px; }
+.score .num { font-size:76px; font-weight:900; line-height:.88; }
+.score .label { color:var(--muted); font-size:18px; padding-bottom:8px; }
+.no .num { color:var(--amber); } .yes .num { color:var(--green); }
+.pills { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0 18px; }
+.pill { border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:8px 12px; color:#d8eaff; background:rgba(255,255,255,.06); font-size:14px; }
+.answer { min-height:128px; color:#d9e8f7; line-height:1.45; font-size:17px; }
+.warn { color:#ffe4a3; } .ok { color:#baffd4; }
+.mid { margin:24px 0; display:grid; grid-template-columns:1.1fr .9fr; gap:24px; }
+.metric-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:14px; }
+.metric { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:16px; }
+.metric b { display:block; font-size:28px; color:var(--cyan); }
+.metric span { color:var(--muted); font-size:14px; }
+ul { margin:0; padding-left:20px; } li { margin:9px 0; line-height:1.35; }
+.table { width:100%; border-collapse:collapse; font-size:17px; overflow:hidden; border-radius:18px; }
+.table th,.table td { border-bottom:1px solid rgba(255,255,255,.09); padding:14px; text-align:left; vertical-align:top; }
+.table th { color:#cdeeff; background:rgba(84,215,255,.12); }
+.footer { margin-top:24px; display:flex; justify-content:space-between; gap:20px; color:var(--muted); font-size:14px; }
+.footer code { color:#cdeeff; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="header">
+    <div class="brand">
+      <div class="kicker">Sentinel Coder One Studio · Microsoft Agents League Hackathon</div>
+      <h1>Foundry IQ vs No Foundry IQ</h1>
+      <div class="subtitle">One coding task compared with and without Microsoft IQ grounding. The grounded path retrieves enterprise/project evidence from a real Azure AI Search-backed Foundry IQ Knowledge Base before answering.</div>
+    </div>
+    <div class="badge">LIVE IQ VERIFIED</div>
+  </div>
+
+  <div class="grid">
+    <section class="card no">
+      <h2>Without Foundry IQ</h2>
+      <div class="score"><div class="num">67</div><div class="label">quality score</div></div>
+      <div class="pills"><span class="pill">Generic answer</span><span class="pill">No local source citations</span><span class="pill">Higher drift risk</span></div>
+      <div class="answer warn">Implement a command named `sentinel-coder.testFoundryIq`. Read the Foundry IQ settings, call the configured endpoint, and show a success or failure message. Keep credentials in environment variables, never print tokens, and log only status, source count, and latency. Add a small UI button that runs the command and displays PASS or FAIL.</div>
+    </section>
+    <section class="card yes">
+      <h2>With Foundry IQ</h2>
+      <div class="score"><div class="num">100</div><div class="label">quality score · +33</div></div>
+      <div class="pills"><span class="pill">Live retrieval</span><span class="pill">9 sources</span><span class="pill">1002.0 ms</span><span class="pill">Secrets redacted</span></div>
+      <div class="answer ok">Implement `sentinel-coder.testFoundryIq` as a production command grounded in Microsoft IQ / Foundry IQ. 1. Read settings from `sentinelCoder.microsoftIq.*`: enabled, layer, endpoint, apiKeyEnv, timeoutMs, and maxQueryChars. 2. Require `layer = foundry-iq` for the hackathon path. 3. Use a bearer token/API value from the configured environment variable only. Never write or echo the token. 4. POST a documented Knowledge Base retrieve request to the configured endpoint using `intents: [{ type: &#x27;semantic&#x27;, search: &lt;que…</div>
+    </section>
+  </div>
+
+  <div class="mid">
+    <section class="card">
+      <h2>Proof Foundry IQ was used</h2>
+      <ul><li>Mode: LIVE Azure Foundry IQ</li><li>Endpoint: https://qubitpage-srch.search.windows.net/knowledgebases/sentinel-coder-iq-kb/retrieve?api-version=2026-04-01</li><li>Sources retrieved: 9</li><li>Latency: 1002.0 ms</li><li>Secrets: bearer/API tokens are not embedded in report or source</li></ul>
+      <div class="metric-row">
+        <div class="metric"><b>9</b><span>sources retrieved</span></div>
+        <div class="metric"><b>1002.0</b><span>latency ms</span></div>
+        <div class="metric"><b>100</b><span>grounded score</span></div>
+        <div class="metric"><b>+33</b><span>score lift</span></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Retrieved evidence titles</h2>
+      <ul><li>vscode-ext\README.md chunk 3</li><li>vscode-ext\README.md chunk 2</li><li>reports\training\SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION.md chunk 1</li><li>vscode-ext\README.md chunk 1</li><li>reports\training\SENTINEL_CODER_ONE_3_16_45_VERIFIED_FOUNDRY_IQ_MARKETPLACE_RELEASE.m…</li><li>reports\training\SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION.md chunk 2</li></ul>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Benefit comparison</h2>
+    <table class="table">
+      <tr><th>Capability</th><th>No IQ</th><th>With Foundry IQ</th></tr>
+      <tr><td>Grounding</td><td>Relies on model memory and current prompt only.</td><td>Retrieves project/enterprise context from the configured Knowledge Base.</td></tr>
+      <tr><td>Accuracy for local product facts</td><td>May miss current version, settings, endpoint and release state.</td><td>Uses README/release/docs evidence from Azure Search retrieval.</td></tr>
+      <tr><td>Security posture</td><td>Can recommend generic secret handling.</td><td>Knows the implemented no-hardcoded-secret, bearer-token runtime design.</td></tr>
+      <tr><td>User trust</td><td>No proof path.</td><td>Reports source count, endpoint mode, latency and source titles.</td></tr>
+    </table>
+  </section>
+
+  <div class="footer">
+    <div>Generated 2026-06-13T17:14:46Z · Query: Coding task: implement a secure Sentinel Coder One command that tests Microsoft Foundry IQ grounding and reports sources to the user without leaking…</div>
+    <div><code>reports/training/FOUNDRY_IQ_VS_NO_FOUNDRY_COMPARISON.json</code></div>
+  </div>
+</div>
+</body>
+</html>

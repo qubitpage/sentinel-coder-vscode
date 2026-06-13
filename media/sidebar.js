@@ -21,6 +21,15 @@
   var pastePathBtn = $("btn-paste-path");
   var fileInput = $("file-input");
   var firewallBtn = $("btn-firewall");
+  var foundryIqCard = $("foundry-iq-card");
+  var foundryIqCardStatus = $("foundry-iq-card-status");
+  var foundryIqOpenBtn = $("btn-iq-card-open");
+  var foundryIqTestBtn = $("btn-iq-card-test");
+  var foundryIqTopBtn = $("btn-foundry-iq-top");
+  var foundryIqTopPill = $("foundry-iq-top-pill");
+var foundryIqGlobalStatus = $("foundry-iq-global-status");
+var foundryIqGlobalOpenBtn = $("btn-foundry-iq-global-open");
+var foundryIqGlobalTestBtn = $("btn-foundry-iq-global-test");
 
   var isGenerating = false;
   var currentAssistantDiv = null;
@@ -58,6 +67,7 @@
   var lastSkills = [];
   var editingSkillId = null;
   var dynamicContextSettings = {};
+  var microsoftIqSettings = {};
 
   var chatUserPinnedScroll = false;
   var chatScrollTimer = null;
@@ -72,6 +82,46 @@
 
   function attr(t) {
     return esc(t).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function updateFoundryIqCard() {
+    var enabled = !!microsoftIqSettings.enabled;
+    var endpoint = microsoftIqSettings.endpoint || "";
+    var layer = microsoftIqSettings.layer || "foundry-iq";
+    var label = enabled ? (endpoint ? "IQ: ON" : "IQ: SETUP") : "IQ: OFF";
+    var detail = enabled
+      ? (endpoint ? ("Enabled: " + layer + " endpoint configured. Click Test to verify.") : ("Enabled: " + layer + ", but endpoint is missing."))
+      : "Disabled. Click Foundry IQ to enable Microsoft IQ for the hackathon.";
+    if (foundryIqCard && foundryIqCardStatus) {
+      foundryIqCard.classList.remove("enabled", "disabled", "error");
+      foundryIqCard.classList.add(enabled ? "enabled" : "disabled");
+      foundryIqCardStatus.textContent = detail;
+    }
+    if (foundryIqGlobalStatus) foundryIqGlobalStatus.textContent = label;
+if (foundryIqTopPill) {
+      foundryIqTopPill.textContent = label;
+      foundryIqTopPill.classList.remove("on", "error");
+      if (enabled && endpoint) foundryIqTopPill.classList.add("on");
+      if (enabled && !endpoint) foundryIqTopPill.classList.add("error");
+      foundryIqTopPill.title = detail;
+    }
+  }
+
+  function openMicrosoftIqSettings() {
+    if (settingsPanel) settingsPanel.classList.add("active");
+    vscode.postMessage({ type: "getToolConfig" });
+    vscode.postMessage({ type: "getProviders" });
+    vscode.postMessage({ type: "getSkills" });
+    vscode.postMessage({ type: "getSettings" });
+    vscode.postMessage({ type: "getAgenticProfiles" });
+    vscode.postMessage({ type: "getDynamicContextSettings" });
+    initSettingsTabs();
+    document.querySelectorAll(".settings-tab").forEach(function (t) { t.classList.remove("active"); });
+    document.querySelectorAll(".settings-pane").forEach(function (p) { p.style.display = "none"; });
+    var tab = document.querySelector('.settings-tab[data-stab="iq"]');
+    var pane = document.getElementById("settings-iq");
+    if (tab) tab.classList.add("active");
+    if (pane) pane.style.display = "block";
   }
 
   function clearNode(node) {
@@ -218,8 +268,6 @@
 
   function scrollChatToBottom(force) {
     if (!chatContainer) return;
-    // Never steal the scroll position while the user is reading older output.
-    // Only an explicit Jump button click (force=true) is allowed to unpin.
     if (!force && chatUserPinnedScroll && !isChatNearBottom()) {
       setJumpToLatestVisible(true);
       return;
@@ -231,8 +279,30 @@
     }
   }
 
-  function followChatOutput() {
+  function forceLatestChatVisible(target) {
     if (!chatContainer) return;
+    chatUserPinnedScroll = false;
+    setJumpToLatestVisible(false);
+    var node = target || chatContainer.lastElementChild;
+    var run = function () {
+      if (!chatContainer) return;
+      if (node && typeof node.scrollIntoView === "function") {
+        try { node.scrollIntoView({ block: "end", inline: "nearest" }); } catch (_) { node.scrollIntoView(false); }
+      }
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    };
+    run();
+    setTimeout(run, 0);
+    setTimeout(run, 80);
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+  }
+
+  function followChatOutput(force, target) {
+    if (!chatContainer) return;
+    if (force) {
+      forceLatestChatVisible(target);
+      return;
+    }
     if (chatUserPinnedScroll && !isChatNearBottom()) {
       setJumpToLatestVisible(true);
       return;
@@ -431,7 +501,7 @@
     }
     else div.textContent = content;
     chatContainer.appendChild(div);
-    followChatOutput();
+    followChatOutput(false, div);
     return div;
   }
 
@@ -447,7 +517,7 @@
     note.appendChild(node);
     div.appendChild(note);
     chatContainer.appendChild(div);
-    followChatOutput();
+    followChatOutput(false, div);
     return div;
   }
 
@@ -573,7 +643,7 @@
     wrapper.appendChild(thinkDiv);
     wrapper.appendChild(contentDiv);
     chatContainer.appendChild(wrapper);
-    followChatOutput();
+    followChatOutput(false, wrapper);
     return { wrapper: wrapper, thinkDiv: thinkDiv, contentDiv: contentDiv };
   }
 
@@ -1154,6 +1224,21 @@
     vscode.postMessage({ type: "getDynamicContextSettings" });
     initSettingsTabs();
   });
+  if (foundryIqOpenBtn) foundryIqOpenBtn.addEventListener("click", function () {
+    openMicrosoftIqSettings();
+  });
+  if (foundryIqTestBtn) foundryIqTestBtn.addEventListener("click", function () {
+    if (foundryIqCardStatus) foundryIqCardStatus.textContent = "Testing Foundry IQ...";
+    vscode.postMessage({ type: "testMicrosoftIq", query: "Sentinel Coder One Foundry IQ connectivity test" });
+  });
+  if (foundryIqTopBtn) foundryIqTopBtn.addEventListener("click", function () {
+    openMicrosoftIqSettings();
+  });
+  if (foundryIqTopPill) foundryIqTopPill.addEventListener("click", function () {
+    foundryIqTopPill.textContent = "IQ: TEST";
+    foundryIqTopPill.classList.remove("on", "error");
+    vscode.postMessage({ type: "testMicrosoftIq", query: "Sentinel Coder One Foundry IQ connectivity test" });
+  });
   $("btn-close-settings").addEventListener("click", function () { settingsPanel.classList.remove("active"); });
 
   // MCP server controls (delegated)
@@ -1275,6 +1360,28 @@
           vscode.postMessage({ type: "saveSettings", temperature: temp, maxTokens: tokens, ollamaUrl: url, contextBudgetTokens: ctxBudget });
           targetEl.textContent = "Saved!";
           setTimeout(function () { targetEl.textContent = "Save"; }, 1500);
+        }
+        if (targetEl.id === "btn-save-iq") {
+          var iqTimeout = parseInt(($("iq-timeout") || {}).value || "12000");
+          var iqMaxChars = parseInt(($("iq-maxchars") || {}).value || "4000");
+          vscode.postMessage({
+            type: "saveSettings",
+            microsoftIqEnabled: !!($("iq-enabled") && $("iq-enabled").checked),
+            microsoftIqLayer: ($("iq-layer") && $("iq-layer").value) || "foundry-iq",
+            microsoftIqEndpoint: ($("iq-endpoint") && $("iq-endpoint").value.trim()) || "",
+            microsoftIqApiKeyEnv: ($("iq-api-env") && $("iq-api-env").value.trim()) || "MICROSOFT_IQ_API_KEY",
+            microsoftIqTimeoutMs: isNaN(iqTimeout) ? 12000 : iqTimeout,
+            microsoftIqMaxQueryChars: isNaN(iqMaxChars) ? 4000 : iqMaxChars
+          });
+          targetEl.textContent = "Saved!";
+          var iqStatus = $("iq-status");
+          if (iqStatus) iqStatus.textContent = "Status: saved. New chat turns will use these Microsoft IQ settings.";
+          setTimeout(function () { targetEl.textContent = "Save Microsoft IQ settings"; }, 1500);
+        }
+        if (targetEl.id === "btn-test-iq") {
+          var iqStatus2 = $("iq-status");
+          if (iqStatus2) iqStatus2.textContent = "Status: testing Foundry IQ...";
+          vscode.postMessage({ type: "testMicrosoftIq", query: "Sentinel Coder One Foundry IQ connectivity test" });
         }
         if (targetEl.id === "btn-agentic-new") { showAgenticEditor(); }
         if (targetEl.id === "btn-agentic-refresh") { vscode.postMessage({ type: "getAgenticProfiles" }); }
@@ -2318,7 +2425,7 @@
         currentRawText += data.content;
         if (currentContentDiv) {
           currentContentDiv["inner" + "HTML"] = renderMd(currentRawText);
-          followChatOutput();
+          followChatOutput(false, currentAssistantDiv || currentContentDiv);
         }
         break;
 
@@ -2327,7 +2434,7 @@
         currentRawText = data.content;
         if (currentContentDiv) {
           currentContentDiv["inner" + "HTML"] = renderMd(data.content);
-          followChatOutput();
+          followChatOutput(false, currentAssistantDiv || currentContentDiv);
         }
         break;
 
@@ -2379,6 +2486,7 @@
         currentAssistantDiv = null;
         currentThinkingDiv = null;
         currentContentDiv = null;
+        forceLatestChatVisible();
         break;
 
       case "continueAvailable":
@@ -2546,6 +2654,27 @@
         if (su && typeof data.ollamaUrl === "string") { su.value = data.ollamaUrl; }
         var scb = $("set-ctxbudget");
         if (scb && typeof data.contextBudgetTokens === "number") { scb.value = String(data.contextBudgetTokens); }
+        microsoftIqSettings = data.microsoftIq || {};
+        var iqEnabled = $("iq-enabled");
+        var iqLayer = $("iq-layer");
+        var iqEndpoint = $("iq-endpoint");
+        var iqApiEnv = $("iq-api-env");
+        var iqTimeout = $("iq-timeout");
+        var iqMaxChars = $("iq-maxchars");
+        var iqStatus = $("iq-status");
+        if (iqEnabled) iqEnabled.checked = !!microsoftIqSettings.enabled;
+        if (iqLayer && microsoftIqSettings.layer) iqLayer.value = microsoftIqSettings.layer;
+        if (iqEndpoint) iqEndpoint.value = microsoftIqSettings.endpoint || "";
+        if (iqApiEnv) iqApiEnv.value = microsoftIqSettings.apiKeyEnv || "MICROSOFT_IQ_API_KEY";
+        if (iqTimeout) iqTimeout.value = String(microsoftIqSettings.timeoutMs || 12000);
+        if (iqMaxChars) iqMaxChars.value = String(microsoftIqSettings.maxQueryChars || 4000);
+        if (iqStatus) {
+          var layerLabel = microsoftIqSettings.layer || "foundry-iq";
+          iqStatus.textContent = microsoftIqSettings.enabled
+            ? "Status: ENABLED (" + layerLabel + "). " + (microsoftIqSettings.endpoint ? "Endpoint configured. Click Test Foundry IQ." : "Add endpoint, save, then test.")
+            : "Status: disabled. Enable it for Foundry IQ hackathon grounding.";
+        }
+        updateFoundryIqCard();
         var sth = $("set-tokens-hint");
         if (sth) {
           var mmo = typeof data.modelMaxOutput === "number" ? data.modelMaxOutput : 0;
@@ -2558,12 +2687,33 @@
         break;
       }
 
+      case "microsoftIqTest": {
+        var iqStatus3 = $("iq-status");
+        var prefix = data.ok ? "PASS" : "FAIL";
+        var detail = data.message || "";
+        if (iqStatus3) iqStatus3.textContent = "Status: " + prefix + " - " + detail;
+        if (foundryIqCardStatus) foundryIqCardStatus.textContent = "Foundry IQ test " + prefix + ": " + detail;
+        if (foundryIqTopPill) {
+          foundryIqTopPill.textContent = data.ok ? "IQ: ON" : "IQ: ERR";
+          foundryIqTopPill.classList.remove("on", "error");
+          foundryIqTopPill.classList.add(data.ok ? "on" : "error");
+          foundryIqTopPill.title = detail;
+        }
+        if (foundryIqCard) { foundryIqCard.classList.remove("enabled", "disabled", "error"); foundryIqCard.classList.add(data.ok ? "enabled" : "error"); }
+        addMessage(data.ok ? "system" : "error", "Microsoft IQ / Foundry IQ test: " + prefix + "\n" + detail);
+        forceLatestChatVisible(chatContainer ? chatContainer.lastElementChild : null);
+        break;
+      }
+
       case "restoreSession": {
         if (chatContainer) clearNode(chatContainer);
         renderPlan([]);
         (data.messages || []).forEach(function (m) {
           addMessage(m.role, m.content);
         });
+        chatUserPinnedScroll = false;
+        forceLatestChatVisible(chatContainer ? chatContainer.lastElementChild : null);
+        setTimeout(function(){ forceLatestChatVisible(chatContainer ? chatContainer.lastElementChild : null); }, 250);
         break;
       }
 
@@ -2668,3 +2818,16 @@
   // Request init on load
   vscode.postMessage({ type: "requestInit" });
 })();
+
+
+if (foundryIqGlobalOpenBtn) {
+  foundryIqGlobalOpenBtn.addEventListener("click", function () {
+    openMicrosoftIqSettings();
+  });
+}
+if (foundryIqGlobalTestBtn) {
+  foundryIqGlobalTestBtn.addEventListener("click", function () {
+    if (foundryIqGlobalStatus) foundryIqGlobalStatus.textContent = "Testing Foundry IQ...";
+    vscode.postMessage({ type: "testMicrosoftIq", query: "Sentinel Coder Foundry IQ visible global banner test" });
+  });
+}

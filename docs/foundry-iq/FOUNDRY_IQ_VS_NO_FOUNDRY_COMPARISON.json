@@ -1,0 +1,187 @@
+{
+  "created_at": "2026-06-13T17:14:46Z",
+  "query": "Coding task: implement a secure Sentinel Coder One command that tests Microsoft Foundry IQ grounding and reports sources to the user without leaking secrets.",
+  "endpoint": "https://qubitpage-srch.search.windows.net/knowledgebases/sentinel-coder-iq-kb/retrieve?api-version=2026-04-01",
+  "grounding": {
+    "mode": "live",
+    "ok": true,
+    "latency_ms": 1002.0,
+    "payload_preview": "{\n  \"@odata.context\": \"https://qubitpage-srch.search.windows.net/$metadata#Microsoft.WindowsAzure.Search.Core.Models.V2026_04_01.Agents.AgentRetrievalResponse\",\n  \"response\": [\n    {\n      \"content\": [\n        {\n          \"type\": \"text\",\n          \"text\": \"[{\\\"ref_id\\\":0,\\\"title\\\":\\\"vscode-ext\\\\\\\\README.md chunk 3\\\",\\\"terms\\\":\\\"vscode-ext\\\\\\\\README.md\\\",\\\"content\\\":\\\"Save, and Test controls to the actual inline webview HTML in `src/sidebarProvider.ts`.\\\\n- Verified Azure AI Search-backed Foundry IQ through `MICROSOFT_IQ_BEARER_TOKEN`.\\\\n\\\\n### 3.16.49 - Safe inline Foundry IQ banner layout\\\\n\\\\n- Fixed the real inline chat webview layout after Foundry IQ visibility work.\\\\n- Kept a full-width Foundry IQ banner below the toolbar so it cannot cover or break the chat header/output area.\\\\n\\\\n### 3.16.48 - Inline Foundry IQ banner in the real chat view\\\\n\\\\n- Fixed the actual rendered webview path: Foundry IQ appears in inline `src/sidebarProvider.ts` HTML, not only in unused `media/sidebar.html`.\\\\n- Added an always-visible Microsoft Foundry IQ banner directly below the top toolbar with Setup and Test buttons.\\\\n\\\\n### 3.16.45 - Verified real Azure Foundry IQ Marketplace release\\\\n\\\\n- Configured real Azure AI Search endpoint for Foundry IQ retrieval.\\\\n- Verified extension-module smoke test with real endpoint and non-secret API-key environment variable.\\\\n\\\\n### 3.16.44 - Real Azure Foundry IQ connected\\\\n\\\\n- Microsoft IQ / Foundry IQ uses the real Azure AI Search-backed `sentinel-coder-iq` index by default.\\\\n- Azure AI Search Foundry IQ Knowledge Base retrieve endpoints are called with bearer/JWT authentication from `MICROSOFT_IQ_BEARER_TOKEN`.\\\\n\\\\n---\\\\n\\\\n## Settings\\\\n\\\\nImportant Foundry IQ settings:\\\\n\\\\n| Setting | Purpose |\\\\n| --- | --- |\\\\n| `sentinelCoder.microsoftIq.enabled` | Enables Microsoft IQ grounding. |\\\\n| `sentinelCoder.microsoftIq.layer` | Use `foundry-iq` for this hackathon submission. |\\\\n| `sentinelCoder.microsoftIq.endpoint` | Azure AI Search Foundry IQ endpoint. |\\\\n| `sentinelCoder.microsoftIq.apiKeyEnv` | Environment variable name containing the bearer/JWT token, normally `MICROSOFT_IQ_BEARER_TOKEN`. |\\\\n| `sentinelCoder.microsoftIq.timeoutMs` | Request timeout. |\\\\n| `sentinelCoder.microsoftIq.maxQueryChars` | Max query size sent to Foundry IQ. |\\\\n\\\\nOther settings are available in VS Code Settings under **Sentinel Coder One S…",
+    "source_count": 9,
+    "raw": {
+      "@odata.context": "https://qubitpage-srch.search.windows.net/$metadata#Microsoft.WindowsAzure.Search.Core.Models.V2026_04_01.Agents.AgentRetrievalResponse",
+      "response": [
+        {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"ref_id\":0,\"title\":\"vscode-ext\\\\README.md chunk 3\",\"terms\":\"vscode-ext\\\\README.md\",\"content\":\"Save, and Test controls to the actual inline webview HTML in `src/sidebarProvider.ts`.\\n- Verified Azure AI Search-backed Foundry IQ through `MICROSOFT_IQ_BEARER_TOKEN`.\\n\\n### 3.16.49 - Safe inline Foundry IQ banner layout\\n\\n- Fixed the real inline chat webview layout after Foundry IQ visibility work.\\n- Kept a full-width Foundry IQ banner below the toolbar so it cannot cover or break the chat header/output area.\\n\\n### 3.16.48 - Inline Foundry IQ banner in the real chat view\\n\\n- Fixed the actual rendered webview path: Foundry IQ appears in inline `src/sidebarProvider.ts` HTML, not only in unused `media/sidebar.html`.\\n- Added an always-visible Microsoft Foundry IQ banner directly below the top toolbar with Setup and Test buttons.\\n\\n### 3.16.45 - Verified real Azure Foundry IQ Marketplace release\\n\\n- Configured real Azure AI Search endpoint for Foundry IQ retrieval.\\n- Verified extension-module smoke test with real endpoint and non-secret API-key environment variable.\\n\\n### 3.16.44 - Real Azure Foundry IQ connected\\n\\n- Microsoft IQ / Foundry IQ uses the real Azure AI Search-backed `sentinel-coder-iq` index by default.\\n- Azure AI Search Foundry IQ Knowledge Base retrieve endpoints are called with bearer/JWT authentication from `MICROSOFT_IQ_BEARER_TOKEN`.\\n\\n---\\n\\n## Settings\\n\\nImportant Foundry IQ settings:\\n\\n| Setting | Purpose |\\n| --- | --- |\\n| `sentinelCoder.microsoftIq.enabled` | Enables Microsoft IQ grounding. |\\n| `sentinelCoder.microsoftIq.layer` | Use `foundry-iq` for this hackathon submission. |\\n| `sentinelCoder.microsoftIq.endpoint` | Azure AI Search Foundry IQ endpoint. |\\n| `sentinelCoder.microsoftIq.apiKeyEnv` | Environment variable name containing the bearer/JWT token, normally `MICROSOFT_IQ_BEARER_TOKEN`. |\\n| `sentinelCoder.microsoftIq.timeoutMs` | Request timeout. |\\n| `sentinelCoder.microsoftIq.maxQueryChars` | Max query size sent to Foundry IQ. |\\n\\nOther settings are available in VS Code Settings under **Sentinel Coder One Studio**.\\n\\n## Security and privacy\\n\\n- Sentinel is bring-your-own-key.\\n- API keys are read from environment variables or VS Code SecretStorage/user settings where applicable.\\n- Foundry IQ credentials are not hardcoded into source or Marketplace artifacts.\\n- Tool results are summarized/collapsed in the UI to avoid flooding chat with raw command output. Save, and Test controls to the actual inline webview HTML in `src/sidebarProvider.ts`.\\n- Verified Azure AI Search-backed Foundry IQ through `MICROSOFT_IQ_BEARER_TOKEN`.\\n\\n### 3.16.49 - Safe inline Foundry IQ banner layout\\n\\n- Fixed the real inline chat webview layout after Foundry IQ visibility work.\\n- Kept a full-width Foundry IQ banner below the toolbar so it cannot cover or break the chat header/output area.\\n\\n### 3.16.48 - Inline Foundry IQ banner in the real chat view\\n\\n- Fixed the actual rende\"},{\"ref_id\":1,\"title\":\"vscode-ext\\\\README.md chunk 2\",\"terms\":\"vscode-ext\\\\README.md\",\"content\":\"ry IQ before model calls and injects retrieved enterprise/project context into the agent prompt.\\n- **Visible setup path:** Foundry IQ appears in the real inline sidebar UI and Settings overlay with Enable, layer, endpoint, API env var, timeout, max-query, Save, and Test controls.\\n- **Verified endpoint:** extension-module smoke test returns Foundry IQ context from the Azure Search index using `MICROSOFT_IQ_BEARER_TOKEN` without printing secrets.\\n- **Chat visibility fixes:** latest assistant output, restored sessions, and Foundry IQ test results are pinned to visible chat output while preserving manual scroll behavior.\\n\\n### Hackathon Microsoft IQ requirement\\n\\nThis submission explicitly uses **Microsoft IQ / Foundry IQ**:\\n\\n| Requirement | Sentinel Coder One implementation |\\n| --- | --- |\\n| IQ layer | Foundry IQ |\\n| Backend | Azure AI Search index `sentinel-coder-iq` |\\n| Endpoint setting | `sentinelCoder.microsoftIq.endpoint` |\\n| Secret handling | Bearer/JWT token read from `MICROSOFT_IQ_BEARER_TOKEN`; never hardcoded |\\n| Agent behavior | Retrieves project/enterprise knowledge and injects it into coding-agent prompts |\\n| UI behavior | Foundry IQ setup and test controls are visible in Sentinel Coder One Studio |\\n\\n### Autonomous AI coding + Agentic Profiles + Media & Document Studio for Visual Studio Code\\n\\n**Multi-provider chat | Categorized live model selector | Single-model full-capability mode | Opt-in Agentic orchestration | Microsoft Foundry IQ grounding | Azure/OpenAI/Anthropic/Groq/OpenRouter/Ollama and OpenAI-compatible providers | Sora video | Image/audio/document Studio | VS Code Web + Remote Tool Bridge**\\n\\nBuilt by [QubitPage Research](https://github.com/qubitpage) | MIT licensed\\n\\n[GitHub repository](https://github.com/qubitpage/sentinel-coder-vscode) | [Contributing guide](https://github.com/qubitpage/sentinel-coder-vscode/blob/main/CONTRIBUTING.md) | [Issues and feature requests](https://github.com/qubitpage/sentinel-coder-vscode/issues)\\n\\n</div>\\n\\n---\\n\\n## Recent verified releases\\n\\n### 3.16.50 - Inline Microsoft IQ settings pane fix\\n\\n- Fixed the real rendered Sentinel Settings overlay: Microsoft IQ / Foundry IQ opens a real inline `settings-iq` pane instead of a blank Settings page.\\n- Added visible Enable, layer, endpoint, API env var, timeout, max-query, Save, and Test controls to the actual inline webview HTML in `src/sidebarProvider.ts`.\\n- Verified Azure AI Search-backed Foundry IQ through `MICROSOFT_IQ_BEARER_TOKEN`.\\n\\n### 3.16.49 - Safe inline Fou ry IQ before model calls and injects retrieved enterprise/project context into the agent prompt.\\n- **Visible setup path:** Foundry IQ appears in the real inline sidebar UI and Settings overlay with Enable, layer, endpoint, API env var, timeout, max-query, Save, and Test controls.\\n- **Verified endpoint:** extension-module smoke test returns Foundry IQ context from the Azure Search index using `MICROSOFT_IQ_BEARER_TOKEN` without printing secrets.\\n- **Chat visibility fixes:** latest assistant outpu\"},{\"ref_id\":2,\"title\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION.md chunk 1\",\"terms\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION.md\",\"content\":\"# Sentinel Coder Studio One — Microsoft IQ Integration\\n\\n**Date:** 2026-06-12  \\n**Hackathon:** Microsoft Agents League Hackathon  \\n**Status:** IMPLEMENTED, COMPILED, PACKAGED, AND VERIFIED LOCALLY\\n\\n## Required Microsoft IQ Layer\\n\\nSentinel Coder Studio One now explicitly integrates a Microsoft IQ intelligence layer using:\\n\\n- **Primary layer:** Foundry IQ\\n- **Purpose:** agentic knowledge retrieval / enterprise grounding before the coding agent answers\\n- **Optional compatible modes:** Work IQ and Fabric IQ are exposed as selectable settings for future tenant-specific integrations\\n\\n## Files Changed\\n\\n- [Microsoft IQ client](file:///D:/QubitDev/apps/qubitpage-aide/extensions/aide-agent/src/microsoftIq.ts)\\n- [Chat panel integration](file:///D:/QubitDev/apps/qubitpage-aide/extensions/aide-agent/src/chatPanel.ts)\\n- [VS Code settings contribution](file:///D:/QubitDev/apps/qubitpage-aide/extensions/aide-agent/package.json)\\n- [Localized setting labels](file:///D:/QubitDev/apps/qubitpage-aide/extensions/aide-agent/package.nls.json)\\n\\n## How It Works\\n\\nWhen `aide.microsoftIqEnabled` is enabled, Sentinel Coder queries the configured Microsoft IQ grounding endpoint before the model response. The returned grounding context is injected into the system prompt and the agent is instructed to cite retrieved sources.\\n\\nIf the endpoint is missing or retrieval fails, Sentinel Coder reports that Microsoft IQ grounding was unavailable instead of pretending enterprise context was used.\\n\\n## New Settings\\n\\n- `aide.microsoftIqEnabled`\\n- `aide.microsoftIqLayer`: `foundry-iq`, `work-iq`, or `fabric-iq`\\n- `aide.microsoftIqEndpoint`\\n- `aide.microsoftIqApiKey`\\n- `aide.microsoftIqTimeoutMs`\\n- `aide.microsoftIqMaxContextChars`\\n\\n## Secret Safety\\n\\nNo API key is hardcoded. Keys can be read from VS Code settings or from environment variables:\\n\\n- `AZURE_FOUNDRY_IQ_API_KEY`\\n- `MICROSOFT_IQ_API_KEY`\\n\\n## Microsoft Documentation References\\n\\n- Microsoft IQ documentation: https://learn.microsoft.com/en-us/microsoft-iq/\\n- Foundry IQ knowledge retrieval for agents: https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/foundry-iq-connect\\n- Foundry Agent file search/vector stores: https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/tools/file-search\\n- Work IQ overview: https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/work-iq/\\n- Fabric IQ overview: https://learn.microsoft.com/en-us/fabric/iq/overview\\n\\n## Hackathon Claim\\n\\nSentinel Coder Studio One satisfies the Microsoft IQ re # Sentinel Coder Studio One — Microsoft IQ Integration\\n\\n**Date:** 2026-06-12  \\n**Hackathon:** Microsoft Agents League Hackathon  \\n**Status:** IMPLEMENTED, COMPILED, PACKAGED, AND VERIFIED LOCALLY\\n\\n## Required Microsoft IQ Layer\\n\\nSentinel Coder Studio One now explicitly integrates a Microsoft IQ intelligence layer using:\\n\\n- **Primary layer:** Foundry IQ\\n- **Purpose:** agentic knowledge retrieval / enterprise grounding before the coding agent answers\\n- **Optional compatible modes:** Work IQ and Fa\"},{\"ref_id\":3,\"title\":\"vscode-ext\\\\README.md chunk 1\",\"terms\":\"vscode-ext\\\\README.md\",\"content\":\"﻿## Version 3.16.53 - Foundry IQ proof report and comparison\\n\\nSentinel Coder One Studio now includes a concise proof report comparing the same coding task **with** and **without** Microsoft Foundry IQ grounding.\\n\\n| Proof item | Result |\\n| --- | --- |\\n| Foundry IQ mode | Live Azure AI Search-backed Knowledge Base retrieve |\\n| Knowledge Base endpoint | `https://qubitpage-srch.search.windows.net/knowledgebases/sentinel-coder-iq-kb/retrieve?api-version=2026-04-01` |\\n| Sources retrieved in comparison | `9` |\\n| Retrieval latency | `1111.5 ms` |\\n| No-IQ answer score | `67` |\\n| Foundry-IQ answer score | `100` |\\n| Evidence artifact | `reports/training/FOUNDRY_IQ_VS_NO_FOUNDRY_INFOGRAPHIC.html` |\\n\\n**Benefit:** without IQ, Sentinel gives a generic coding answer. With Foundry IQ, Sentinel grounds the answer in current Sentinel Coder One docs/release evidence, reports sources, and avoids inventing product-specific facts.\\n\\n## Version 3.16.52 - Secure Foundry IQ runtime\\n\\nThe Microsoft IQ runtime no longer spawns Azure CLI or shell commands from the VS Code extension. Foundry IQ Knowledge Base retrieve endpoints now require a bearer/JWT token supplied through `sentinelCoder.microsoftIq.apiKeyEnv` (default `MICROSOFT_IQ_BEARER_TOKEN`). Azure CLI is used only by local provisioning/test scripts, not by Marketplace runtime code.\\n\\n## Version 3.16.51 - Real Foundry IQ Knowledge Base Retrieve Runtime\\n\\nSentinel Coder One Studio now defaults to the verified Microsoft Foundry IQ Knowledge Base retrieve endpoint on `qubitpage-srch`: `sentinel-coder-iq-kb`. The runtime supports the documented `2026-04-01` retrieve schema with `intents` and `knowledgeSourceParams`, and can obtain Azure Search bearer tokens via Azure CLI for local desktop testing without storing tokens in source.\\n\\n<div align=\\\"center\\\">\\n\\n# Sentinel Coder One Studio\\n\\n## 3.16.50 - Verified Microsoft Foundry IQ setup, real Azure Search grounding, and inline Settings fix\\n\\nSentinel Coder One Studio now integrates the required Microsoft IQ layer for the Microsoft Agents League Hackathon through **Foundry IQ backed by Azure AI Search**.\\n\\n- **Real Foundry IQ backend:** `sentinel-coder-iq` index on Azure AI Search service `stan` in resource group `foundryIQsource`.\\n- **Real grounding in prompts:** when enabled, Sentinel queries Foundry IQ before model calls and injects retrieved enterprise/project context into the agent prompt.\\n- **Visible setup path:** Foundry IQ appears in the real inline sidebar UI and Settings overlay with En ﻿## Version 3.16.53 - Foundry IQ proof report and comparison\\n\\nSentinel Coder One Studio now includes a concise proof report comparing the same coding task **with** and **without** Microsoft Foundry IQ grounding.\\n\\n| Proof item | Result |\\n| --- | --- |\\n| Foundry IQ mode | Live Azure AI Search-backed Knowledge Base retrieve |\\n| Knowledge Base endpoint | `https://qubitpage-srch.search.windows.net/knowledgebases/sentinel-coder-iq-kb/retrieve?api-version=2026-04-01` |\\n| Sources retrieved in comparison\"},{\"ref_id\":4,\"title\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_3_16_45_VERIFIED_FOUNDRY_IQ_MARKETPLACE_RELEASE.md chunk 1\",\"terms\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_3_16_45_VERIFIED_FOUNDRY_IQ_MARKETPLACE_RELEASE.md\",\"content\":\"# Sentinel Coder One Studio 3.16.45 — Verified Foundry IQ Marketplace Release\\n\\n**Date:** 2026-06-13\\n**Marketplace extension:** `Qubitpage.sentinel-coder`\\n**Version:** `3.16.45`\\n**Status:** PUBLISHED TO MARKETPLACE AND INSTALLED LOCALLY\\n\\n## What was updated\\n\\n- Real extension source: `D:/QubitDev/vscode-ext`\\n- Marketplace package: `D:/QubitDev/vscode-ext/sentinel-coder-3.16.45.vsix`\\n- Marketplace overview source: `D:/QubitDev/vscode-ext/README.md`\\n- Changelog: `D:/QubitDev/vscode-ext/CHANGELOG.md`\\n\\n## Foundry IQ / Microsoft IQ verification\\n\\nThe extension is configured for the real Azure AI Search-backed Foundry IQ layer:\\n\\n- Microsoft IQ enabled by default: `true`\\n- Layer: `foundry-iq`\\n- Endpoint: `https://stan.search.windows.net/indexes/sentinel-coder-iq/docs/search?api-version=2023-11-01`\\n- Index: `sentinel-coder-iq`\\n- Key source: `MICROSOFT_IQ_API_KEY` environment variable only; no key is stored in source.\\n\\n## Release gates passed\\n\\n- TypeScript compile: PASS\\n- Webview JavaScript syntax check: PASS\\n- Real Azure Foundry IQ extension-module smoke test: PASS\\n  - Status: `ok`\\n  - Layer: `foundry-iq`\\n  - Sources retrieved: `8`\\n  - Prompt grounding present: `true`\\n- VSIX package: PASS\\n- Local install: PASS\\n- Marketplace publish: PASS\\n\\n## Published result\\n\\n- Published: `Qubitpage.sentinel-coder v3.16.45`\\n- Marketplace URL: https://marketplace.visualstudio.com/items?itemName=Qubitpage.sentinel-coder\\n- Installed local version verified: `qubitpage.sentinel-coder@3.16.45`\\n\\n## Notes\\n\\nMarketplace overview updates may take a few minutes to appear publicly after publish. # Sentinel Coder One Studio 3.16.45 — Verified Foundry IQ Marketplace Release\\n\\n**Date:** 2026-06-13\\n**Marketplace extension:** `Qubitpage.sentinel-coder`\\n**Version:** `3.16.45`\\n**Status:** PUBLISHED TO MARKETPLACE AND INSTALLED LOCALLY\\n\\n## What was updated\\n\\n- Real extension source: `D:/QubitDev/vscode-ext`\\n- Marketplace package: `D:/QubitDev/vscode-ext/sentinel-coder-3.16.45.vsix`\\n- Marketplace overview source: `D:/QubitDev/vscode-ext/README.md`\\n- Changelog: `D:/QubitDev/vscode-ext/CHANGELOG.md`\"},{\"ref_id\":5,\"title\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION.md chunk 2\",\"terms\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION.md\",\"content\":\"-us/microsoft-365/copilot/extensibility/work-iq/\\n- Fabric IQ overview: https://learn.microsoft.com/en-us/fabric/iq/overview\\n\\n## Hackathon Claim\\n\\nSentinel Coder Studio One satisfies the Microsoft IQ requirement by integrating **Foundry IQ** as the required intelligence layer for agentic knowledge retrieval. The integration is configurable and secure, and it can be connected to a real Foundry IQ / Foundry Agent / Azure AI Search endpoint for enterprise-grounded coding assistance. -us/microsoft-365/copilot/extensibility/work-iq/\\n- Fabric IQ overview: https://learn.microsoft.com/en-us/fabric/iq/overview\\n\\n## Hackathon Claim\\n\\nSentinel Coder Studio One satisfies the Microsoft IQ requirement by integrating **Foundry IQ** as the required intelligence layer for agentic knowledge retrieval. The integration is configurable and secure, and it can be connected to a real Foundry IQ / Foundry Agent / Azure AI Search endpoint for enterprise-grounded coding assistance.\"},{\"ref_id\":6,\"title\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_3_16_50_INLINE_IQ_SETTINGS_FIX_RELEASE.md chunk 1\",\"terms\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_3_16_50_INLINE_IQ_SETTINGS_FIX_RELEASE.md\",\"content\":\"# Sentinel Coder One Studio 3.16.50 — Inline Microsoft IQ Settings Fix\\n\\n**Date:** 2026-06-13\\n**Marketplace extension:** `Qubitpage.sentinel-coder`\\n**Version:** `3.16.50`\\n**Status:** PUBLISHED TO MARKETPLACE AND INSTALLED LOCALLY\\n\\n## Fixed\\n\\nThe visible Foundry IQ / Microsoft IQ setup button no longer opens a blank Settings page.\\n\\nRoot cause was confirmed: the real rendered UI is inline HTML in `vscode-ext/src/sidebarProvider.ts`, not only `vscode-ext/media/sidebar.html`. The JavaScript handlers already existed, but the inline Settings overlay was missing:\\n\\n- `data-stab=\\\"iq\\\"` tab\\n- `settings-iq` pane\\n- Save/Test controls\\n\\n## Added to the real inline webview\\n\\n- Microsoft IQ Settings tab\\n- `settings-iq` pane\\n- Enable Microsoft IQ grounding checkbox\\n- IQ layer selector\\n- Foundry IQ / Azure Search endpoint input\\n- API key environment variable input\\n- Timeout and max-query controls\\n- Save Microsoft IQ button\\n- Test Foundry IQ button\\n- Status text\\n\\n## Verified\\n\\n- Webview JavaScript syntax: PASS\\n- TypeScript compile: PASS\\n- Real Azure Foundry IQ smoke test: PASS, 8 sources returned\\n- Security scan: PASS, 100/100\\n- VSIX packaged: PASS\\n- Local install: PASS\\n- Installed compiled file contains the inline IQ pane: PASS\\n- Marketplace publish: DONE Published `Qubitpage.sentinel-coder v3.16.50`\\n\\n## Files\\n\\n- Source: `D:/QubitDev/vscode-ext/src/sidebarProvider.ts`\\n- VSIX: `D:/QubitDev/vscode-ext/sentinel-coder-3.16.50.vsix`\\n- Screenshot: `D:/QubitDev/.sentinel/generated/screenshots/after_31650_inline_iq_settings_published.png`\\n\\n## Next step\\n\\nRun **Developer: Reload Window** in VS Code, then open Sentinel Coder One Studio and click the Foundry IQ setup button. It should open the Microsoft IQ settings pane instead of a blank page. # Sentinel Coder One Studio 3.16.50 — Inline Microsoft IQ Settings Fix\\n\\n**Date:** 2026-06-13\\n**Marketplace extension:** `Qubitpage.sentinel-coder`\\n**Version:** `3.16.50`\\n**Status:** PUBLISHED TO MARKETPLACE AND INSTALLED LOCALLY\\n\\n## Fixed\\n\\nThe visible Foundry IQ / Microsoft IQ setup button no longer opens a blank Settings page.\\n\\nRoot cause was confirmed: the real rendered UI is inline HTML in `vscode-ext/src/sidebarProvider.ts`, not only `vscode-ext/media/sidebar.html`. The JavaScript handlers a\"},{\"ref_id\":7,\"title\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_3_16_44_REAL_AZURE_FOUNDRY_IQ_RELEASE.md chunk 2\",\"terms\":\"reports\\\\training\\\\SENTINEL_CODER_ONE_3_16_44_REAL_AZURE_FOUNDRY_IQ_RELEASE.md\",\"content\":\"ketplace propagation. If Marketplace still shows an older version for a few minutes, that is normal Marketplace CDN delay; the publish command already confirmed `DONE Published Qubitpage.sentinel-coder v3.16.44.` ketplace propagation. If Marketplace still shows an older version for a few minutes, that is normal Marketplace CDN delay; the publish command already confirmed `DONE Published Qubitpage.sentinel-coder v3.16.44.`\"},{\"ref_id\":8,\"title\":\"RBAC smoke test\",\"terms\":\"rbac-smoke\",\"content\":\"This document verifies Search Index Data Contributor permissions for Sentinel Coder Foundry IQ. AAD document upload smoke test\"}]"
+            }
+          ]
+        }
+      ],
+      "activity": [
+        {
+          "type": "searchIndex",
+          "id": 0,
+          "knowledgeSourceName": "sentinel-coder-iq-ks",
+          "queryTime": "2026-06-13T17:14:45.3412965Z",
+          "count": 15,
+          "elapsedMs": 66,
+          "searchIndexArguments": {
+            "search": "Coding task: implement a secure Sentinel Coder One command that tests Microsoft Foundry IQ grounding and reports sources to the user without leaking secrets.",
+            "filter": null,
+            "semanticConfigurationName": "sentinel-semantic",
+            "sourceDataFields": [
+              {
+                "name": "title"
+              },
+              {
+                "name": "content"
+              },
+              {
+                "name": "snippet"
+              },
+              {
+                "name": "source"
+              },
+              {
+                "name": "id"
+              },
+              {
+                "name": "url"
+              }
+            ],
+            "searchFields": [
+              {
+                "name": "content"
+              },
+              {
+                "name": "snippet"
+              },
+              {
+                "name": "title"
+              }
+            ]
+          }
+        },
+        {
+          "type": "agenticReasoning",
+          "id": 1,
+          "reasoningTokens": 11327
+        }
+      ],
+      "references": [
+        {
+          "type": "searchIndex",
+          "id": "0",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 2.6522233,
+          "docKey": "vscode-ext_README_md-3",
+          "title": "vscode-ext\\README.md chunk 3"
+        },
+        {
+          "type": "searchIndex",
+          "id": "1",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 2.6125226,
+          "docKey": "vscode-ext_README_md-2",
+          "title": "vscode-ext\\README.md chunk 2"
+        },
+        {
+          "type": "searchIndex",
+          "id": "2",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 2.5699863,
+          "docKey": "reports_training_SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION_md-1",
+          "title": "reports\\training\\SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION.md chunk 1"
+        },
+        {
+          "type": "searchIndex",
+          "id": "3",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 2.5130942,
+          "docKey": "vscode-ext_README_md-1",
+          "title": "vscode-ext\\README.md chunk 1"
+        },
+        {
+          "type": "searchIndex",
+          "id": "4",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 2.4719756,
+          "docKey": "reports_training_SENTINEL_CODER_ONE_3_16_45_VERIFIED_FOUNDRY_IQ_MARKETPLACE_RELEASE_md-1",
+          "title": "reports\\training\\SENTINEL_CODER_ONE_3_16_45_VERIFIED_FOUNDRY_IQ_MARKETPLACE_RELEASE.md chunk 1"
+        },
+        {
+          "type": "searchIndex",
+          "id": "5",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 2.4448588,
+          "docKey": "reports_training_SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION_md-2",
+          "title": "reports\\training\\SENTINEL_CODER_ONE_MICROSOFT_IQ_INTEGRATION.md chunk 2"
+        },
+        {
+          "type": "searchIndex",
+          "id": "6",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 2.3947015,
+          "docKey": "reports_training_SENTINEL_CODER_ONE_3_16_50_INLINE_IQ_SETTINGS_FIX_RELEASE_md-1",
+          "title": "reports\\training\\SENTINEL_CODER_ONE_3_16_50_INLINE_IQ_SETTINGS_FIX_RELEASE.md chunk 1"
+        },
+        {
+          "type": "searchIndex",
+          "id": "7",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 1.9680978,
+          "docKey": "reports_training_SENTINEL_CODER_ONE_3_16_44_REAL_AZURE_FOUNDRY_IQ_RELEASE_md-2",
+          "title": "reports\\training\\SENTINEL_CODER_ONE_3_16_44_REAL_AZURE_FOUNDRY_IQ_RELEASE.md chunk 2"
+        },
+        {
+          "type": "searchIndex",
+          "id": "8",
+          "activitySource": 0,
+          "sourceData": null,
+          "rerankerScore": 1.959236,
+          "docKey": "rbac-smoke-test",
+          "title": "RBAC smoke test"
+        }
+      ]
+    }
+  },
+  "baseline": {
+    "answer": "Implement a command named `sentinel-coder.testFoundryIq`. Read the Foundry IQ settings, call the configured endpoint, and show a success or failure message. Keep credentials in environment variables, never print tokens, and log only status, source count, and latency. Add a small UI button that runs the command and displays PASS or FAIL.",
+    "score": {
+      "score": 67,
+      "checks": {
+        "mentions_foundry_iq": true,
+        "mentions_secret_safety": true,
+        "mentions_source_reporting": true,
+        "has_implementation_steps": false,
+        "uses_grounding": false,
+        "has_sources": true
+      }
+    }
+  },
+  "grounded": {
+    "answer": "Implement `sentinel-coder.testFoundryIq` as a production command grounded in Microsoft IQ / Foundry IQ.\n\n1. Read settings from `sentinelCoder.microsoftIq.*`: enabled, layer, endpoint, apiKeyEnv, timeoutMs, and maxQueryChars.\n2. Require `layer = foundry-iq` for the hackathon path.\n3. Use a bearer token/API value from the configured environment variable only. Never write or echo the token.\n4. POST a documented Knowledge Base retrieve request to the configured endpoint using `intents: [{ type: 'semantic', search: <query> }]` and `knowledgeSourceParams` for `sentinel-coder-iq-ks`.\n5. Parse references/results into a compact grounding block: title, source, snippet/content preview.\n6. Return a UI-safe result: PASS/FAIL, latency, source count, and redacted diagnostic message.\n7. Add automated smoke coverage that verifies: endpoint reachable, retrieval returns sources, and the agent prompt contains the `Microsoft IQ / Foundry IQ grounding` section.\n\nRetrieved evidence used in this recommendation:\n{\n  \"@odata.context\": \"https://qubitpage-srch.search.windows.net/$metadata#Microsoft.WindowsAzure.Search.Core.Models.V2026_04_01.Agents.AgentRetrievalResponse\",\n  \"response\": [\n    {\n      \"content\": [\n        {\n          \"type\": \"text\",\n          \"text\": \"[{\\\"ref_id\\\":0,\\\"title\\\":\\\"vscode-ext\\\\\\\\README.md chunk 3\\\",\\\"terms\\\":\\\"vscode-ext\\\\\\\\README.md\\\",\\\"content\\\":\\\"Save, and Test controls to the actual inline webview HTML in `src/sidebarProvider.ts`.\\\\n- Verified Azure AI Search-backed Foundry IQ through `MICROSOFT_IQ_BEARER_TOKEN`.\\\\n\\\\n### 3.16.49 - Safe inline Foundry IQ banner layout\\\\n\\\\n- Fixed the real inline chat webview layout after Foundry IQ visibility work.\\\\n- Kept a full-width Foundry IQ banner below the toolbar so it cannot cover or break the chat header/output area.\\\\n\\\\n### 3.16.48 - Inline Foundry IQ banner in the real chat view\\\\n\\\\n- Fixed the actual rendered webview path: Foundry IQ appears in inline `src/sidebarProvider.ts` HTML, not only in unused `media/sidebar.html`.\\\\n- Added an always-visible Microsoft Foundry IQ banner directly below the top toolbar with Setup and Test buttons.\\\\n\\\\n### 3.16.45 - Verified real Azure Foundry IQ Marketplace release\\\\n\\\\n- Configured real Azure AI Search endpoint for Foundry IQ retrieval.\\\\n- Verified extension-module smoke test with real endpoint and non-secret API-key environment variable.\\\\n\\\\n### 3.16.44 - Real Azure Foundry IQ connected\\\\n\\\\n- Microsoft IQ / Foundry IQ uses the real Azure AI Search-backed `sentinel-coder-iq` index by default.\\\\n- Azure AI Search Foundry IQ Knowledge Base retrieve endpoints are called with bearer/JWT authentication from `MICROSOFT_IQ_BEARER_TOKEN`.\\\\n\\\\n---\\\\n\\\\n## Settings\\\\n\\\\nImportant Foundry IQ settings:\\\\n\\\\n| Setting | Purpose |\\\\n| --- | --- |\\\\n| `sentinelCoder.microsoftIq.enabled` | Enables Microsoft IQ grounding. |\\\\n| `sentinelCoder.microsoftIq.layer` | Use `foundry-iq` for this hackathon submission. |\\\\n| `sentinelCoder.microsoftIq.endpoint` | Azure AI Search Foundry IQ endpoint. |\\\\n| `sentinelCoder.microsoftIq.apiKeyEnv` | Environment variable name containing the bearer/JWT token, normally `MICROSOFT_IQ_BEARER_TOKEN`. |\\\\n| `sentinelCoder.microsoftIq.timeoutMs` | Request timeout. |\\\\n| `sentinelCoder.microsoftIq.maxQueryChars` | Max query size sent to Foundry IQ. |\\\\n\\\\nOther settings are available in VS Code Settings under **Sentinel Coder One S…\n\nSources: real Azure AI Search Knowledge Base `sentinel-coder-iq-kb`, knowledge source `sentinel-coder-iq-ks`, service `qubitpage-srch`.",
+    "score": {
+      "score": 100,
+      "checks": {
+        "mentions_foundry_iq": true,
+        "mentions_secret_safety": true,
+        "mentions_source_reporting": true,
+        "has_implementation_steps": true,
+        "uses_grounding": true,
+        "has_sources": true
+      }
+    }
+  }
+}

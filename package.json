@@ -2,7 +2,7 @@
   "name": "sentinel-coder",
   "displayName": "Sentinel Coder One Studio",
   "description": "Sentinel Coder One Studio - autonomous AI coding with single-model full-capability mode, opt-in Agentic Profiles, live provider model/context discovery, operation-aware native tool routing, VS Code Web remote-tool bridge support, media/document Studio, safer tools, dynamic context, and multi-provider orchestration.",
-  "version": "3.16.36",
+  "version": "3.16.54",
   "publisher": "Qubitpage",
   "icon": "assets/icon.png",
   "license": "MIT",
@@ -72,7 +72,18 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onView:sentinel-coder.chatView",
+    "onView:sentinel-coder.studioView",
+    "onCommand:sentinel-coder.setEndpoint",
+    "onCommand:sentinel-coder.clearChat",
+    "onCommand:sentinel-coder.refreshStudio",
+    "onCommand:sentinel-coder.openStudio",
+    "onCommand:sentinel-coder.atlasVoiceBridgeStatus",
+    "onCommand:sentinel-coder.sendAtlasVoiceToCopilot",
+    "onCommand:sentinel-coder.webStatus",
+    "onCommand:sentinel-coder.openDesktopHelp",
+    "onCommand:sentinel-coder.configureWebRemoteBridge",
+    "onCommand:sentinel-coder.testWebRemoteBridge"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -361,6 +372,48 @@
           "type": "string",
           "default": "",
           "markdownDescription": "HTTPS base URL for the Sentinel Remote Tool Bridge used by vscode.dev/github.dev, e.g. `https://agent.example.com`. Store the bearer token with `Sentinel Coder: Configure Web Remote Tool Bridge`, not in settings."
+        },
+        "sentinelCoder.microsoftIq.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Microsoft IQ grounding for Sentinel Coder One Studio. For the hackathon, use layer foundry-iq."
+        },
+        "sentinelCoder.microsoftIq.layer": {
+          "type": "string",
+          "default": "foundry-iq",
+          "enum": [
+            "foundry-iq",
+            "work-iq",
+            "fabric-iq"
+          ],
+          "description": "Microsoft IQ layer used to ground the agent. Foundry IQ is the default hackathon layer."
+        },
+        "sentinelCoder.microsoftIq.endpoint": {
+          "type": "string",
+          "default": "https://qubitpage-srch.search.windows.net/knowledgebases/sentinel-coder-iq-kb/retrieve?api-version=2026-04-01",
+          "description": "Foundry IQ retrieve endpoint. Default uses the verified qubitpage-srch Knowledge Base retrieve API."
+        },
+        "sentinelCoder.microsoftIq.apiKeyEnv": {
+          "type": "string",
+          "default": "MICROSOFT_IQ_BEARER_TOKEN",
+          "description": "Environment variable containing the Microsoft IQ credential. For Foundry IQ Knowledge Base retrieve endpoints, use an Azure Search bearer/JWT token. For /docs/search api-key endpoints, use an Azure Search api-key."
+        },
+        "sentinelCoder.microsoftIq.timeoutMs": {
+          "type": "number",
+          "default": 12000,
+          "minimum": 1000,
+          "description": "Timeout in milliseconds for Microsoft IQ grounding calls. Failures are non-fatal."
+        },
+        "sentinelCoder.microsoftIq.maxQueryChars": {
+          "type": "number",
+          "default": 4000,
+          "minimum": 128,
+          "description": "Maximum user-query characters sent to Microsoft IQ grounding."
+        },
+        "sentinelCoder.microsoftIq.knowledgeSourceName": {
+          "type": "string",
+          "default": "sentinel-coder-iq-ks",
+          "description": "Foundry IQ knowledge source name used with Knowledge Base retrieve endpoints."
         }
       }
     }

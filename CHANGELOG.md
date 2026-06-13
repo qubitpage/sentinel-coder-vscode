@@ -1,4 +1,115 @@
 ﻿
+## 3.16.54 - GitHub proof assets for Foundry IQ comparison
+
+- Added the Foundry IQ vs No Foundry IQ infographic, JSON proof, and summary under docs/foundry-iq so README/Marketplace evidence links resolve from GitHub and packaged docs.
+- Kept the verified comparison concise: 9 live Foundry IQ sources, no-IQ score 67/100, Foundry-IQ score 100/100.
+
+## 3.16.53 - Verified Foundry IQ comparison
+
+- Added a concise Marketplace overview section proving the Microsoft Foundry IQ benefit with the same coding task run with and without grounding.
+- Verified live Foundry IQ Knowledge Base retrieve against Azure AI Search-backed `sentinel-coder-iq-kb` on `qubitpage-srch`.
+- Documented the measured comparison: no-IQ `67/100`, Foundry-IQ `100/100`, with `9` sources retrieved.
+- Added local evidence artifacts: HTML infographic, PNG infographic, and JSON comparison report under `reports/training/`.
+
+## 3.16.52 - Secure Foundry IQ runtime
+
+- Removed Azure CLI process spawning from bundled Microsoft IQ runtime.
+- Foundry IQ Knowledge Base retrieve uses explicit bearer/JWT token environment configuration.
+- Keeps Azure AI Search api-key support for `/indexes/.../docs/search` compatibility.
+
+## Version 3.16.51 - Real Foundry IQ Knowledge Base Retrieve Runtime
+
+Sentinel Coder One Studio now defaults to the verified Microsoft Foundry IQ Knowledge Base retrieve endpoint on `qubitpage-srch`: `sentinel-coder-iq-kb`. The runtime supports the documented `2026-04-01` retrieve schema with `intents` and `knowledgeSourceParams`, and can obtain Azure Search bearer tokens via Azure CLI for local desktop testing without storing tokens in source.
+
+## 3.16.50 - Clean Foundry IQ docs and verified Azure Search grounding
+
+- Cleaned Marketplace overview ordering so the latest Microsoft Foundry IQ implementation appears first.
+- Rebuilt Foundry IQ documentation sources around the current real implementation: inline Settings pane, Azure AI Search endpoint, and real `MICROSOFT_IQ_API_KEY` smoke verification.
+- Prepared the Azure Search `sentinel-coder-iq` index for re-ingestion from current docs and release reports.
+
+## 3.16.50
+
+- Fixed the actual inline Settings overlay so Microsoft IQ / Foundry IQ setup no longer opens a blank pane.
+- Added the missing inline `settings-iq` pane and Microsoft IQ tab to `src/sidebarProvider.ts`, matching the existing webview JS handlers.
+- Verified Foundry IQ remains backed by the real Azure AI Search index `sentinel-coder-iq`.
+
+## 3.16.49
+
+- Fixed the real inline chat UI layout by removing Foundry IQ controls from the cramped top toolbar.
+- Kept Microsoft Foundry IQ visible as a safe full-width inline banner below the toolbar with Setup and Test actions.
+- Preserved Azure AI Search-backed Foundry IQ grounding and smoke-test coverage.
+
+## 3.16.48
+
+- Fixed the real rendered sidebar path by adding the Microsoft Foundry IQ banner to inline `src/sidebarProvider.ts` HTML.
+- Foundry IQ setup and test controls are now visible directly in the actual chat webview.
+- Preserved real Azure AI Search-backed Foundry IQ grounding and smoke-test coverage.
+
+## 3.16.47
+
+- Added an always-visible Microsoft IQ / Foundry IQ banner at the top of the main sidebar.
+- Added direct Open Setup and Test Foundry IQ buttons to the banner.
+- Published as a clean follow-up for users who could not discover the hidden/settings-only IQ controls.
+
+## 3.16.46 - Top-toolbar Foundry IQ and stable chat scrolling
+
+- Added persistent top-toolbar **Foundry IQ** button and live **IQ: ON/SETUP/ERR** pill.
+- Fixed chat scroll handling by ignoring programmatic scroll events while preserving manual scrolling.
+- Kept real Azure AI Search-backed Foundry IQ endpoint defaults and test action.
+
+
+## 3.16.45 - Verified Microsoft Foundry IQ / Azure AI Search integration
+
+- Published Marketplace update after real Azure Search-backed Foundry IQ verification.
+- Defaults point to the `sentinel-coder-iq` Azure AI Search index.
+- Added clear Marketplace overview notes for Microsoft IQ hackathon compliance.
+- Kept secrets out of source; runtime key is loaded from `MICROSOFT_IQ_API_KEY`.
+
+## 3.16.44 - Real Azure Foundry IQ Connected
+
+- Wired Microsoft IQ / Foundry IQ to the real Azure AI Search-backed `sentinel-coder-iq` index.
+- Added Azure AI Search request/auth compatibility while preserving generic Foundry-style endpoints.
+
+## 3.16.43
+
+- Made Microsoft IQ / Foundry IQ visible directly in the main sidebar.
+- Added main-card setup and test controls.
+- Changed activation from startup to view/command activation for faster VS Code load.
+
+
+## 3.16.41 - Foundry IQ visible and testable in UI
+
+- Microsoft IQ / Foundry IQ is now the first/default Sentinel Settings pane.
+- Added Test Foundry IQ action with visible PASS/failure status in the sidebar.
+- Strengthened latest-message scroll pinning for restored sessions and completed responses.
+
+ï»¿## 3.16.40 - 2026-06-13
+
+### Added
+- Added a visible **Microsoft IQ** settings pane to the real Sentinel Coder One Studio sidebar UI.
+- Added UI controls for Microsoft IQ enablement, IQ layer selection, Foundry IQ endpoint, deployment/vector store/knowledge base IDs, and max grounding results.
+- Added explicit Marketplace Overview documentation for the hackathon-required Microsoft IQ / Foundry IQ integration.
+
+### Changed
+- Bumped the real Marketplace extension package to `3.16.40` so the updated README/Overview is republished.
+
+### Fixed
+- Strengthened latest-chat visibility: restored messages, system notes, user messages, assistant messages, and streaming chunks force the latest output into view.
+
+### Verified
+- `npx tsc -p ./` passes.
+- Foundry IQ mock grounding test passes.
+- VSIX package/install/publish flow verified on the real `Qubitpage.sentinel-coder` extension.
+
+
+# 3.16.37
+
+- Added explicit Microsoft IQ / Foundry IQ grounding integration for hackathon submissions.
+- Added settings for Foundry IQ endpoint, layer, token environment variable, timeout, and query size.
+- Injects Microsoft IQ grounding into both simple chat and agentic tool-loop prompts.
+- Strengthened chat latest-message visibility so new/streamed output stays pinned to the bottom.
+
+ï»¿
 ## 3.16.35 - Agentic CRUD and MCP click reliability
 
 - Fixed Agentic Profiles settings CRUD when clicking nested text/icons inside Edit, Select, or Delete buttons.
@@ -94,4 +205,6 @@
 ## Earlier releases
 
 Earlier 3.14.x and 3.15.x releases introduced persistent chat history, dynamic context budgeting, approval modes, firewall scans, provider catalog refreshes, scroll/focus safety, and Marketplace documentation refreshes. Historical details are intentionally summarized here to keep the public changelog clean and encoding-safe.
+
+
 

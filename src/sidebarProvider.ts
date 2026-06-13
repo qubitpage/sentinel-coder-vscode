@@ -5,6 +5,7 @@ import { OllamaClient } from "./ollama";
 import { MultiProviderClient, ChatMessage, ModelOption, classifyTask, getModelCapability, ToolCallSpec } from "./providers";
 import { ToolRegistry, parseToolCalls, ApprovalMode, shouldAutoApprove } from "./toolRegistry";
 import { McpManager } from "./mcpClient";
+import { getMicrosoftIqGrounding, formatMicrosoftIqGroundingForPrompt } from "./microsoftIq";
 
 // Persistent chat history path (all sessions appended here, ingested into RAG)
 const CHAT_HISTORY_PATH = path.join("D:", "QubitDev", "training", "chat_history.jsonl");
@@ -1386,6 +1387,24 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
         case "deleteSession": await this._deleteSession(data.id); break;
         case "renameSession": await this._renameSession(data.id, data.title); break;
         case "requestInit": await this._sendInitState(); break;
+        case "testMicrosoftIq": {
+          const query = String(data.query || "Sentinel Coder One Foundry IQ connectivity test");
+          try {
+            const result = await getMicrosoftIqGrounding(query, vscode.workspace.workspaceFolders?.[0]?.name || "workspace");
+            const ok = !!(result.enabled && result.configured && result.status === "ok");
+            const sourceCount = result.sources?.length || 0;
+            this._view?.webview.postMessage({
+              type: "microsoftIqTest",
+              ok,
+              message: ok
+                ? `Foundry IQ reachable. Retrieved ${sourceCount} source(s).`
+                : `Foundry IQ not ready: ${result.error || (result.enabled ? (result.configured ? result.status : "endpoint not configured") : "disabled")}`,
+            });
+          } catch (err: any) {
+            this._view?.webview.postMessage({ type: "microsoftIqTest", ok: false, message: err?.message || String(err) });
+          }
+          break;
+        }
         case "saveSettings": {
           const cfg = vscode.workspace.getConfiguration("sentinelCoder");
           if (data.temperature !== undefined) await cfg.update("temperature", data.temperature, vscode.ConfigurationTarget.Global);
@@ -1397,6 +1416,12 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
           if (data.contextBudgetTokens !== undefined && !Number.isNaN(data.contextBudgetTokens)) {
             await cfg.update("contextBudgetTokens", data.contextBudgetTokens, vscode.ConfigurationTarget.Global);
           }
+          if (data.microsoftIqEnabled !== undefined) await cfg.update("microsoftIq.enabled", !!data.microsoftIqEnabled, vscode.ConfigurationTarget.Global);
+          if (data.microsoftIqLayer !== undefined) await cfg.update("microsoftIq.layer", String(data.microsoftIqLayer || "foundry-iq"), vscode.ConfigurationTarget.Global);
+          if (data.microsoftIqEndpoint !== undefined) await cfg.update("microsoftIq.endpoint", String(data.microsoftIqEndpoint || ""), vscode.ConfigurationTarget.Global);
+          if (data.microsoftIqApiKeyEnv !== undefined) await cfg.update("microsoftIq.apiKeyEnv", String(data.microsoftIqApiKeyEnv || "MICROSOFT_IQ_API_KEY"), vscode.ConfigurationTarget.Global);
+          if (data.microsoftIqTimeoutMs !== undefined && !Number.isNaN(data.microsoftIqTimeoutMs)) await cfg.update("microsoftIq.timeoutMs", Number(data.microsoftIqTimeoutMs), vscode.ConfigurationTarget.Global);
+          if (data.microsoftIqMaxQueryChars !== undefined && !Number.isNaN(data.microsoftIqMaxQueryChars)) await cfg.update("microsoftIq.maxQueryChars", Number(data.microsoftIqMaxQueryChars), vscode.ConfigurationTarget.Global);
           break;
         }
         case "getSettings": {
@@ -1410,6 +1435,14 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
             modelMaxOutput: this._currentModelMaxOutput(),
             modelContextWindow: this._currentModelContextWindow(),
             modelLabel: this._selectedModel || "auto",
+            microsoftIq: {
+              enabled: sc.get<boolean>("microsoftIq.enabled", false),
+              layer: sc.get<string>("microsoftIq.layer", "foundry-iq"),
+              endpoint: sc.get<string>("microsoftIq.endpoint", ""),
+              apiKeyEnv: sc.get<string>("microsoftIq.apiKeyEnv", "MICROSOFT_IQ_API_KEY"),
+              timeoutMs: sc.get<number>("microsoftIq.timeoutMs", 12000),
+              maxQueryChars: sc.get<number>("microsoftIq.maxQueryChars", 4000),
+            },
           });
           break;
         }
@@ -2179,7 +2212,10 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     const hist = this._activeTurnHistory || this._conversationHistory;
     const latestUser = [...hist].reverse().find(m => m.role === "user")?.content || "";
     await this._runAgenticPreflightIfNeeded(latestUser, modelId, temperature, maxTokens);
-    const messages: ChatMessage[] = [{ role: "system", content: this._systemPromptWithAgenticPreflight() }, ...this._budgetHistory(hist, maxTokens)];
+    const microsoftIqGrounding = await getMicrosoftIqGrounding(latestUser, vscode.workspace.workspaceFolders?.[0]?.name || "workspace");
+    const microsoftIqBlock = formatMicrosoftIqGroundingForPrompt(microsoftIqGrounding);
+    const systemPrompt = [this._systemPromptWithAgenticPreflight(), microsoftIqBlock].filter(Boolean).join("\n\n");
+    const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }, ...this._budgetHistory(hist, maxTokens)];
     let rawResponse = "";
 
     // Live assistant message: appended now and updated in place as tokens arrive,
@@ -2493,10 +2529,13 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     const hist = this._activeTurnHistory || this._conversationHistory;
     const latestUser = [...hist].reverse().find(m => m.role === "user")?.content || "";
     await this._runAgenticPreflightIfNeeded(latestUser, modelId, temperature, maxTokens);
+    const microsoftIqGrounding = await getMicrosoftIqGrounding(latestUser, vscode.workspace.workspaceFolders?.[0]?.name || "workspace");
+    const microsoftIqBlock = formatMicrosoftIqGroundingForPrompt(microsoftIqGrounding);
 
     while (iteration < MAX_ITER) {
       iteration++;
-      const messages: ChatMessage[] = [{ role: "system", content: this._systemPromptWithAgenticPreflight() }, ...this._budgetHistory(hist, maxTokens)];
+      const systemPrompt = [this._systemPromptWithAgenticPreflight(), microsoftIqBlock].filter(Boolean).join("\n\n");
+      const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }, ...this._budgetHistory(hist, maxTokens)];
       let rawIter = "";
 
       for await (const chunk of this._multiClient.streamChat(modelId, messages, { temperature, max_tokens: maxTokens }, this._abortController?.signal)) {
@@ -3315,6 +3354,12 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     <button class="icon-btn" id="btn-new-chat" title="New chat">&#x2716;</button>
     <button class="icon-btn" id="btn-settings" title="Settings">&#x2699;</button>
   </div>
+  <div class="foundry-iq-global-banner" id="foundry-iq-global-banner" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:6px 8px;padding:9px 10px;border:1px solid #8b5cf6;border-radius:8px;background:linear-gradient(90deg,rgba(139,92,246,.24),rgba(14,165,233,.18));color:var(--vscode-foreground);font-size:12px;flex-shrink:0;position:relative;z-index:1;box-sizing:border-box;">
+    <strong style="font-size:12px;white-space:nowrap;">Microsoft Foundry IQ</strong>
+    <span id="foundry-iq-global-status" style="flex:1 1 160px;min-width:120px;opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Enabled: Azure Search knowledge grounding</span>
+    <button class="mini-link-btn" id="btn-foundry-iq-global-open" title="Open Foundry IQ settings">Setup</button>
+    <button class="mini-link-btn" id="btn-foundry-iq-global-test" title="Test real Foundry IQ retrieval">Test</button>
+  </div>
   <div class="mode-bar">
     <button class="mode-tab active" data-mode="agent">Agent</button>
     <button class="mode-tab" data-mode="ask">Ask</button>
@@ -3394,6 +3439,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     </div>
     <div class="settings-tabs">
       <button class="settings-tab active" data-stab="tools">Tools</button>
+      <button class="settings-tab" data-stab="iq">Microsoft IQ</button>
       <button class="settings-tab" data-stab="skills">Skills</button>
       <button class="settings-tab" data-stab="agentic">Agentic</button>
       <button class="settings-tab" data-stab="models">Models</button>
@@ -3404,6 +3450,40 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     <div id="settings-content">
       <div class="settings-pane" id="settings-tools" style="display:block">
         <div id="tool-list"></div>
+      </div>
+      <div class="settings-pane" id="settings-iq" style="display:none">
+        <div class="settings-section">
+          <h3 style="margin:0 0 6px">Microsoft IQ / Foundry IQ</h3>
+          <p style="font-size:12px;color:var(--desc-fg);margin:0 0 8px">
+            Hackathon-required Microsoft IQ layer. Sentinel Coder uses this to ground answers with the real Azure AI Search-backed Foundry IQ knowledge index before calling the selected coding model.
+          </p>
+          <label class="checkbox-row"><input id="iq-enabled" type="checkbox"> Enable Microsoft IQ grounding</label>
+          <label>IQ layer
+            <select id="iq-layer" style="width:100%;margin-top:4px">
+              <option value="foundry-iq">Foundry IQ</option>
+              <option value="work-iq">Work IQ</option>
+              <option value="fabric-iq">Fabric IQ</option>
+            </select>
+          </label>
+          <label>Foundry IQ / Azure Search endpoint
+            <input id="iq-endpoint" type="text" style="width:100%;margin-top:4px" placeholder="https://stan.search.windows.net/indexes/sentinel-coder-iq/docs/search?api-version=2023-11-01">
+          </label>
+          <label>API key environment variable
+            <input id="iq-apikey-env" type="text" style="width:100%;margin-top:4px" placeholder="MICROSOFT_IQ_API_KEY">
+          </label>
+          <div class="settings-row" style="gap:8px;align-items:center;flex-wrap:wrap">
+            <label>Timeout ms <input id="iq-timeout" type="number" min="1000" max="60000" value="12000" style="width:90px"></label>
+            <label>Max query chars <input id="iq-maxchars" type="number" min="500" max="20000" value="4000" style="width:90px"></label>
+          </div>
+          <div class="settings-row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="action-btn primary" id="btn-save-iq">Save Microsoft IQ</button>
+            <button class="action-btn" id="btn-test-iq">Test Foundry IQ</button>
+          </div>
+          <p id="iq-status" style="font-size:12px;color:var(--desc-fg);margin:8px 0 0">Status: not tested in this window.</p>
+          <p style="font-size:11px;color:var(--desc-fg);margin:8px 0 0">
+            Current verified local setup uses Azure AI Search service <code>stan</code>, index <code>sentinel-coder-iq</code>, and env var <code>MICROSOFT_IQ_API_KEY</code>.
+          </p>
+        </div>
       </div>
       <div class="settings-pane" id="settings-skills" style="display:none">
         <div class="settings-section">

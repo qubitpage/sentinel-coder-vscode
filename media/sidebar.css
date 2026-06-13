@@ -2058,3 +2058,63 @@ pre code .cmt { color: #6a9955; font-style: italic; }
   background: var(--vscode-button-hoverBackground);
 }
 
+
+
+/* Microsoft IQ / Foundry IQ visible setup card */
+.foundry-iq-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(55,148,255,0.16), rgba(76,175,80,0.08));
+  flex-shrink: 0;
+}
+.foundry-iq-card-main { min-width: 0; flex: 1; }
+.foundry-iq-kicker {
+  color: var(--link);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.foundry-iq-title { font-size: 12px; font-weight: 700; color: var(--fg); }
+.foundry-iq-status { font-size: 11px; color: var(--desc-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.foundry-iq-card.enabled { border-left: 3px solid var(--success-fg); }
+.foundry-iq-card.disabled { border-left: 3px solid var(--warning-fg); }
+.foundry-iq-card.error { border-left: 3px solid var(--error-fg); }
+.foundry-iq-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.mini-btn.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+
+/* Foundry IQ top toolbar visibility */
+.foundry-top-btn,
+.foundry-top-pill {
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.foundry-top-btn {
+  color: var(--vscode-button-foreground);
+  background: linear-gradient(135deg, var(--vscode-button-background), var(--vscode-focusBorder));
+  font-weight: 700;
+  cursor: pointer;
+}
+.foundry-top-btn:hover { filter: brightness(1.08); }
+.foundry-top-pill {
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-badge-background, rgba(127,127,127,.18));
+  border-color: var(--vscode-focusBorder, rgba(127,127,127,.35));
+  cursor: pointer;
+}
+.foundry-top-pill.enabled { color: #7ee787; border-color: rgba(126,231,135,.55); }
+.foundry-top-pill.disabled { color: #ffcc66; border-color: rgba(255,204,102,.55); }
+.foundry-top-pill.error { color: #ff7b72; border-color: rgba(255,123,114,.55); }
+@media (max-width: 390px) {
+  .foundry-top-btn { max-width: 78px; overflow: hidden; text-overflow: ellipsis; }
+  .foundry-top-pill { display: none; }
+}
+
