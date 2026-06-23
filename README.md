@@ -1,3 +1,13 @@
+## Version 3.16.55 - Stability recovery for autopilot and chat output
+
+This release restores the known-good Sentinel Coder One Studio chat/autopilot runtime from the stable 3.16.10 baseline after regressions in later builds caused mid-task stopping, raw command/code output to appear in the wrong place, and unreliable autopilot continuation.
+
+- Restored stable chat renderer and collapsed tool-result behavior.
+- Restored stable autopilot/continue controls.
+- Restored predictable output ordering: final assistant text is rendered below tool cards.
+- Kept Foundry IQ proof/report assets in the repo, but removed risky Foundry IQ UI changes from the live chat path until they can be reintroduced behind stronger UI tests.
+- Goal: predictable autonomous task execution first.
+
 ﻿## Version 3.16.54 - GitHub proof assets for Foundry IQ comparison
 
 Sentinel Coder One Studio now includes the Foundry IQ comparison proof assets directly in the GitHub/Marketplace package so the evidence links resolve for users. The concise comparison remains: no-IQ answer 67/100 vs Foundry-IQ grounded answer 100/100, with 9 live sources retrieved from the real Knowledge Base.

@@ -72,16 +72,15 @@ export async function activate(context: vscode.ExtensionContext) {
     } catch {
       outputChannel.appendLine("No saved API keys found (enter via Settings > Providers)");
     }
-    // Optionally load from a text file (power-user feature)
+    // Optionally load from a text file (power-user feature).
+    // Stable provider runtime returns void here, so do not assume an imported-provider list.
     const apiKeysPath = config.get<string>("apiKeysFile", "");
     if (apiKeysPath) {
       try {
-        const importedProviders = multiClient.loadApiKeysFromFile(apiKeysPath);
-        if (importedProviders.length) {
-          await multiClient.saveKeysToSecrets();
-          multiClient.saveToConfig(config);
-        }
-        outputChannel.appendLine(`API keys file processed: ${apiKeysPath} (providers imported/enabled: ${importedProviders.length ? importedProviders.join(", ") : "none"})`);
+        multiClient.loadApiKeysFromFile(apiKeysPath);
+        await multiClient.saveKeysToSecrets();
+        multiClient.saveToConfig(config);
+        outputChannel.appendLine(`API keys file processed: ${apiKeysPath}`);
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : String(err);
         outputChannel.appendLine("API keys file could not be processed: " + apiKeysPath + " (" + errMsg + ")");

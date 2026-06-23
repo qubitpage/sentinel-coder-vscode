@@ -1,8 +1,8 @@
-﻿import * as https from "https";
+import * as https from "https";
 import * as http from "http";
 import * as vscode from "vscode";
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Types ─────────────────────────────────────────────────────────
 export interface ToolCallSpec {
   id: string;
   type: "function";
@@ -52,8 +52,6 @@ export interface ModelConfig {
   pricing: PricingTier;
   pricingNote?: string;        // e.g. "$3/1M input", "Free 14k req/day"
   supportsTools: boolean;
-  /** Provider/API-advertised request parameters, when available (for example: tools, tool_choice, response_format). */
-  supportedParameters?: string[];
   supportsThinking: boolean;
   supportsVision: boolean;
   supportsStreaming: boolean;
@@ -70,8 +68,6 @@ export interface ModelOption {
   pricing: PricingTier;
   pricingNote: string;
   supportsTools: boolean;
-  /** Provider/API-advertised request parameters, when available (for example: tools, tool_choice, response_format). */
-  supportedParameters?: string[];
   supportsThinking: boolean;
   supportsVision: boolean;
   supportsStreaming: boolean;
@@ -114,9 +110,6 @@ interface LiveModelMetadata {
   providerModelId?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
-  /** Raw provider-advertised request parameters, e.g. OpenRouter supported_parameters. */
-  supportedParameters?: string[];
-  /** Explicit provider/model support for Chat Completions native tools, when the live API exposes it. */
   supportsTools?: boolean;
   supportsThinking?: boolean;
   supportsVision?: boolean;
@@ -124,64 +117,65 @@ interface LiveModelMetadata {
   updatedAt: number;
 }
 
-// â”€â”€ Default providers (sorted alphabetically) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Default providers (sorted alphabetically) ────────────────────
 export const DEFAULT_PROVIDERS: ProviderConfig[] = [
-  // â”€â”€ Anthropic â”€â”€ (Paid: pay-per-use via API key)
+  // ── Anthropic ── (Paid: pay-per-use via API key)
   {
     id: "anthropic", name: "Anthropic", type: "anthropic",
     baseUrl: "https://api.anthropic.com", apiKey: "", enabled: false,
     models: [
-      { id: "claude-opus-4-20250514", displayName: "Claude Opus 4", provider: "anthropic", contextWindow: 200000, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "$15/M in Â· $75/M out", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
-      { id: "claude-sonnet-4-20250514", displayName: "Claude Sonnet 4", provider: "anthropic", contextWindow: 200000, maxOutputTokens: 16384, pricing: "pay-per-use", pricingNote: "$3/M in Â· $15/M out", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
-      { id: "claude-3-5-haiku-20241022", displayName: "Claude 3.5 Haiku", provider: "anthropic", contextWindow: 200000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.25/M in Â· $1.25/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "claude-opus-4-20250514", displayName: "Claude Opus 4", provider: "anthropic", contextWindow: 200000, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "$15/M in · $75/M out", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "claude-sonnet-4-20250514", displayName: "Claude Sonnet 4", provider: "anthropic", contextWindow: 200000, maxOutputTokens: 16384, pricing: "pay-per-use", pricingNote: "$3/M in · $15/M out", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "claude-3-5-haiku-20241022", displayName: "Claude 3.5 Haiku", provider: "anthropic", contextWindow: 200000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.25/M in · $1.25/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Azure OpenAI / AI Foundry â”€â”€ (Your Azure resource â€” key from SecretStorage, never bundled)
+  // ── Azure OpenAI / AI Foundry ── (Your Azure resource — key from SecretStorage, never bundled)
   {
     id: "azure", name: "Azure OpenAI (Foundry)", type: "azure",
     baseUrl: "https://qubitpage-resource.cognitiveservices.azure.com",
     apiVersion: "2024-12-01-preview", apiKey: "", enabled: false,
     models: [
       // NOTE: model id = Azure *deployment name* on your qubitpage-resource (rg-qubitpage, swedencentral)
-      { id: "gpt-5.5", displayName: "Azure GPT-5.5 (frontier)", provider: "azure", contextWindow: 1048576, maxOutputTokens: 128000, pricing: "subscription", pricingNote: "Azure credits Â· frontier reasoning Â· auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
-      { id: "gpt-5.4", displayName: "Azure GPT-5.4", provider: "azure", contextWindow: 1048576, maxOutputTokens: 65536, pricing: "subscription", pricingNote: "Azure credits Â· secondary premium agent Â· auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
-      { id: "gpt-4.1", displayName: "Azure GPT-4.1", provider: "azure", contextWindow: 1048576, maxOutputTokens: 32768, pricing: "subscription", pricingNote: "Azure credits Â· your deployment", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
-      { id: "model-router", displayName: "Azure Model Router", provider: "azure", contextWindow: 200000, maxOutputTokens: 32768, pricing: "subscription", pricingNote: "Azure credits Â· auto-routes", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
-      { id: "grok-4.3", displayName: "Azure Grok 4.3", provider: "azure", contextWindow: 322000, effectiveContextWindow: 190000, maxOutputTokens: 32768, pricing: "subscription", pricingNote: "Azure credits Â· live request cap 190K (endpoint max 200K) Â· auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "grok-4.2", displayName: "Azure Grok 4.2", provider: "azure", contextWindow: 256000, effectiveContextWindow: 190000, maxOutputTokens: 32768, pricing: "subscription", pricingNote: "Azure credits Â· live request cap 190K (endpoint max 200K) Â· auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "gpt-chat-latest", displayName: "Azure GPT Chat (latest)", provider: "azure", contextWindow: 128000, maxOutputTokens: 16384, pricing: "subscription", pricingNote: "Azure credits Â· your deployment", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "gpt-5.5", displayName: "Azure GPT-5.5 (frontier)", provider: "azure", contextWindow: 1048576, maxOutputTokens: 128000, pricing: "subscription", pricingNote: "Azure credits · frontier reasoning · auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "gpt-5.4-pro", displayName: "Azure GPT-5.4 Pro", provider: "azure", contextWindow: 1048576, maxOutputTokens: 128000, pricing: "subscription", pricingNote: "Azure credits · premium fallback for difficult work · auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "gpt-5.4", displayName: "Azure GPT-5.4", provider: "azure", contextWindow: 1048576, maxOutputTokens: 65536, pricing: "subscription", pricingNote: "Azure credits · secondary premium agent · auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "gpt-4.1", displayName: "Azure GPT-4.1", provider: "azure", contextWindow: 1048576, maxOutputTokens: 32768, pricing: "subscription", pricingNote: "Azure credits · your deployment", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "model-router", displayName: "Azure Model Router", provider: "azure", contextWindow: 200000, maxOutputTokens: 32768, pricing: "subscription", pricingNote: "Azure credits · auto-routes", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "grok-4.3", displayName: "Azure Grok 4.3", provider: "azure", contextWindow: 322000, effectiveContextWindow: 190000, maxOutputTokens: 32768, pricing: "subscription", pricingNote: "Azure credits · live request cap 190K (endpoint max 200K) · auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "grok-4.2", displayName: "Azure Grok 4.2", provider: "azure", contextWindow: 256000, effectiveContextWindow: 190000, maxOutputTokens: 32768, pricing: "subscription", pricingNote: "Azure credits · live request cap 190K (endpoint max 200K) · auto-refreshed context", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "gpt-chat-latest", displayName: "Azure GPT Chat (latest)", provider: "azure", contextWindow: 128000, maxOutputTokens: 16384, pricing: "subscription", pricingNote: "Azure credits · your deployment", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Azure Foundry Sora / Video â”€â”€ (separate endpoint/key can be saved in Providers)
+  // ── Azure Foundry Sora / Video ── (separate endpoint/key can be saved in Providers)
   {
     id: "azure-sora", name: "Azure Foundry Sora 2 (Video)", type: "azure-sora",
     baseUrl: "https://qubitpage-resource.services.ai.azure.com",
     apiVersion: "v1", apiKey: "", enabled: false,
     models: [
-      { id: "sora-2", displayName: "Azure Sora 2 (video)", provider: "azure-sora", contextWindow: 4096, maxOutputTokens: 0, pricing: "subscription", pricingNote: "Azure credits Â· video generation", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: false },
+      { id: "sora-2", displayName: "Azure Sora 2 (video)", provider: "azure-sora", contextWindow: 4096, maxOutputTokens: 0, pricing: "subscription", pricingNote: "Azure credits · video generation", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: false },
     ]
   },
-  // â”€â”€ DeepSeek â”€â”€ (Paid: very cheap pay-per-use)
+  // ── DeepSeek ── (Paid: very cheap pay-per-use)
   {
     id: "deepseek", name: "DeepSeek", type: "deepseek",
     baseUrl: "https://api.deepseek.com", apiKey: "", enabled: false,
     models: [
-      { id: "deepseek-chat", displayName: "DeepSeek V3", provider: "deepseek", contextWindow: 64000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.27/M in Â· $1.1/M out", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "deepseek-reasoner", displayName: "DeepSeek R1 (Reasoning)", provider: "deepseek", contextWindow: 64000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.55/M in Â· $2.19/M out", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "deepseek-chat", displayName: "DeepSeek V3", provider: "deepseek", contextWindow: 64000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.27/M in · $1.1/M out", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "deepseek-reasoner", displayName: "DeepSeek R1 (Reasoning)", provider: "deepseek", contextWindow: 64000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.55/M in · $2.19/M out", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Featherless â”€â”€ (Subscription/pro account, OpenAI-compatible)
+  // ── Featherless ── (Subscription/pro account, OpenAI-compatible)
   {
     id: "featherless", name: "Featherless", type: "featherless",
     baseUrl: "https://api.featherless.ai", apiKey: "", enabled: false,
     models: [
-      { id: "meta-llama/Meta-Llama-3.1-8B-Instruct", displayName: "Featherless Llama 3.1 8B", provider: "featherless", contextWindow: 131072, maxOutputTokens: 8192, pricing: "subscription", pricingNote: "Featherless Pro Â· OpenAI-compatible", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "meta-llama/Llama-3.3-70B-Instruct", displayName: "Featherless Llama 3.3 70B", provider: "featherless", contextWindow: 131072, maxOutputTokens: 8192, pricing: "subscription", pricingNote: "Featherless Pro Â· OpenAI-compatible", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "Qwen/Qwen3-Coder-480B-A35B-Instruct", displayName: "Featherless Qwen3 Coder 480B", provider: "featherless", contextWindow: 262144, maxOutputTokens: 16384, pricing: "subscription", pricingNote: "Featherless Pro Â· coding", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "meta-llama/Meta-Llama-3.1-8B-Instruct", displayName: "Featherless Llama 3.1 8B", provider: "featherless", contextWindow: 131072, maxOutputTokens: 8192, pricing: "subscription", pricingNote: "Featherless Pro · OpenAI-compatible", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "meta-llama/Llama-3.3-70B-Instruct", displayName: "Featherless Llama 3.3 70B", provider: "featherless", contextWindow: 131072, maxOutputTokens: 8192, pricing: "subscription", pricingNote: "Featherless Pro · OpenAI-compatible", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "Qwen/Qwen3-Coder-480B-A35B-Instruct", displayName: "Featherless Qwen3 Coder 480B", provider: "featherless", contextWindow: 262144, maxOutputTokens: 16384, pricing: "subscription", pricingNote: "Featherless Pro · coding", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
       { id: "moonshotai/Kimi-K2-Instruct", displayName: "Featherless Kimi K2", provider: "featherless", contextWindow: 131072, maxOutputTokens: 8192, pricing: "subscription", pricingNote: "Featherless Pro", supportsTools: false, supportsThinking: true, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Google AI â”€â”€ (Free tier: generous free quota)
+  // ── Google AI ── (Free tier: generous free quota)
   {
     id: "google", name: "Google AI (Gemini)", type: "google",
     baseUrl: "https://generativelanguage.googleapis.com", apiKey: "", enabled: false,
@@ -191,24 +185,24 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
       { id: "gemini-2.0-flash", displayName: "Gemini 2.0 Flash", provider: "google", contextWindow: 1048576, maxOutputTokens: 8192, pricing: "free-tier", pricingNote: "Free 1500 req/day", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Groq â”€â”€ (Free: extremely fast inference, free API)
+  // ── Groq ── (Free: extremely fast inference, free API)
   {
     id: "groq", name: "Groq", type: "groq",
     baseUrl: "https://api.groq.com", apiKey: "", enabled: false,
     models: [
-      { id: "llama-3.3-70b-versatile", displayName: "Llama 3.3 70B", provider: "groq", contextWindow: 128000, maxOutputTokens: 32768, pricing: "free", pricingNote: "Free Â· rate limited", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "llama-3.1-8b-instant", displayName: "Llama 3.1 8B Instant", provider: "groq", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free Â· rate limited", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "meta-llama/llama-4-scout-17b-16e-instruct", displayName: "Llama 4 Scout 17B", provider: "groq", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free Â· rate limited", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "qwen/qwen3-32b", displayName: "Qwen3 32B (Thinking)", provider: "groq", contextWindow: 32768, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free Â· rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "openai/gpt-oss-120b", displayName: "GPT OSS 120B (Reasoning)", provider: "groq", contextWindow: 128000, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free Â· rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "openai/gpt-oss-20b", displayName: "GPT OSS 20B (Reasoning)", provider: "groq", contextWindow: 128000, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free Â· rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "openai/gpt-oss-120b", displayName: "GPT-OSS 120B", provider: "groq", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free Â· fast worker", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "groq/compound", displayName: "Groq Compound", provider: "groq", contextWindow: 128000, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free Â· compound AI agent", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "groq/compound-mini", displayName: "Groq Compound Mini", provider: "groq", contextWindow: 128000, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free Â· compound AI agent", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "allam-2-7b", displayName: "Allam 2 7B", provider: "groq", contextWindow: 8192, maxOutputTokens: 4096, pricing: "free", pricingNote: "Free Â· rate limited", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "llama-3.3-70b-versatile", displayName: "Llama 3.3 70B", provider: "groq", contextWindow: 128000, maxOutputTokens: 32768, pricing: "free", pricingNote: "Free · rate limited", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "llama-3.1-8b-instant", displayName: "Llama 3.1 8B Instant", provider: "groq", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free · rate limited", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "meta-llama/llama-4-scout-17b-16e-instruct", displayName: "Llama 4 Scout 17B", provider: "groq", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free · rate limited", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "qwen/qwen3-32b", displayName: "Qwen3 32B (Thinking)", provider: "groq", contextWindow: 32768, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free · rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "openai/gpt-oss-120b", displayName: "GPT OSS 120B (Reasoning)", provider: "groq", contextWindow: 128000, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free · rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "openai/gpt-oss-20b", displayName: "GPT OSS 20B (Reasoning)", provider: "groq", contextWindow: 128000, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free · rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "openai/gpt-oss-120b", displayName: "GPT-OSS 120B", provider: "groq", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free · fast worker", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "groq/compound", displayName: "Groq Compound", provider: "groq", contextWindow: 128000, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free · compound AI agent", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "groq/compound-mini", displayName: "Groq Compound Mini", provider: "groq", contextWindow: 128000, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free · compound AI agent", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "allam-2-7b", displayName: "Allam 2 7B", provider: "groq", contextWindow: 8192, maxOutputTokens: 4096, pricing: "free", pricingNote: "Free · rate limited", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Hugging Face â”€â”€ (Free: free inference API)
+  // ── Hugging Face ── (Free: free inference API)
   {
     id: "huggingface", name: "Hugging Face", type: "huggingface",
     baseUrl: "https://router.huggingface.co", apiKey: "", enabled: false,
@@ -219,58 +213,58 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
       { id: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B", displayName: "DeepSeek R1 32B", provider: "huggingface", contextWindow: 32768, maxOutputTokens: 8192, pricing: "free", pricingNote: "Free inference API", supportsTools: false, supportsThinking: true, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Mistral AI â”€â”€ (Paid: pay-per-use + free tier for small)
+  // ── Mistral AI ── (Paid: pay-per-use + free tier for small)
   {
     id: "mistral", name: "Mistral AI", type: "mistral",
     baseUrl: "https://api.mistral.ai", apiKey: "", enabled: false,
     models: [
-      { id: "mistral-large-latest", displayName: "Mistral Large", provider: "mistral", contextWindow: 128000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$2/M in Â· $6/M out", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "codestral-latest", displayName: "Codestral", provider: "mistral", contextWindow: 32768, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.3/M in Â· $0.9/M out", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "mistral-large-latest", displayName: "Mistral Large", provider: "mistral", contextWindow: 128000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$2/M in · $6/M out", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "codestral-latest", displayName: "Codestral", provider: "mistral", contextWindow: 32768, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.3/M in · $0.9/M out", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
       { id: "mistral-small-latest", displayName: "Mistral Small", provider: "mistral", contextWindow: 32768, maxOutputTokens: 8192, pricing: "free-tier", pricingNote: "Free tier available", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Moonshot AI (Kimi) â”€â”€ (Official Kimi K2/K2.6 API â€” OpenAI-compatible. Local 1.1T hosting is infeasible; this is the real path.)
+  // ── Moonshot AI (Kimi) ── (Official Kimi K2/K2.6 API — OpenAI-compatible. Local 1.1T hosting is infeasible; this is the real path.)
   {
     id: "moonshot", name: "Moonshot AI (Kimi)", type: "moonshot",
     baseUrl: "https://api.moonshot.ai", apiKey: "", enabled: false,
     models: [
-      { id: "kimi-latest", displayName: "Kimi (latest â€” K2.6)", provider: "moonshot", contextWindow: 256000, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "Moonshot API Â· auto-latest", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "kimi-latest", displayName: "Kimi (latest — K2.6)", provider: "moonshot", contextWindow: 256000, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "Moonshot API · auto-latest", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
       { id: "kimi-k2-0905-preview", displayName: "Kimi K2 (0905)", provider: "moonshot", contextWindow: 256000, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "Moonshot API", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "kimi-thinking-preview", displayName: "Kimi K2 Thinking", provider: "moonshot", contextWindow: 256000, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "Moonshot API Â· reasoning", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "kimi-thinking-preview", displayName: "Kimi K2 Thinking", provider: "moonshot", contextWindow: 256000, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "Moonshot API · reasoning", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
       { id: "moonshot-v1-128k", displayName: "Moonshot v1 128k", provider: "moonshot", contextWindow: 128000, maxOutputTokens: 16384, pricing: "pay-per-use", pricingNote: "Moonshot API", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Ollama (Local) â”€â”€ (Free: runs locally on your GPU)
+  // ── Ollama (Local) ── (Free: runs locally on your GPU)
   {
     id: "ollama", name: "Ollama (Local)", type: "ollama",
     baseUrl: "http://127.0.0.1:11434", enabled: true, models: []
   },
-  // â”€â”€ QubGPU (MI300X local, vLLM/SGLang OpenAI-compatible) â”€â”€
+  // ── QubGPU (MI300X local, vLLM/SGLang OpenAI-compatible) ──
   {
     id: "qubgpu", name: "QubGPU (MI300X local)", type: "custom-openai",
-    baseUrl: "http://134.199.206.25:8000", apiKey: "", enabled: false,
+    baseUrl: "http://134.199.206.25:8000", apiKey: "EMPTY", enabled: false,
     models: [
-      { id: "Qwen/Qwen3-Coder-Next", displayName: "Qwen3-Coder-Next (80B-A3B Â· agentic)", provider: "qubgpu", contextWindow: 262144, maxOutputTokens: 65536, pricing: "local", pricingNote: "Local MI300X Â· free", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "Qwen/Qwen3-Coder-30B-A3B-Instruct", displayName: "Qwen3-Coder-30B-A3B (fallback)", provider: "qubgpu", contextWindow: 262144, maxOutputTokens: 32768, pricing: "local", pricingNote: "Local MI300X Â· free", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "Qwen/Qwen3-Coder-Next", displayName: "Qwen3-Coder-Next (80B-A3B · agentic)", provider: "qubgpu", contextWindow: 262144, maxOutputTokens: 65536, pricing: "local", pricingNote: "Local MI300X · free", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "Qwen/Qwen3-Coder-30B-A3B-Instruct", displayName: "Qwen3-Coder-30B-A3B (fallback)", provider: "qubgpu", contextWindow: 262144, maxOutputTokens: 32768, pricing: "local", pricingNote: "Local MI300X · free", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ OpenAI â”€â”€ (Paid: pay-per-use via API key)
+  // ── OpenAI ── (Paid: pay-per-use via API key)
   {
     id: "openai", name: "OpenAI", type: "openai",
     baseUrl: "https://api.openai.com", apiKey: "", enabled: false,
     models: [
-      { id: "gpt-4o", displayName: "GPT-4o", provider: "openai", contextWindow: 128000, maxOutputTokens: 16384, pricing: "pay-per-use", pricingNote: "$2.50/M in Â· $10/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
-      { id: "gpt-4o-mini", displayName: "GPT-4o Mini", provider: "openai", contextWindow: 128000, maxOutputTokens: 16384, pricing: "pay-per-use", pricingNote: "$0.15/M in Â· $0.60/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
-      { id: "gpt-4.1", displayName: "GPT-4.1", provider: "openai", contextWindow: 1048576, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "$2/M in Â· $8/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
-      { id: "gpt-4.1-mini", displayName: "GPT-4.1 Mini", provider: "openai", contextWindow: 1048576, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "$0.40/M in Â· $1.60/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
-      { id: "gpt-4.1-nano", displayName: "GPT-4.1 Nano", provider: "openai", contextWindow: 1048576, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "$0.10/M in Â· $0.40/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
-      { id: "o3", displayName: "o3 (Reasoning)", provider: "openai", contextWindow: 200000, maxOutputTokens: 100000, pricing: "pay-per-use", pricingNote: "$10/M in Â· $40/M out", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
-      { id: "o3-mini", displayName: "o3 Mini", provider: "openai", contextWindow: 200000, maxOutputTokens: 65536, pricing: "pay-per-use", pricingNote: "$1.10/M in Â· $4.40/M out", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "o4-mini", displayName: "o4 Mini", provider: "openai", contextWindow: 200000, maxOutputTokens: 65536, pricing: "pay-per-use", pricingNote: "$1.10/M in Â· $4.40/M out", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
-      { id: "codex-mini", displayName: "Codex Mini", provider: "openai", contextWindow: 200000, maxOutputTokens: 65536, pricing: "pay-per-use", pricingNote: "$1.50/M in Â· $6/M out", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "gpt-4o", displayName: "GPT-4o", provider: "openai", contextWindow: 128000, maxOutputTokens: 16384, pricing: "pay-per-use", pricingNote: "$2.50/M in · $10/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "gpt-4o-mini", displayName: "GPT-4o Mini", provider: "openai", contextWindow: 128000, maxOutputTokens: 16384, pricing: "pay-per-use", pricingNote: "$0.15/M in · $0.60/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "gpt-4.1", displayName: "GPT-4.1", provider: "openai", contextWindow: 1048576, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "$2/M in · $8/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "gpt-4.1-mini", displayName: "GPT-4.1 Mini", provider: "openai", contextWindow: 1048576, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "$0.40/M in · $1.60/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "gpt-4.1-nano", displayName: "GPT-4.1 Nano", provider: "openai", contextWindow: 1048576, maxOutputTokens: 32768, pricing: "pay-per-use", pricingNote: "$0.10/M in · $0.40/M out", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "o3", displayName: "o3 (Reasoning)", provider: "openai", contextWindow: 200000, maxOutputTokens: 100000, pricing: "pay-per-use", pricingNote: "$10/M in · $40/M out", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "o3-mini", displayName: "o3 Mini", provider: "openai", contextWindow: 200000, maxOutputTokens: 65536, pricing: "pay-per-use", pricingNote: "$1.10/M in · $4.40/M out", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "o4-mini", displayName: "o4 Mini", provider: "openai", contextWindow: 200000, maxOutputTokens: 65536, pricing: "pay-per-use", pricingNote: "$1.10/M in · $4.40/M out", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
+      { id: "codex-mini", displayName: "Codex Mini", provider: "openai", contextWindow: 200000, maxOutputTokens: 65536, pricing: "pay-per-use", pricingNote: "$1.50/M in · $6/M out", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ OpenRouter â”€â”€ (Pay-per-use: aggregator, routes to cheapest provider)
+  // ── OpenRouter ── (Pay-per-use: aggregator, routes to cheapest provider)
   {
     id: "openrouter", name: "OpenRouter", type: "openrouter",
     baseUrl: "https://openrouter.ai", apiKey: "", enabled: false,
@@ -280,29 +274,29 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
       { id: "google/gemini-2.5-pro", displayName: "Gemini 2.5 Pro", provider: "openrouter", contextWindow: 1048576, maxOutputTokens: 65536, pricing: "pay-per-use", pricingNote: "~$1.25/M in via OpenRouter", supportsTools: true, supportsThinking: true, supportsVision: true, supportsStreaming: true },
       { id: "meta-llama/llama-3.3-70b-instruct", displayName: "Llama 3.3 70B", provider: "openrouter", contextWindow: 128000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "~$0.40/M via OpenRouter", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
       { id: "qwen/qwen3-235b-a22b", displayName: "Qwen3 235B MoE", provider: "openrouter", contextWindow: 131072, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "~$0.22/M via OpenRouter", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "openrouter/free", displayName: "OpenRouter Free Models Router", provider: "openrouter", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free router Â· selects a free model dynamically", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
-      { id: "qwen/qwen3-coder:free", displayName: "Qwen3 Coder (Free)", provider: "openrouter", contextWindow: 1048576, maxOutputTokens: 262000, pricing: "free", pricingNote: "OpenRouter free Â· rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "qwen/qwen3-next-80b-a3b-instruct:free", displayName: "Qwen3 Next 80B (Free)", provider: "openrouter", contextWindow: 262144, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free Â· rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
-      { id: "meta-llama/llama-3.3-70b-instruct:free", displayName: "Llama 3.3 70B (Free)", provider: "openrouter", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free Â· rate limited", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "meta-llama/llama-3.2-3b-instruct:free", displayName: "Llama 3.2 3B (Free)", provider: "openrouter", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free Â· fast fallback", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "liquid/lfm-2.5-1.2b-instruct:free", displayName: "LFM 2.5 1.2B (Free)", provider: "openrouter", contextWindow: 32768, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free Â· smoke-tested", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "mistralai/mistral-small-3.2-24b-instruct:free", displayName: "Mistral Small 3.2 (Free)", provider: "openrouter", contextWindow: 32768, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free Â· if available", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "openrouter/free", displayName: "OpenRouter Free Models Router", provider: "openrouter", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free router · selects a free model dynamically", supportsTools: true, supportsThinking: false, supportsVision: true, supportsStreaming: true },
+      { id: "qwen/qwen3-coder:free", displayName: "Qwen3 Coder (Free)", provider: "openrouter", contextWindow: 1048576, maxOutputTokens: 262000, pricing: "free", pricingNote: "OpenRouter free · rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "qwen/qwen3-next-80b-a3b-instruct:free", displayName: "Qwen3 Next 80B (Free)", provider: "openrouter", contextWindow: 262144, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free · rate limited", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "meta-llama/llama-3.3-70b-instruct:free", displayName: "Llama 3.3 70B (Free)", provider: "openrouter", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free · rate limited", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "meta-llama/llama-3.2-3b-instruct:free", displayName: "Llama 3.2 3B (Free)", provider: "openrouter", contextWindow: 131072, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free · fast fallback", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "liquid/lfm-2.5-1.2b-instruct:free", displayName: "LFM 2.5 1.2B (Free)", provider: "openrouter", contextWindow: 32768, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free · smoke-tested", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "mistralai/mistral-small-3.2-24b-instruct:free", displayName: "Mistral Small 3.2 (Free)", provider: "openrouter", contextWindow: 32768, maxOutputTokens: 8192, pricing: "free", pricingNote: "OpenRouter free · if available", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
       { id: "deepseek/deepseek-r1", displayName: "DeepSeek R1", provider: "openrouter", contextWindow: 64000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "~$0.55/M via OpenRouter", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
       { id: "mistralai/mistral-large", displayName: "Mistral Large", provider: "openrouter", contextWindow: 128000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "~$2/M via OpenRouter", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Together AI â”€â”€ (Paid: pay-per-use, competitive pricing)
+  // ── Together AI ── (Paid: pay-per-use, competitive pricing)
   {
     id: "together", name: "Together AI", type: "together",
     baseUrl: "https://api.together.xyz", apiKey: "", enabled: false,
     models: [
-      { id: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", displayName: "Llama 3.1 405B Turbo", provider: "together", contextWindow: 130000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$3.50/M Â· fast inference", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
+      { id: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", displayName: "Llama 3.1 405B Turbo", provider: "together", contextWindow: 130000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$3.50/M · fast inference", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
       { id: "Qwen/Qwen2.5-Coder-32B-Instruct", displayName: "Qwen 2.5 Coder 32B", provider: "together", contextWindow: 32768, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.80/M", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true },
-      { id: "deepseek-ai/DeepSeek-R1", displayName: "DeepSeek R1", provider: "together", contextWindow: 64000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$2/M Â· reasoning model", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
+      { id: "deepseek-ai/DeepSeek-R1", displayName: "DeepSeek R1", provider: "together", contextWindow: 64000, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$2/M · reasoning model", supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true },
       { id: "mistralai/Mixtral-8x22B-Instruct-v0.1", displayName: "Mixtral 8x22B", provider: "together", contextWindow: 65536, maxOutputTokens: 8192, pricing: "pay-per-use", pricingNote: "$0.60/M", supportsTools: false, supportsThinking: false, supportsVision: false, supportsStreaming: true },
     ]
   },
-  // â”€â”€ Vultr â”€â”€ (Paid: Vultr cloud subscription, serverless inference)
+  // ── Vultr ── (Paid: Vultr cloud subscription, serverless inference)
   {
     id: "vultr", name: "Vultr Inference", type: "vultr",
     baseUrl: "https://api.vultrinference.com", apiKey: "", enabled: false,
@@ -318,7 +312,7 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
   },
 ];
 
-// â”€â”€ API endpoint mapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── API endpoint mapping ──────────────────────────────────────────
 function getChatEndpoint(provider: ProviderConfig, model: string): { path: string; method: string } {
   switch (provider.type) {
     case "ollama": return { path: "/api/chat", method: "POST" };
@@ -386,7 +380,7 @@ function isRestrictedOpenAIModel(model: string): boolean {
 // (lower = higher priority). Tiered by family + version recency.
 function frontierRank(displayName: string, id: string): number {
   const s = `${displayName} ${id}`.toLowerCase();
-  // Tier 0 â€” newest top-end frontier
+  // Tier 0 — newest top-end frontier
   if (/gpt-5\.5|gpt-5_5/.test(s)) return 0;
   if (/claude.*opus.*4\.8|opus-4\.8/.test(s)) return 1;
   if (/gpt-5\.4/.test(s)) return 2;
@@ -394,7 +388,7 @@ function frontierRank(displayName: string, id: string): number {
   if (/gemini.*3(\b|\.| )|gemini-3/.test(s)) return 4;
   if (/claude.*opus.*4\.7|opus-4\.7/.test(s)) return 5;
   if (/kimi.*k2|moonshot.*k2/.test(s)) return 6;
-  // Tier 1 â€” current frontier families
+  // Tier 1 — current frontier families
   if (/gpt-5(\b|\.|-| )/.test(s)) return 10;
   if (/claude.*opus.*4|opus-4/.test(s)) return 11;
   if (/claude.*sonnet.*4|sonnet-4/.test(s)) return 12;
@@ -418,36 +412,6 @@ function estimateMessageTokens(message: ChatMessage): number {
 function modelRuntimeContextWindow(provider: ProviderConfig, model: string): number | undefined {
   const cfg = provider.models.find(m => m.id === model);
   return cfg?.effectiveContextWindow || cfg?.contextWindow;
-}
-
-function resolveMaxOutputTokens(provider: ProviderConfig, model: string, requested: number | undefined, fallback: number): number {
-  const cfg = provider.models.find(m => m.id === model);
-  const liveCaps = (cfg as (ModelConfig & { top_provider?: { max_completion_tokens?: number; max_tokens?: number } }) | undefined)?.top_provider;
-  const requestedOrFallback = Number.isFinite(requested as number) && (requested as number) > 0
-    ? Math.floor(requested as number)
-    : fallback;
-
-  // Provider metadata often advertises the full context window, not the legal
-  // completion cap. Azure AI Foundry/OpenAI reasoning deployments can expose
-  // 1M+ context while Chat Completions still rejects outputs above 32,768.
-  // Clamp before every request so Auto/full-output mode cannot send invalid
-  // max_tokens/max_completion_tokens values.
-  const azureReasoningSafeCap = 32768;
-  const providerId = (provider.id || "").toLowerCase();
-  const providerType = (provider.type || "").toLowerCase();
-  const modelId = (model || "").toLowerCase();
-  const isAzureReasoning = (providerType === "azure" || providerId.includes("azure"))
-    && (/gpt[-_. ]?5/.test(modelId) || /o[0-9]/.test(modelId) || modelId.includes("codex"));
-
-  const caps = [
-    cfg?.maxOutputTokens,
-    liveCaps?.max_completion_tokens,
-    liveCaps?.max_tokens,
-    isAzureReasoning ? azureReasoningSafeCap : undefined,
-  ].filter((value): value is number => Number.isFinite(value as number) && (value as number) > 0);
-
-  const cap = caps.length ? Math.min(...caps.map(v => Math.floor(v))) : undefined;
-  return Math.max(1, cap ? Math.min(requestedOrFallback, cap) : requestedOrFallback);
 }
 
 function trimMessagesForRuntimeBudget(provider: ProviderConfig, model: string, messages: ChatMessage[], outputBudget: number): ChatMessage[] {
@@ -485,86 +449,21 @@ function trimMessagesForRuntimeBudget(provider: ProviderConfig, model: string, m
   return [...systemMessages, ...trimmed];
 }
 
-const PRIVATE_REASONING_POLICY_NOTICE = "[Provider policy: removed a request for private reasoning traces. Provide only a concise user-visible rationale or summary.]";
-
-function privateReasoningPolicyPatterns(): RegExp[] {
-  const c = ["chain", "of", "thought"].join("[-\\s_]*");
-  const cot = ["\\b", c, "\\b"].join("");
-  return [
-    /<think\b[^>]*>[\s\S]*?<\/think>/gi,
-    new RegExp(cot, "gi"),
-    /\b(?:raw|hidden|private|internal)\s+(?:reasoning|deliberation|thoughts?|trace|traces)\b/gi,
-    /\b(?:reasoning|deliberation)\s+(?:trace|traces)\b/gi,
-    /\bprivate\s+scratch\s*pad\b/gi,
-    /\bscratch\s*pad\b/gi,
-    /\bshow\s+(?:me\s+)?(?:your\s+)?(?:reasoning|deliberation|thoughts?)\s+(?:step\s*by\s*step|verbatim|raw)\b/gi,
-    /\breveal\s+(?:your\s+)?(?:reasoning|deliberation|thoughts?|internal\s+process)\b/gi,
-  ];
-}
-
-export function sanitizeProviderPolicyText(input: string): string {
-  if (!input) return input;
-  let output = input;
-  let changed = false;
-  for (const pattern of privateReasoningPolicyPatterns()) {
-    if (pattern.test(output)) {
-      changed = true;
-      output = output.replace(pattern, PRIVATE_REASONING_POLICY_NOTICE);
-    }
-    pattern.lastIndex = 0;
-  }
-  return changed ? output.replace(/(?:\s*\[Provider policy: removed a request for private reasoning traces\. Provide only a concise user-visible rationale or summary\.\]\s*){2,}/g, `\n${PRIVATE_REASONING_POLICY_NOTICE}\n`) : output;
-}
-
-export function sanitizeProviderPolicyMessages(messages: ChatMessage[]): ChatMessage[] {
-  return messages.map((message) => ({
-    ...message,
-    content: sanitizeProviderPolicyText(message.content || ""),
-  }));
-}
-
-function sanitizeProviderPolicyValue(value: unknown): unknown {
-  if (typeof value === "string") return sanitizeProviderPolicyText(value);
-  if (Array.isArray(value)) return value.map(sanitizeProviderPolicyValue);
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      out[key] = sanitizeProviderPolicyValue(nested);
-    }
-    return out;
-  }
-  return value;
-}
-
-export function sanitizeProviderPolicyTools(tools: OpenAIToolSpec[] | undefined): OpenAIToolSpec[] | undefined {
-  if (!tools || tools.length === 0) return tools;
-  return tools.map((tool) => ({
-    ...tool,
-    function: {
-      ...tool.function,
-      description: sanitizeProviderPolicyText(tool.function.description || ""),
-      parameters: sanitizeProviderPolicyValue(tool.function.parameters) as Record<string, unknown>,
-    },
-  }));
-}
-
-function buildRequestBody(provider: ProviderConfig, model: string, messages: ChatMessage[], options: { temperature?: number; max_tokens?: number; stream?: boolean; tools?: OpenAIToolSpec[]; toolChoice?: boolean }): string {
+function buildRequestBody(provider: ProviderConfig, model: string, messages: ChatMessage[], options: { temperature?: number; max_tokens?: number; stream?: boolean; tools?: OpenAIToolSpec[] }): string {
   const stream = options.stream !== false;
-  const safeMaxTokens = resolveMaxOutputTokens(provider, model, options.max_tokens, 4096);
-  const runtimeMessages = trimMessagesForRuntimeBudget(provider, model, sanitizeProviderPolicyMessages(messages), safeMaxTokens);
-  const runtimeTools = sanitizeProviderPolicyTools(options.tools);
+  const runtimeMessages = trimMessagesForRuntimeBudget(provider, model, messages, options.max_tokens || 4096);
   switch (provider.type) {
     case "ollama":
       return JSON.stringify({
         model, messages: runtimeMessages, stream,
-        options: { temperature: options.temperature ?? 0.3, num_predict: safeMaxTokens }
+        options: { temperature: options.temperature ?? 0.3, num_predict: options.max_tokens ?? 2048 }
       });
     case "anthropic": {
       const system = runtimeMessages.find(m => m.role === "system")?.content || "";
       const nonSystem = runtimeMessages.filter(m => m.role !== "system");
       return JSON.stringify({
         model, system, messages: nonSystem, stream,
-        max_tokens: safeMaxTokens, temperature: options.temperature ?? 0.3
+        max_tokens: options.max_tokens || 4096, temperature: options.temperature ?? 0.3
       });
     }
     case "google":
@@ -574,7 +473,7 @@ function buildRequestBody(provider: ProviderConfig, model: string, messages: Cha
           parts: [{ text: m.content }]
         })),
         systemInstruction: { parts: [{ text: runtimeMessages.find(m => m.role === "system")?.content || "" }] },
-        generationConfig: { temperature: options.temperature ?? 0.3, maxOutputTokens: safeMaxTokens }
+        generationConfig: { temperature: options.temperature ?? 0.3, maxOutputTokens: options.max_tokens || 4096 }
       });
     default: { // OpenAI-compatible
       const restricted = (provider.type === "azure" || provider.type === "openai") && isRestrictedOpenAIModel(model);
@@ -582,90 +481,26 @@ function buildRequestBody(provider: ProviderConfig, model: string, messages: Cha
       if (restricted) {
         // Reasoning models: use max_completion_tokens, and omit temperature
         // (only the default value is accepted).
-        body.max_completion_tokens = safeMaxTokens;
+        body.max_completion_tokens = options.max_tokens || 4096;
       } else {
         body.temperature = options.temperature ?? 0.3;
-        body.max_tokens = safeMaxTokens;
+        body.max_tokens = options.max_tokens || 4096;
       }
-      if (runtimeTools && runtimeTools.length > 0) {
-        body.tools = runtimeTools;
-        if (options.toolChoice !== false) {
-          body.tool_choice = "auto";
-        }
+      if (options.tools && options.tools.length > 0) {
+        body.tools = options.tools;
+        body.tool_choice = "auto";
       }
       return JSON.stringify(body);
     }
   }
 }
 
-/** OpenAI-compatible provider types that can support native function/tool calling. */
+/** OpenAI-compatible provider types that support native function/tool calling. */
 const NATIVE_TOOL_TYPES = new Set([
   "openai", "azure", "groq", "openrouter", "deepseek", "mistral", "together", "vultr", "huggingface", "moonshot", "custom-openai"
 ]);
 export function providerSupportsNativeTools(type: string): boolean {
   return NATIVE_TOOL_TYPES.has(type);
-}
-
-function truthyCapability(value: unknown): boolean | undefined {
-  if (value === true || value === "true" || value === "1" || value === 1 || value === "enabled" || value === "supported") return true;
-  if (value === false || value === "false" || value === "0" || value === 0 || value === "disabled" || value === "unsupported") return false;
-  return undefined;
-}
-
-function capabilityRecordSaysTools(value: unknown): boolean | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const obj = value as Record<string, unknown>;
-  const directKeys = [
-    "tools", "tool", "tool_choice", "toolChoice", "function_calling", "functionCalling",
-    "function_call", "functionCall", "functions", "parallel_tool_calls", "parallelToolCalls"
-  ];
-  for (const key of directKeys) {
-    const verdict = truthyCapability(obj[key]);
-    if (verdict !== undefined) return verdict;
-  }
-  for (const nestedKey of ["capabilities", "features", "supported", "supported_parameters", "supportedParameters"]) {
-    const nested = obj[nestedKey];
-    if (Array.isArray(nested)) {
-      const lowered = nested.map(v => String(v).toLowerCase());
-      if (lowered.some(v => ["tools", "tool_choice", "function_calling", "functions", "parallel_tool_calls"].includes(v))) return true;
-    } else {
-      const verdict = capabilityRecordSaysTools(nested);
-      if (verdict !== undefined) return verdict;
-    }
-  }
-  return undefined;
-}
-
-function liveEntrySaysTools(entry: OpenRouterApiModel): boolean | undefined {
-  const params = Array.isArray(entry.supported_parameters) ? entry.supported_parameters.map(p => String(p).toLowerCase()) : [];
-  if (params.length > 0) {
-    return params.some(p => ["tools", "tool_choice", "function_calling", "functions", "parallel_tool_calls"].includes(p));
-  }
-  return capabilityRecordSaysTools(entry.capabilities);
-}
-
-function defaultNativeToolSupportForChatCompletions(provider: ProviderConfig, modelId: string, displayName?: string, catalogSupportsTools?: boolean): boolean {
-  if (!providerSupportsNativeTools(provider.type)) return false;
-  if (catalogSupportsTools === false) return false;
-  const name = `${modelId} ${displayName || ""}`.toLowerCase();
-
-  // Azure OpenAI/AI Foundry is operation-specific: a deployment can chat/stream normally
-  // while rejecting Chat Completions native tools with HTTP 400 "operation unsupported".
-  // Enable tools only for Azure deployments known to support Chat Completions tools unless
-  // a live API capability explicitly says otherwise.
-  if (provider.type === "azure") {
-    if (/gpt[-_ ]?4\.1|gpt[-_ ]?4o|gpt[-_ ]?4[-_ ]turbo|gpt-chat-latest/.test(name)) return true;
-    if (/gpt[-_ ]?5|grok|model-router|router/.test(name)) return false;
-    return catalogSupportsTools === true;
-  }
-
-  // OpenRouter exposes model-level supported_parameters; respect the catalog instead of
-  // assuming every routed model accepts native tools.
-  if (provider.type === "openrouter") return catalogSupportsTools === true;
-
-  // For direct OpenAI-compatible providers, allow native tools by default when the catalog
-  // does not explicitly deny them; these APIs generally accept OpenAI tools syntax.
-  return true;
 }
 
 // Force localhost to 127.0.0.1 to avoid IPv6 issues
@@ -681,11 +516,6 @@ function isRetryableNetworkError(error: unknown): boolean {
 function describeNetworkError(error: unknown): string {
   if (error instanceof Error) return error.message || error.name;
   return String(error);
-}
-
-function isUnsupportedOperationResponse(statusCode: number | undefined, body: string): boolean {
-  if (statusCode !== 400) return false;
-  return /requested operation is unsupported|operation is unsupported|unsupported operation|not supported/i.test(body || "");
 }
 
 function delayWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
@@ -756,7 +586,7 @@ function isDone(provider: ProviderConfig, line: string): boolean {
   return line.trim() === "data: [DONE]";
 }
 
-// â”€â”€ Multi-Provider Client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Multi-Provider Client ─────────────────────────────────────────
 export class MultiProviderClient {
   private _providers: Map<string, ProviderConfig> = new Map();
   // Per-provider session usage (this VS Code session). Token counts are
@@ -764,7 +594,6 @@ export class MultiProviderClient {
   // streaming endpoints do not return a usage object on every call.
   private _usage: Map<string, { requests: number; inputTokensEst: number; outputTokensEst: number }> = new Map();
   private _liveModelMetadataCache: Map<string, { expiresAt: number; metadata: Map<string, LiveModelMetadata> }> = new Map();
-  private _nativeToolsDisabledForSession: Set<string> = new Set();
 
   constructor() {
     for (const p of DEFAULT_PROVIDERS) {
@@ -789,7 +618,7 @@ export class MultiProviderClient {
   /**
    * Estimate the USD cost of a turn from real per-token prices when known.
    * Prices are $/1M tokens (input, output). Returns null when the model's
-   * pricing isn't known locally â€” we never invent a number. OpenRouter models
+   * pricing isn't known locally — we never invent a number. OpenRouter models
    * carry live pricing on the ModelOption (pricePromptPerM/priceCompletionPerM).
    */
   estimateCost(fullModelId: string, inputTokens: number, outputTokens: number): number | null {
@@ -801,14 +630,14 @@ export class MultiProviderClient {
     if (opt && typeof opt.pricePromptPerM === "number" && typeof opt.priceCompletionPerM === "number") {
       return (inputTokens / 1e6) * opt.pricePromptPerM + (outputTokens / 1e6) * opt.priceCompletionPerM;
     }
-    // Local providers and unknown pricing â†’ no fabricated cost.
+    // Local providers and unknown pricing → no fabricated cost.
     if (provider.type === "ollama") return 0;
     return null;
   }
 
   /**
    * Fetch real account balance/credit/usage from a provider's API when it
-   * exposes one. Returns { supported, ...fields }. Never fabricates numbers â€”
+   * exposes one. Returns { supported, ...fields }. Never fabricates numbers —
    * if the provider has no public balance endpoint, supported is false.
    */
   async getProviderBalance(providerId: string): Promise<{
@@ -822,7 +651,7 @@ export class MultiProviderClient {
   }> {
     const p = this._providers.get(providerId);
     if (!p) return { supported: false, message: "Unknown provider" };
-    if (p.type === "ollama") return { supported: true, message: "Local â€” no billing", remaining: Infinity };
+    if (p.type === "ollama") return { supported: true, message: "Local — no billing", remaining: Infinity };
     if (!p.apiKey) return { supported: false, message: "No API key set" };
 
     const httpsGet = (host: string, path: string, headers: Record<string, string>) =>
@@ -872,12 +701,12 @@ export class MultiProviderClient {
       return { supported: false, message: e instanceof Error ? e.message : "Balance query error" };
     }
 
-    // Providers without a public balance endpoint â€” be honest, show nothing fake.
+    // Providers without a public balance endpoint — be honest, show nothing fake.
     const noApi: Record<string, string> = {
-      groq: "Groq has no public balance API â€” check console.groq.com",
-      anthropic: "Anthropic has no balance API â€” check console.anthropic.com",
-      openai: "OpenAI billing API is restricted â€” check platform.openai.com/usage",
-      google: "Gemini has no balance API â€” check aistudio.google.com",
+      groq: "Groq has no public balance API — check console.groq.com",
+      anthropic: "Anthropic has no balance API — check console.anthropic.com",
+      openai: "OpenAI billing API is restricted — check platform.openai.com/usage",
+      google: "Gemini has no balance API — check aistudio.google.com",
       azure: "Azure spend is in Cost Management (needs subscription auth)",
       "azure-sora": "Azure video spend is in Cost Management (Sora/Foundry resource)",
       mistral: "Mistral has no public balance API",
@@ -954,8 +783,7 @@ export class MultiProviderClient {
 
   setProviderKey(id: string, key: string) {
     const p = this._providers.get(id);
-    const trimmed = String(key || "").trim();
-    if (p && trimmed) { p.apiKey = trimmed; p.enabled = true; }
+    if (p) { p.apiKey = key; p.enabled = !!key; }
   }
 
   setProviderEnabled(id: string, enabled: boolean) {
@@ -971,134 +799,42 @@ export class MultiProviderClient {
     if (id !== "ollama") this._providers.delete(id);
   }
 
-  /** Load API keys from a text file (optional bulk-import).
-   * Secret-safe: this parser never logs or returns key values. It accepts common
-   * formats used in local vault files: PROVIDER:key, PROVIDER=key, JSON maps,
-   * and labelled prose lines. Imported providers are enabled and later persisted
-   * to VS Code SecretStorage by saveKeysToSecrets().
-   */
-  loadApiKeysFromFile(filePath: string): string[] {
+  /** Load API keys from a text file (optional bulk-import) */
+  loadApiKeysFromFile(filePath: string) {
     const fs = require("fs");
-    if (!filePath || !fs.existsSync(filePath)) return [];
+    if (!fs.existsSync(filePath)) return;
     const content = fs.readFileSync(filePath, "utf-8");
-    const imported = new Set<string>();
-
-    const normalizeProvider = (label: string): string | undefined => {
-      const l = String(label || "").toLowerCase().replace(/[^a-z0-9-]+/g, " ").trim();
-      if (!l) return undefined;
-      if (l.includes("azure") && (l.includes("sora") || l.includes("video"))) return "azure-sora";
-      if (l.includes("azure") || l.includes("foundry") || l.includes("cognitive")) return "azure";
-      if (l.includes("anthropic") || l.includes("claude")) return "anthropic";
-      if (l.includes("google") || l.includes("gemini") || l.includes("palm")) return "google";
-      if (l.includes("groq") || l.includes("grok")) return "groq";
-      if (l.includes("openrouter") || l.includes("open router")) return "openrouter";
-      if (l.includes("openai") || l === "open ai") return "openai";
-      if (l.includes("mistral")) return "mistral";
-      if (l.includes("deepseek")) return "deepseek";
-      if (l.includes("together")) return "together";
-      if (l.includes("moonshot") || l.includes("kimi")) return "moonshot";
-      if (l.includes("huggingface") || l.includes("hugging face")) return "huggingface";
-      if (l.includes("vultr")) return "vultr";
-      if (l.includes("featherless")) return "featherless";
-      return undefined;
-    };
-
-    const cleanKey = (value: string): string => String(value || "")
-      .trim()
-      .replace(/^['\"`]+|['\"`,;]+$/g, "")
-      .split(/\s+/)[0]
-      .trim();
-
-    const looksLikeKey = (providerId: string, key: string): boolean => {
-      if (!key || key.length < 8) return false;
-      if (/^(your_|changeme|placeholder|example|null|undefined)$/i.test(key)) return false;
-      if (providerId === "google") return key.startsWith("AIza") || key.length >= 24;
-      if (providerId === "huggingface") return key.startsWith("hf_") || key.length >= 24;
-      if (providerId === "azure" || providerId === "azure-sora") return /^[A-Za-z0-9_-]{24,}$/.test(key);
-      return /^[A-Za-z0-9_./:+\-=]{16,}$/.test(key);
-    };
-
-    const apply = (providerId: string | undefined, rawKey: string | undefined) => {
-      if (!providerId || !rawKey) return;
-      const key = cleanKey(rawKey);
-      if (!looksLikeKey(providerId, key)) return;
-      this.setProviderKey(providerId, key);
-      imported.add(providerId);
-    };
-
-    // JSON vault support: { "openrouter": "...", "azure": { "apiKey": "..." } }
-    try {
-      const parsed = JSON.parse(content);
-      const visit = (obj: unknown, inheritedLabel = "") => {
-        if (!obj || typeof obj !== "object") return;
-        for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-          const providerId = normalizeProvider(k) || normalizeProvider(inheritedLabel);
-          if (typeof v === "string") apply(providerId, v);
-          else if (v && typeof v === "object") {
-            const r = v as Record<string, unknown>;
-            const candidate = r.apiKey || r.key || r.token || r.secret || r.value;
-            if (typeof candidate === "string") apply(providerId, candidate);
-            visit(v, k);
-          }
-        }
-      };
-      visit(parsed);
-    } catch { /* not JSON; parse line format below */ }
-
-    for (const rawLine of content.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || line.startsWith("#") || line.startsWith("//")) continue;
+    const lines = content.split("\n");
+    for (const line of lines) {
       const lower = line.toLowerCase();
-      let providerId: string | undefined;
-      let value = "";
-
-      const kv = line.match(/^\s*([A-Za-z0-9_. -]{2,60})\s*[:=]\s*(.+?)\s*$/);
-      if (kv) {
-        providerId = normalizeProvider(kv[1]);
-        value = kv[2];
+      if (lower.startsWith("groq:")) {
+        const keys = line.split(":").slice(1).join(":").trim().split("/");
+        this.setProviderKey("groq", keys[0].trim());
+      } else if (lower.startsWith("openrouter:")) {
+        this.setProviderKey("openrouter", line.split(":").slice(1).join(":").trim());
+        } else if (lower.includes("featherless")) {
+          const value = line.includes(":") ? line.split(":").slice(1).join(":").trim() : (line.includes("=") ? line.split("=").slice(1).join("=").trim() : "");
+          if (value) this.setProviderKey("featherless", value);
+      } else if (lower.includes("gemini")) {
+        const key = line.split(":").slice(1).join(":").trim().split(" ")[0];
+        if (key.startsWith("AIza")) this.setProviderKey("google", key);
+      } else if (lower.includes("vultr interference") || lower.includes("vultr inference")) {
+        const parts = line.split(":").slice(1).join(":").trim().split(/\s+/);
+        this.setProviderKey("vultr", parts[0].trim());
+      } else if (lower.includes("huggingface")) {
+        const key = line.split(":").slice(1).join(":").trim();
+        if (key.startsWith("hf_")) this.setProviderKey("huggingface", key);
+      } else if (lower.includes("moonshot") || lower.includes("kimi")) {
+        const key = line.split(":").slice(1).join(":").trim().split(/\s+/)[0];
+        if (key.startsWith("sk-")) this.setProviderKey("moonshot", key);
+      } else if (lower.includes("sora") && lower.includes("azure")) {
+        const m = line.match(/[A-Za-z0-9]{32,}/);
+        if (m) this.setProviderKey("azure-sora", m[0]);
+      } else if (lower.includes("azure") && (lower.includes("key") || lower.includes("openai") || lower.includes("foundry") || lower.includes("cognitiveservices"))) {
+        const m = line.match(/[A-Za-z0-9]{32,}/);
+        if (m) this.setProviderKey("azure", m[0]);
       }
-      if (!providerId) providerId = normalizeProvider(line);
-      if (!value) {
-        const keyMatch = line.match(/(sk-[A-Za-z0-9._-]{16,}|hf_[A-Za-z0-9._-]{16,}|AIza[A-Za-z0-9_-]{20,}|[A-Za-z0-9_-]{24,})/);
-        value = keyMatch ? keyMatch[1] : "";
-      }
-      if (providerId === "groq" && lower.includes("openrouter")) providerId = "openrouter";
-      apply(providerId, value);
     }
-
-    return Array.from(imported).sort();
-  }
-
-  /**
-   * Return configured/static model options immediately, without hitting provider
-   * catalog endpoints. This is the safe bootstrap list used by the sidebar so a
-   * slow/offline live discovery pass can never leave the selector stuck on Auto.
-   */
-  getConfiguredModelsSnapshot(includeDisabledWithKeys = false): ModelOption[] {
-    const models: ModelOption[] = [];
-    for (const provider of this._providers.values()) {
-      if (!provider.enabled && !(includeDisabledWithKeys && !!provider.apiKey)) continue;
-      if (provider.type === "ollama" && provider.models.length === 0) {
-        models.push({
-          id: "ollama:sentinel-coder:latest",
-          displayName: "Ollama: sentinel-coder:latest (configured fallback)",
-          provider: "ollama",
-          providerType: "ollama",
-          contextWindow: 32768,
-          maxOutputTokens: 8192,
-          pricing: "local",
-          pricingNote: "Local configured fallback; live Ollama discovery still refreshes in background",
-          supportsTools: true,
-          supportsThinking: false,
-          supportsVision: false,
-          supportsStreaming: true,
-          contextSource: "static",
-        });
-        continue;
-      }
-      for (const m of provider.models) models.push(this._toModelOption(provider, m));
-    }
-    return models;
   }
 
   // Get all models from all enabled providers
@@ -1107,14 +843,7 @@ export class MultiProviderClient {
 
     for (const provider of this._providers.values()) {
       if (!provider.enabled) continue;
-      let liveMetadata: Map<string, LiveModelMetadata> | undefined;
-      try {
-        liveMetadata = await this._getProviderLiveModelMetadata(provider);
-      } catch {
-        // Provider catalog/metadata outages must not collapse the whole chat selector to Auto.
-        // Each provider still falls back to its configured curated model list below.
-        liveMetadata = undefined;
-      }
+      const liveMetadata = await this._getProviderLiveModelMetadata(provider);
 
       if (provider.type === "ollama") {
         try {
@@ -1138,7 +867,7 @@ export class MultiProviderClient {
               contextWindow: meta.contextWindow || 4096,
               maxOutputTokens: meta.maxOutputTokens || 4096,
               pricing: "local",
-              pricingNote: "Local Â· free",
+              pricingNote: "Local · free",
               supportsTools: meta.supportsTools ?? false,
               supportsThinking: meta.supportsThinking ?? false,
               supportsVision: meta.supportsVision ?? false,
@@ -1184,7 +913,7 @@ export class MultiProviderClient {
     return models;
   }
 
-  // resolve "provider:model" â†’ { provider, modelId }
+  // resolve "provider:model" → { provider, modelId }
   resolveModel(fullId: string): { provider: ProviderConfig; modelId: string } | null {
     const colon = fullId.indexOf(":");
     if (colon < 0) return null;
@@ -1268,9 +997,9 @@ export class MultiProviderClient {
       const errBody = Buffer.concat(chunks).toString();
       const code = response.statusCode;
       const hint = code === 429
-        ? " (rate limited â€” wait a moment, lower request frequency, or switch to another provider/model)"
+        ? " (rate limited — wait a moment, lower request frequency, or switch to another provider/model)"
         : code === 401 || code === 403
-          ? " (authentication failed â€” check the API key in Settings â€º Providers)"
+          ? " (authentication failed — check the API key in Settings › Providers)"
           : "";
       throw new Error(`${provider.name} returned ${code}${hint}: ${errBody.slice(0, 500)}`);
     }
@@ -1294,53 +1023,11 @@ export class MultiProviderClient {
     this._recordUsage(provider.id, inputChars, outputChars);
   }
 
-  /** Whether this exact provider/model/API operation supports native Chat Completions tools. */
+  /** Whether the model's provider supports native function/tool calling. */
   supportsNativeTools(fullModelId: string): boolean {
     const resolved = this.resolveModel(fullModelId);
     if (!resolved) return false;
-    return this._nativeToolSupportForModel(resolved.provider, resolved.modelId);
-  }
-
-  private _nativeToolSessionKey(provider: ProviderConfig, modelId: string): string {
-    return `${provider.id}:${modelId}`.toLowerCase();
-  }
-
-  private _liveMetadataForModel(provider: ProviderConfig, modelId: string): LiveModelMetadata | undefined {
-    const model = provider.models.find(m => m.id === modelId);
-    const cached = this._liveModelMetadataCache.get(provider.id)?.metadata;
-    return cached ? this._findLiveMetadata(provider, {
-      id: modelId,
-      displayName: model?.displayName || modelId,
-      provider: provider.id,
-      contextWindow: model?.contextWindow || 0,
-      pricing: model?.pricing || "pay-per-use",
-      supportsTools: model?.supportsTools ?? true,
-      supportsThinking: model?.supportsThinking ?? false,
-      supportsVision: model?.supportsVision ?? false,
-      supportsStreaming: model?.supportsStreaming ?? true,
-    }, cached) : undefined;
-  }
-
-  private _nativeToolSupportForModel(provider: ProviderConfig, modelId: string): boolean {
-    if (this._nativeToolsDisabledForSession.has(this._nativeToolSessionKey(provider, modelId))) return false;
-    const model = provider.models.find(m => m.id === modelId);
-    const live = this._liveMetadataForModel(provider, modelId);
-    const params = Array.isArray(live?.supportedParameters)
-      ? live.supportedParameters.map(p => String(p).toLowerCase())
-      : [];
-    if (params.length > 0 && !params.some(p => ["tools", "tool_choice", "function_calling", "functions", "parallel_tool_calls"].includes(p))) return false;
-    if (live?.supportsTools !== undefined) return live.supportsTools;
-    return defaultNativeToolSupportForChatCompletions(provider, modelId, live?.displayName || model?.displayName, model?.supportsTools);
-  }
-
-  private _supportsToolChoiceForModel(provider: ProviderConfig, modelId: string): boolean {
-    if (!this._nativeToolSupportForModel(provider, modelId)) return false;
-    const model = provider.models.find(m => m.id === modelId);
-    const live = this._liveMetadataForModel(provider, modelId);
-    const params = Array.isArray(live?.supportedParameters) ? live.supportedParameters.map(p => String(p).toLowerCase()) : [];
-    if (params.length > 0) return params.includes("tool_choice");
-    if (provider.type === "openrouter") return false;
-    return defaultNativeToolSupportForChatCompletions(provider, modelId, model?.displayName, model?.supportsTools);
+    return providerSupportsNativeTools(resolved.provider.type);
   }
 
   /**
@@ -1363,27 +1050,12 @@ export class MultiProviderClient {
       throw new Error(`No API key configured for ${provider.name}. Set it in Settings > Models.`);
     }
 
-    if (tools.length > 0 && !this._nativeToolSupportForModel(provider, modelId)) {
-      // Correct operation selection: this model can chat, but its provider/catalog does not
-      // advertise Chat Completions native tools for this exact deployment/model. Use normal
-      // streaming chat rather than sending an unsupported tools operation.
-      for await (const chunk of this.streamChat(fullModelId, messages, options, signal)) {
-        yield { kind: "text", value: chunk };
-      }
-      return;
-    }
-
     const evInputChars = messages.reduce((n, m) => n + (m.content ? m.content.length : 0), 0);
     let evOutputChars = 0;
 
     const endpoint = getChatEndpoint(provider, modelId);
     const headers = buildHeaders(provider);
-    const body = buildRequestBody(provider, modelId, messages, {
-      ...options,
-      stream: true,
-      tools,
-      toolChoice: this._supportsToolChoiceForModel(provider, modelId),
-    });
+    const body = buildRequestBody(provider, modelId, messages, { ...options, stream: true, tools });
 
     const parsed = new URL(provider.baseUrl + endpoint.path);
     const isHttps = parsed.protocol === "https:";
@@ -1435,22 +1107,10 @@ export class MultiProviderClient {
       for await (const chunk of response) chunks.push(chunk as Buffer);
       const errBody = Buffer.concat(chunks).toString();
       const code = response.statusCode;
-      if (tools.length > 0 && isUnsupportedOperationResponse(code, errBody)) {
-        // Some Azure OpenAI / AI Foundry deployments can chat normally but reject
-        // the specific native-tool/streaming operation with a generic 400. Mark
-        // this exact deployment/model as native-tool-disabled for the current
-        // session so later turns choose the correct operation without re-triggering
-        // the unsupported request, then degrade gracefully to normal chat.
-        this._nativeToolsDisabledForSession.add(this._nativeToolSessionKey(provider, modelId));
-        for await (const chunk of this.streamChat(fullModelId, messages, options, signal)) {
-          yield { kind: "text", value: chunk };
-        }
-        return;
-      }
       const hint = code === 429
-        ? " (rate limited â€” wait a moment, lower request frequency, or switch to another provider/model)"
+        ? " (rate limited — wait a moment, lower request frequency, or switch to another provider/model)"
         : code === 401 || code === 403
-          ? " (authentication failed â€” check the API key in Settings â€º Providers)"
+          ? " (authentication failed — check the API key in Settings › Providers)"
           : "";
       throw new Error(`${provider.name} returned ${code}${hint}: ${errBody.slice(0, 600)}`);
     }
@@ -1686,7 +1346,7 @@ export class MultiProviderClient {
     const contextWindow = live?.contextWindow || inferred.contextWindow || model.contextWindow;
     const maxOutputTokens = live?.maxOutputTokens || inferred.maxOutputTokens || model.maxOutputTokens || 8192;
     const source = live?.source || (inferred.contextWindow || inferred.maxOutputTokens ? "heuristic" : "static");
-    const suffix = source === "live-api" || source === "live-api+heuristic" ? " Â· live context" : source === "heuristic" ? " Â· inferred context" : "";
+    const suffix = source === "live-api" || source === "live-api+heuristic" ? " · live context" : source === "heuristic" ? " · inferred context" : "";
     return {
       id: `${provider.id}:${model.id}`,
       displayName: live?.displayName || model.displayName,
@@ -1697,8 +1357,7 @@ export class MultiProviderClient {
       maxOutputTokens,
       pricing: model.pricing,
       pricingNote: `${model.pricingNote || ""}${suffix}`.trim(),
-      supportsTools: live?.supportsTools ?? defaultNativeToolSupportForChatCompletions(provider, model.id, model.displayName, model.supportsTools),
-      supportedParameters: live?.supportedParameters || model.supportedParameters,
+      supportsTools: live?.supportsTools ?? model.supportsTools,
       supportsThinking: live?.supportsThinking ?? model.supportsThinking,
       supportsVision: live?.supportsVision ?? model.supportsVision,
       supportsStreaming: model.supportsStreaming,
@@ -1772,8 +1431,7 @@ export class MultiProviderClient {
       maxOutputTokens,
       pricing,
       pricingNote,
-      supportsTools: meta.supportsTools ?? defaultNativeToolSupportForChatCompletions(provider, id, meta.displayName),
-      supportedParameters: meta.supportedParameters,
+      supportsTools: meta.supportsTools ?? true,
       supportsThinking: meta.supportsThinking ?? /reason|gpt[-_ ]?5|grok|o[1-9]|deepseek|qwen|kimi/i.test(`${id} ${meta.displayName || ""}`),
       supportsVision: meta.supportsVision ?? /gpt[-_ ]?4\.1|gpt[-_ ]?5|gemini|claude|vision|4o/i.test(`${id} ${meta.displayName || ""}`),
       supportsStreaming: true,
@@ -1805,17 +1463,16 @@ export class MultiProviderClient {
       if (!apiSaysChat && !nameLooksChat) continue;
       const existing = liveMetadata ? this._findLiveMetadata(provider, { id: deploymentId, displayName, provider: provider.id, contextWindow: 0, pricing: "subscription", supportsTools: true, supportsThinking: false, supportsVision: false, supportsStreaming: true }, liveMetadata) : undefined;
       const inferred = this._inferModelLimits(deploymentId, modelName || displayName);
-      const explicitTools = capabilityRecordSaysTools(capabilities) ?? capabilityRecordSaysTools(item);
-      const meta: LiveModelMetadata = {
+      const meta: LiveModelMetadata = existing || {
         id: deploymentId,
-        displayName: existing?.displayName || displayName,
-        providerModelId: existing?.providerModelId || (modelName && modelName !== deploymentId ? modelName : undefined),
-        contextWindow: existing?.contextWindow || inferred.contextWindow,
-        maxOutputTokens: existing?.maxOutputTokens || inferred.maxOutputTokens,
-        supportsTools: existing?.supportsTools ?? explicitTools ?? defaultNativeToolSupportForChatCompletions(provider, deploymentId, modelName || displayName),
-        supportsThinking: existing?.supportsThinking ?? /reason|gpt[-_ ]?5|grok|o[1-9]|deepseek|qwen|kimi/i.test(`${deploymentId} ${modelName}`),
-        supportsVision: existing?.supportsVision ?? /gpt[-_ ]?4\.1|gpt[-_ ]?5|vision|4o|gemini|claude/i.test(`${deploymentId} ${modelName}`),
-        source: existing?.source || "live-api+heuristic",
+        displayName,
+        providerModelId: modelName && modelName !== deploymentId ? modelName : undefined,
+        contextWindow: inferred.contextWindow,
+        maxOutputTokens: inferred.maxOutputTokens,
+        supportsTools: true,
+        supportsThinking: /reason|gpt[-_ ]?5|grok|o[1-9]|deepseek|qwen|kimi/i.test(`${deploymentId} ${modelName}`),
+        supportsVision: /gpt[-_ ]?4\.1|gpt[-_ ]?5|vision|4o|gemini|claude/i.test(`${deploymentId} ${modelName}`),
+        source: "live-api+heuristic",
         updatedAt: now,
       };
       out.push(this._modelOptionFromLiveMetadata(provider, meta, deploymentId));
@@ -1858,7 +1515,7 @@ export class MultiProviderClient {
       if (inferred.contextWindow || inferred.maxOutputTokens) {
         const meta: LiveModelMetadata = {
           id: m.id, displayName: m.displayName, contextWindow: inferred.contextWindow, maxOutputTokens: inferred.maxOutputTokens,
-          supportsTools: defaultNativeToolSupportForChatCompletions(provider, m.id, m.displayName, m.supportsTools), supportsThinking: m.supportsThinking, supportsVision: m.supportsVision, source: "heuristic", updatedAt: now,
+          supportsTools: m.supportsTools, supportsThinking: m.supportsThinking, supportsVision: m.supportsVision, source: "heuristic", updatedAt: now,
         };
         metadata.set(m.id, meta);
         metadata.set(m.id.toLowerCase(), meta);
@@ -1914,8 +1571,7 @@ export class MultiProviderClient {
       entry.top_provider?.max_completion_tokens, entry.max_completion_tokens, entry.max_output_tokens, entry.output_token_limit,
     ]);
     const inferred = this._inferModelLimits(entry.id, entry.name || entry.display_name || entry.model || entry.id);
-    const params = Array.isArray(entry.supported_parameters) ? entry.supported_parameters.map(p => String(p).toLowerCase()) : [];
-    const explicitTools = liveEntrySaysTools(entry);
+    const params = Array.isArray(entry.supported_parameters) ? entry.supported_parameters : [];
     const inMods = entry.architecture && Array.isArray(entry.architecture.input_modalities) ? entry.architecture.input_modalities : [];
     const outMods = entry.architecture && Array.isArray(entry.architecture.output_modalities) ? entry.architecture.output_modalities : [];
     const modalityText = `${entry.architecture?.modality || ""} ${inMods.join(" ")} ${outMods.join(" ")}`.toLowerCase();
@@ -1927,8 +1583,7 @@ export class MultiProviderClient {
       providerModelId: entry.model,
       contextWindow: ctx || inferred.contextWindow,
       maxOutputTokens: out || inferred.maxOutputTokens,
-      supportedParameters: params.length > 0 ? params : undefined,
-      supportsTools: explicitTools,
+      supportsTools: params.includes("tools") || params.includes("tool_choice") || undefined,
       supportsThinking: params.includes("reasoning") || params.includes("include_reasoning") || undefined,
       supportsVision: inMods.includes("image") || undefined,
       source,
@@ -2041,7 +1696,7 @@ export class MultiProviderClient {
   }
 }
 
-// â”€â”€ Task Classification & Auto-Router â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Task Classification & Auto-Router ─────────────────────────────
 
 export type TaskType = "code-generation" | "code-editing" | "reasoning" | "explanation" | "agentic" | "general";
 
@@ -2053,9 +1708,9 @@ export interface ModelCapability {
   thinking: boolean;   // has thinking/reasoning mode
 }
 
-/** Known model capabilities â€” keyed by "provider:modelId" */
+/** Known model capabilities — keyed by "provider:modelId" */
 const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
-  // â”€â”€ Cloud Tier 1 (Premium) â”€â”€
+  // ── Cloud Tier 1 (Premium) ──
   "anthropic:claude-opus-4-20250514":   { coding: 10, reasoning: 10, speed: 3, agentic: true, thinking: true },
   "anthropic:claude-sonnet-4-20250514": { coding: 9, reasoning: 9, speed: 6, agentic: true, thinking: true },
   "anthropic:claude-3-5-haiku-20241022":{ coding: 7, reasoning: 6, speed: 9, agentic: true, thinking: false },
@@ -2072,7 +1727,7 @@ const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   "google:gemini-2.5-flash":           { coding: 8, reasoning: 7, speed: 9, agentic: true, thinking: true },
   "google:gemini-2.0-flash":           { coding: 7, reasoning: 6, speed: 9, agentic: true, thinking: false },
 
-  // â”€â”€ Cloud Tier 2 (via Groq / OpenRouter) â”€â”€
+  // ── Cloud Tier 2 (via Groq / OpenRouter) ──
   // Speed/agentic ratings below are anchored to a real streaming benchmark
   // (scripts/perf/modelPerf.mjs, Groq): measured tok/s, TTFT jitter, and a
   // 3/3 native tool-calling pass for every model listed here.
@@ -2103,7 +1758,7 @@ const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   "mistral:mistral-large-latest":      { coding: 8, reasoning: 7, speed: 6, agentic: true, thinking: false },
   "mistral:codestral-latest":          { coding: 9, reasoning: 6, speed: 7, agentic: true, thinking: false },
 
-  // â”€â”€ Local (Ollama) â”€â”€
+  // ── Local (Ollama) ──
   "ollama:sentinel-coderq:latest":     { coding: 7, reasoning: 7, speed: 8, agentic: true, thinking: true },
   "ollama:sentinel-coder-one:latest":  { coding: 7, reasoning: 6, speed: 7, agentic: true, thinking: false },
   "ollama:sentinel-coder:latest":      { coding: 6, reasoning: 5, speed: 9, agentic: true, thinking: false },
@@ -2111,7 +1766,7 @@ const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   "ollama:qwen3:8b":                   { coding: 6, reasoning: 6, speed: 8, agentic: true, thinking: true },
   "ollama:qwen2.5-coder:7b":           { coding: 6, reasoning: 4, speed: 8, agentic: true, thinking: false },
 
-  // â”€â”€ Vultr Inference â”€â”€
+  // ── Vultr Inference ──
   "vultr:Qwen/Qwen2.5-Coder-32B-Instruct": { coding: 8, reasoning: 6, speed: 7, agentic: true, thinking: false },
   "vultr:nvidia/DeepSeek-V3.2-NVFP4":      { coding: 9, reasoning: 8, speed: 6, agentic: true, thinking: false },
   "vultr:openai/gpt-oss-120b":             { coding: 8, reasoning: 8, speed: 5, agentic: true, thinking: false },
@@ -2120,15 +1775,16 @@ const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   "vultr:zai-org/GLM-5-FP8":               { coding: 7, reasoning: 7, speed: 6, agentic: true, thinking: true },
   "vultr:zai-org/GLM-5.1-FP8":             { coding: 7, reasoning: 8, speed: 6, agentic: true, thinking: true },
 
-  // â”€â”€ Azure OpenAI / AI Foundry (your deployments â€” Azure credits) â”€â”€
+  // ── Azure OpenAI / AI Foundry (your deployments — Azure credits) ──
   "azure:gpt-5.5":                          { coding: 10, reasoning: 10, speed: 4, agentic: true, thinking: true },
+  "azure:gpt-5.4-pro":                      { coding: 10, reasoning: 10, speed: 4, agentic: true, thinking: true },
   "azure:gpt-5.4":                          { coding: 9, reasoning: 9, speed: 5, agentic: true, thinking: true },
   "azure:grok-4.3":                        { coding: 10, reasoning: 10, speed: 6, agentic: true, thinking: true },
   "azure:gpt-4.1":                         { coding: 9, reasoning: 8, speed: 6, agentic: true, thinking: false },
   "azure:model-router":                    { coding: 9, reasoning: 9, speed: 6, agentic: true, thinking: true },
   "azure:gpt-chat-latest":                 { coding: 8, reasoning: 7, speed: 7, agentic: true, thinking: false },
 
-  // â”€â”€ Moonshot (Kimi) â”€â”€
+  // ── Moonshot (Kimi) ──
   "moonshot:kimi-latest":                  { coding: 9, reasoning: 9, speed: 5, agentic: true, thinking: true },
   "moonshot:kimi-k2-0905-preview":         { coding: 9, reasoning: 8, speed: 5, agentic: true, thinking: false },
   "moonshot:kimi-thinking-preview":        { coding: 8, reasoning: 9, speed: 4, agentic: true, thinking: true },
@@ -2175,6 +1831,3 @@ export function classifyTask(message: string): TaskType {
 export function getModelCapability(modelId: string): ModelCapability {
   return MODEL_CAPABILITIES[modelId] || { coding: 5, reasoning: 5, speed: 5, agentic: true, thinking: false };
 }
-
-
-

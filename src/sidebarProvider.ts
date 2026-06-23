@@ -5,7 +5,6 @@ import { OllamaClient } from "./ollama";
 import { MultiProviderClient, ChatMessage, ModelOption, classifyTask, getModelCapability, ToolCallSpec } from "./providers";
 import { ToolRegistry, parseToolCalls, ApprovalMode, shouldAutoApprove } from "./toolRegistry";
 import { McpManager } from "./mcpClient";
-import { getMicrosoftIqGrounding, formatMicrosoftIqGroundingForPrompt } from "./microsoftIq";
 
 // Persistent chat history path (all sessions appended here, ingested into RAG)
 const CHAT_HISTORY_PATH = path.join("D:", "QubitDev", "training", "chat_history.jsonl");
@@ -27,7 +26,6 @@ const SESSIONS_KEY = "sentinelCoder.sessions";
 const CURRENT_SESSION_KEY = "sentinelCoder.currentSessionId";
 const MAX_SESSIONS = 100;
 const SKILLS_KEY = "sentinelCoder.skills";
-const BUILTIN_SKILLS_VERSION_KEY = "sentinelCoder.builtinSkillsVersion";
 
 /** A reusable instruction pack injected into the system prompt when enabled. */
 export interface Skill {
@@ -88,12 +86,6 @@ interface TurnAgentUsage {
   elapsedMs?: number;
 }
 
-interface SubAgentRunResult {
-  model: string;
-  result: string;
-  warning?: string;
-}
-
 const DEFAULT_DYNAMIC_CONTEXT: DynamicContextSettings = {
   enabled: true,
   includeActiveFile: true,
@@ -110,7 +102,7 @@ const BUILTIN_AGENTIC_PROFILES: Array<Omit<AgenticProfile, "createdAt" | "update
   {
     id: STANDARD_AGENTIC_PROFILE_ID,
     name: "Standard: Single Model Full Capability",
-    description: "Default/reference profile: normal model selections use the selected model directly at its discovered context/output/tool capability. Multi-agent orchestration only runs when an Agentic profile is explicitly selected.",
+    description: "Default standard profile/reference: when you choose a normal model, Sentinel uses that model directly at its discovered context/output capability; no multi-agent orchestration is applied unless an Agentic profile is explicitly selected.",
     mainModel: "auto",
     workerModels: [],
     reviewerModels: [],
@@ -119,234 +111,86 @@ const BUILTIN_AGENTIC_PROFILES: Array<Omit<AgenticProfile, "createdAt" | "update
     allowPremiumWorkers: false,
     maxParallelAgents: 1,
     costPolicy: "balanced",
-    instructions: "Single-model mode. Do not spawn sub-agents automatically. Use the selected model directly at its live-discovered provider capability, bounded only by user context budget/max-token settings."
+    instructions: "Standard single-model mode. Do not spawn sub-agents automatically. Use the selected model directly with its discovered provider context window and output limit, bounded only by user context budget/max-token settings. Switch to another Agentic profile only when you want boss/worker/reviewer orchestration."
   },
   {
-    id: "profile_free_multi_provider_coding",
-    name: "FREE: Multi-Provider Coding Council",
-    description: "Best free-only starting point for testing Agentic orchestration across configured free/free-tier/local providers without paid escalation.",
-    mainModel: "auto",
-    workerModels: ["openrouter:qwen/qwen3-coder:free", "openrouter:deepseek/deepseek-chat-v3.1:free", "openrouter:moonshotai/kimi-k2:free", "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest"],
-    reviewerModels: ["openrouter:qwen/qwen3-coder:free", "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest"],
-    defaultWorkerModel: "openrouter:qwen/qwen3-coder:free",
-    allowCheapFallback: true,
-    allowPremiumWorkers: false,
-    maxParallelAgents: 4,
-    costPolicy: "cost-first",
-    instructions: "Use discovered free/free-tier/local models only; do not escalate to paid models. Use multiple free providers for independent drafts/tests/research, then require the main model to verify with real tools because free models can be rate-limited, weaker, or inconsistent. Expect rate limits and variable quality; reduce parallelism when providers throttle."
-  },
-  {
-    id: "profile_openrouter_free_coding_swarm",
-    name: "FREE: OpenRouter Coding Swarm",
-    description: "OpenRouter-only free profile for trying Qwen, DeepSeek, Kimi, and other :free coding/reasoning models from the live OpenRouter catalog.",
-    mainModel: "openrouter:qwen/qwen3-coder:free",
-    workerModels: ["openrouter:qwen/qwen3-coder:free", "openrouter:deepseek/deepseek-chat-v3.1:free", "openrouter:moonshotai/kimi-k2:free", "openrouter:google/gemini-2.0-flash-exp:free"],
-    reviewerModels: ["openrouter:qwen/qwen3-coder:free", "openrouter:deepseek/deepseek-chat-v3.1:free"],
-    defaultWorkerModel: "openrouter:qwen/qwen3-coder:free",
-    allowCheapFallback: true,
-    allowPremiumWorkers: false,
-    maxParallelAgents: 5,
-    costPolicy: "cost-first",
-    instructions: "Use only OpenRouter models marked :free or free-priced in the live catalog. Good for low-cost brainstorming, docs, tests, code reading, and alternative patches. Never assume free output is production-ready: main model must run strict verification and security review before applying changes."
-  },
-  {
-    id: "profile_groq_free_fast_oss",
-    name: "FREE: Groq Fast OSS",
-    description: "Groq free-tier/low-cost OSS profile optimized for fast fan-out on drafts, tests, and code understanding.",
-    mainModel: "groq:openai/gpt-oss-120b",
-    workerModels: ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b", "groq:llama-3.3-70b-versatile"],
-    reviewerModels: ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b"],
-    defaultWorkerModel: "groq:qwen/qwen3-32b",
-    allowCheapFallback: true,
-    allowPremiumWorkers: false,
-    maxParallelAgents: 5,
-    costPolicy: "cost-first",
-    instructions: "Use Groq free-tier or free/low-cost OSS models for fast parallel drafts and critiques. Keep tasks bounded, because high speed can amplify shallow mistakes. For production changes, the main agent must run tests/diagnostics and escalate only if the user switches to a paid profile."
-  },
-  {
-    id: "profile_gemini_free_tier_research",
-    name: "FREE: Gemini / Google Free-Tier Research",
-    description: "Free-tier research and planning preset for Google/Gemini models exposed through configured providers such as OpenRouter or OpenAI-compatible gateways.",
-    mainModel: "openrouter:google/gemini-2.0-flash-exp:free",
-    workerModels: ["openrouter:google/gemini-2.0-flash-exp:free", "openrouter:google/gemini-2.5-flash-lite", "openrouter:qwen/qwen3-coder:free"],
-    reviewerModels: ["openrouter:google/gemini-2.0-flash-exp:free", "openrouter:qwen/qwen3-coder:free"],
-    defaultWorkerModel: "openrouter:google/gemini-2.0-flash-exp:free",
-    allowCheapFallback: true,
-    allowPremiumWorkers: false,
-    maxParallelAgents: 3,
-    costPolicy: "cost-first",
-    instructions: "Use free-tier Gemini/Flash-style models for broad research, summaries, UI copy, and plan alternatives, paired with a coding-focused free model for implementation critique. Confirm live availability from the provider dropdown because free-tier model names and quotas change often."
-  },
-  {
-    id: "profile_local_free_private",
-    name: "FREE: Local Ollama Private",
-    description: "Zero cloud spend and privacy-first local-only Agentic testing profile using Ollama/local models.",
-    mainModel: "ollama:sentinel-coder-one:latest",
-    workerModels: ["ollama:sentinel-coder-one:latest", "ollama:qwen2.5-coder:latest", "ollama:deepseek-coder:latest", "ollama:llama3.1:latest"],
-    reviewerModels: ["ollama:sentinel-coder-one:latest", "ollama:qwen2.5-coder:latest"],
-    defaultWorkerModel: "ollama:sentinel-coder-one:latest",
-    allowCheapFallback: false,
-    allowPremiumWorkers: false,
-    maxParallelAgents: 2,
-    costPolicy: "cost-first",
-    instructions: "Use only local Ollama models. Best for privacy, offline testing, and zero API cost. Limit parallelism to protect local CPU/GPU memory and require compile/tests/firewall scans because small local models may miss subtle bugs."
-  },
-  {
-    id: "profile_provider_best_available",
-    name: "Adaptive: Best Available From Your Keys",
-    description: "Provider-agnostic default for new users: uses the strongest discovered configured model as main, then available workers/reviewers from any provider. Good when you have one API key or mixed keys.",
-    mainModel: "auto",
-    workerModels: ["azure:gpt-4.1", "openai:gpt-4.1", "anthropic:claude-sonnet-4.5", "openrouter:anthropic/claude-sonnet-4.5", "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest"],
-    reviewerModels: ["azure:gpt-5.5", "openai:gpt-5", "anthropic:claude-opus-4.1", "openrouter:google/gemini-2.5-pro", "azure:gpt-4.1"],
-    defaultWorkerModel: "auto",
-    allowCheapFallback: true,
-    allowPremiumWorkers: true,
-    maxParallelAgents: 3,
-    costPolicy: "balanced",
-    instructions: "Adaptive planner-worker-reviewer flow. Resolve every role from live configured/discovered models; never require a hardcoded model that is unavailable. Use one strong main model, one or two workers for independent drafts/tests/research, and a stronger reviewer only for high-risk code, security, architecture, release, or business-critical decisions."
-  },
-  {
-    id: "profile_adaptive_best_available",
-    name: "Adaptive: Best Available From Your Keys",
-    description: "Provider-neutral default for new users: starts from common strong/free model roles but is meant to be edited from the live dropdown after Sentinel discovers the user's configured providers.",
-    mainModel: "auto",
-    workerModels: ["openrouter:qwen/qwen3-coder:free", "groq:openai/gpt-oss-120b", "gemini:gemini-2.5-flash", "openai:gpt-4.1-mini", "azure:gpt-4.1", "ollama:qwen2.5-coder:latest"],
-    reviewerModels: ["azure:gpt-5.5", "openai:gpt-4.1", "anthropic:claude-sonnet-4.5", "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest"],
-    defaultWorkerModel: "auto",
-    allowCheapFallback: true,
-    allowPremiumWorkers: true,
-    maxParallelAgents: 3,
-    costPolicy: "balanced",
-    instructions: "Adaptive provider-neutral template. Use the live configured model list to pick the strongest available main model, cheap/free/local workers for drafts and tests, and a different provider/model for adversarial review when available. If a template model is unavailable, replace it from the dropdown; never fail solely because a preset ID is missing. Keep paid frontier reviewers for high-risk steps only unless the user changes the cost policy."
-  },
-  {
-    id: "profile_azure_cost_smart_production",
-    name: "Azure: Cost-Smart Production",
-    description: "Best default for Azure-credit users: GPT-4.1 leads daily coding, Grok/GPT-4.1 challenge and implement, GPT-5.5 is reserved for final hard review/security/architecture.",
-    mainModel: "azure:gpt-4.1",
-    workerModels: ["azure:grok-4.3", "azure:gpt-4.1", "azure:model-router", "groq:openai/gpt-oss-120b"],
-    reviewerModels: ["azure:gpt-5.5", "azure:model-router", "azure:gpt-4.1"],
-    defaultWorkerModel: "azure:grok-4.3",
-    allowCheapFallback: true,
-    allowPremiumWorkers: true,
-    maxParallelAgents: 3,
-    costPolicy: "balanced",
-    instructions: "Use GPT-4.1 as orchestrator for most coding/editing. Use Grok/GPT-4.1 workers for alternative implementation and critique. Use Azure Model Router or cheap/free workers for extraction/boilerplate. Escalate to GPT-5.5 only for final hard critique, security-sensitive review, architecture tradeoffs, financial strategy, or model disagreement. Keep context targeted."
-  },
-  {
-    id: "profile_azure_frontier_architect",
-    name: "Azure: Frontier Architect Council",
-    description: "Quality-first Azure profile: GPT-5.5 leads hard architecture/high-risk coding; GPT-4.1/Grok workers produce implementable alternatives; GPT-5.5 judges final output.",
+    id: "profile_premium_architect",
+    name: "Premium Architect + Strong Agents",
+    description: "Best quality: GPT-5.5 orchestrates, GPT-4.1/Grok-4.3 handle hard sub-agent work, cheaper models only as fallback.",
     mainModel: "azure:gpt-5.5",
-    workerModels: ["azure:gpt-4.1", "azure:grok-4.3", "azure:gpt-5.4", "azure:model-router"],
-    reviewerModels: ["azure:gpt-5.5", "azure:model-router", "azure:gpt-4.1"],
+    workerModels: ["azure:gpt-4.1", "azure:grok-4.3", "azure:gpt-5.4"],
+    reviewerModels: ["azure:gpt-5.5", "azure:gpt-5.4-pro", "azure:gpt-4.1"],
     defaultWorkerModel: "azure:gpt-4.1",
     allowCheapFallback: true,
     allowPremiumWorkers: true,
     maxParallelAgents: 4,
     costPolicy: "quality-first",
-    instructions: "Use for big architecture, production release gates, security reviews, and hard debugging. Main GPT-5.5 owns final decisions; workers independently propose patches/tests; reviewer validates risks before tools are applied."
+    instructions: "Use premium sub-agents for architecture, code edits, security, financial/business reasoning, and final-quality drafts. Use cheaper/free models only for broad brainstorming, repetitive extraction, or fallback. Main model must verify and apply final changes."
   },
   {
-    id: "profile_openai_balanced_coding",
-    name: "OpenAI: Balanced Coding Team",
-    description: "For OpenAI API users: GPT-4.1/modern GPT coding model leads, mini/router-class models draft, stronger GPT/reasoning reviewer validates when configured.",
-    mainModel: "openai:gpt-4.1",
-    workerModels: ["openai:gpt-4.1-mini", "openai:gpt-4o-mini", "openai:gpt-4.1"],
-    reviewerModels: ["openai:gpt-4.1", "openai:o3", "openai:gpt-5"],
-    defaultWorkerModel: "openai:gpt-4.1-mini",
+    id: "profile_balanced_azure",
+    name: "Balanced Azure Boss + Budget Drafts",
+    description: "Balanced cost/quality: GPT-4.1 orchestrates, Grok/GPT-4.1 review hard work, free workers can draft low-risk boilerplate.",
+    mainModel: "azure:gpt-4.1",
+    workerModels: ["azure:grok-4.3", "azure:gpt-4.1", "groq:openai/gpt-oss-120b", "openrouter:qwen/qwen3-coder:free"],
+    reviewerModels: ["azure:gpt-5.5", "azure:gpt-4.1", "azure:grok-4.3"],
+    defaultWorkerModel: "azure:grok-4.3",
+    allowCheapFallback: true,
+    allowPremiumWorkers: true,
+    maxParallelAgents: 5,
+    costPolicy: "balanced",
+    instructions: "Default to Azure GPT-4.1/Grok-4.3 for meaningful sub-agent work. Use free/cheap workers for first-pass research, boilerplate, extraction, and alternative ideas. Escalate weak outputs to premium reviewer."
+  },
+  {
+    id: "profile_azure_cost_smart_production",
+    name: "Azure Cost-Smart Production",
+    description: "Recommended for your current Azure spend: GPT-4.1/Grok do most work; GPT-5.5 is reserved for final hard review, architecture, security, and high-risk decisions.",
+    mainModel: "azure:gpt-4.1",
+    workerModels: ["azure:grok-4.3", "azure:gpt-4.1", "azure:model-router", "groq:openai/gpt-oss-120b"],
+    reviewerModels: ["azure:gpt-5.5", "azure:gpt-5.4-pro", "azure:gpt-4.1"],
+    defaultWorkerModel: "azure:grok-4.3",
     allowCheapFallback: true,
     allowPremiumWorkers: true,
     maxParallelAgents: 3,
     costPolicy: "balanced",
-    instructions: "Use mini/fast models for boilerplate, tests, extraction, and parallel alternatives. Keep GPT-4.1/stronger reasoning models for edits that touch architecture, public APIs, security, or production behavior."
+    instructions: "Use GPT-4.1 as the orchestrator for coding and editing. Use Grok-4.3 for alternative reasoning, critique, and code review. Use Model Router or free/Groq OSS only for extraction, boilerplate, or broad brainstorming. Escalate to GPT-5.5 only for final hard critique, security-sensitive review, architecture tradeoffs, financial strategy, or when cheaper models disagree. Keep dynamic context tight; prefer targeted file reads/RAG over dumping full history."
   },
   {
-    id: "profile_anthropic_claude_code_quality",
-    name: "Anthropic: Claude Code Quality",
-    description: "For Anthropic users: Sonnet-class main coder, Haiku-class workers for low-risk work, Opus/Sonnet reviewer for deep critique where configured.",
-    mainModel: "anthropic:claude-sonnet-4.5",
-    workerModels: ["anthropic:claude-haiku-4.5", "anthropic:claude-sonnet-4.5"],
-    reviewerModels: ["anthropic:claude-opus-4.1", "anthropic:claude-sonnet-4.5"],
-    defaultWorkerModel: "anthropic:claude-haiku-4.5",
-    allowCheapFallback: true,
-    allowPremiumWorkers: true,
-    maxParallelAgents: 3,
-    costPolicy: "balanced",
-    instructions: "Use Sonnet as the main coding/reasoning model, Haiku-class models for fast low-risk drafts, and Opus/Sonnet review for correctness, maintainability, UX, and safety."
-  },
-  {
-    id: "profile_openrouter_balanced_coding",
-    name: "OpenRouter: Free-First + Premium Judge",
-    description: "For OpenRouter users: best available Claude/Qwen/Kimi/DeepSeek/Gemini model leads; free models draft first; stronger paid model reviews when configured.",
-    mainModel: "openrouter:anthropic/claude-sonnet-4.5",
-    workerModels: ["openrouter:qwen/qwen3-coder:free", "openrouter:moonshotai/kimi-k2:free", "openrouter:deepseek/deepseek-chat-v3.1:free", "openrouter:qwen/qwen3-coder"],
-    reviewerModels: ["openrouter:anthropic/claude-sonnet-4.5", "openrouter:openai/gpt-4.1", "openrouter:google/gemini-2.5-pro"],
-    defaultWorkerModel: "openrouter:qwen/qwen3-coder:free",
-    allowCheapFallback: true,
-    allowPremiumWorkers: true,
-    maxParallelAgents: 5,
-    costPolicy: "cost-first",
-    instructions: "Start with free OpenRouter workers for research, boilerplate, tests, and option generation. A paid or stronger configured reviewer must validate code that will be applied. Respect OpenRouter rate limits and switch workers automatically when a free model is rate-limited."
-  },
-  {
-    id: "profile_groq_fast_swarm",
-    name: "Groq: Fast OSS Swarm",
-    description: "For Groq users: fast OSS models fan out on low/medium-risk work, with a stronger configured reviewer or main model finalizing.",
-    mainModel: "groq:openai/gpt-oss-120b",
-    workerModels: ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b", "groq:llama-3.3-70b-versatile"],
-    reviewerModels: ["groq:openai/gpt-oss-120b", "azure:gpt-4.1", "openai:gpt-4.1"],
-    defaultWorkerModel: "groq:qwen/qwen3-32b",
+    id: "profile_cost_saving_research_swarm",
+    name: "Cost-Saving Research Swarm",
+    description: "Cheap/free agents fan out for research and alternatives; Azure reviewer/main model verifies and finalizes.",
+    mainModel: "azure:gpt-4.1",
+    workerModels: ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b", "openrouter:qwen/qwen3-coder:free", "openrouter:qwen/qwen3-next-80b-a3b-instruct:free"],
+    reviewerModels: ["azure:gpt-4.1", "azure:gpt-5.5", "azure:grok-4.3"],
+    defaultWorkerModel: "groq:openai/gpt-oss-120b",
     allowCheapFallback: true,
     allowPremiumWorkers: false,
     maxParallelAgents: 5,
     costPolicy: "cost-first",
-    instructions: "Use Groq for fast parallel drafts, refactors, tests, and critique lists. Escalate final review to a configured premium provider if available; otherwise the main Groq model must run stricter self-checks and tests."
+    instructions: "Use free/cheap workers only for non-final drafts, research, extraction, critique lists, test ideas, and brainstorming. Never accept worker output directly; main Azure model must verify, rewrite, and apply final work."
   },
   {
-    id: "profile_local_private_ollama",
-    name: "Local/Ollama: Private Coding",
-    description: "Privacy-first local profile: local model leads and drafts; optional cloud reviewer can be added by the user for final critique.",
-    mainModel: "ollama:sentinel-coder-one:latest",
-    workerModels: ["ollama:sentinel-coder-one:latest", "ollama:qwen2.5-coder:latest", "ollama:deepseek-coder:latest"],
-    reviewerModels: ["ollama:sentinel-coder-one:latest"],
-    defaultWorkerModel: "ollama:sentinel-coder-one:latest",
-    allowCheapFallback: false,
-    allowPremiumWorkers: false,
-    maxParallelAgents: 2,
-    costPolicy: "cost-first",
-    instructions: "Keep code local/private. Use small parallelism to avoid overloading local hardware. If user later adds cloud keys, they can edit this profile and add a reviewer."
-  },
-  {
-    id: "profile_multi_provider_frontier_council",
-    name: "Multi-Provider: Frontier Council",
-    description: "For users with multiple API keys: one strong main model coordinates independent Azure/OpenAI/Claude/OpenRouter/Groq opinions, then chooses a verified final plan.",
+    id: "profile_novelty_lab",
+    name: "Novelty Lab: Diverse Opinions + Premium Judge",
+    description: "Novelty/cost-saving experiment: diverse cheap/free models generate competing options, premium reviewer ranks and merges.",
     mainModel: "azure:gpt-5.5",
-    workerModels: ["openai:gpt-4.1", "anthropic:claude-sonnet-4.5", "openrouter:qwen/qwen3-coder:free", "groq:openai/gpt-oss-120b"],
-    reviewerModels: ["azure:gpt-5.5", "anthropic:claude-opus-4.1", "openai:o3", "openrouter:google/gemini-2.5-pro"],
-    defaultWorkerModel: "openai:gpt-4.1",
+    workerModels: ["azure:grok-4.3", "groq:openai/gpt-oss-120b", "groq:qwen/qwen3-32b", "openrouter:qwen/qwen3-next-80b-a3b-instruct:free"],
+    reviewerModels: ["azure:gpt-5.5", "azure:gpt-4.1"],
+    defaultWorkerModel: "azure:grok-4.3",
     allowCheapFallback: true,
     allowPremiumWorkers: true,
     maxParallelAgents: 5,
-    costPolicy: "quality-first",
-    instructions: "Use independent provider diversity for hard tasks: planner, implementer, adversarial reviewer, security/firewall reviewer, and final owner. Never merge conflicting outputs blindly; the main model synthesizes and verifies with real tools/tests."
-  },
-  {
-    id: "profile_mistral_deepseek_together_open_compat",
-    name: "Open-Compatible: Mistral/DeepSeek/Together/Kimi",
-    description: "Generic preset for Mistral, DeepSeek, Together, Vultr, Moonshot/Kimi, Featherless, and other OpenAI-compatible providers using live discovered models.",
-    mainModel: "custom:auto",
-    workerModels: ["mistral:codestral-latest", "deepseek:deepseek-coder", "together:Qwen/Qwen3-Coder", "moonshot:kimi-k2"],
-    reviewerModels: ["mistral:large-latest", "deepseek:deepseek-reasoner", "together:meta-llama/Llama-3.3-70B-Instruct-Turbo"],
-    defaultWorkerModel: "custom:auto",
-    allowCheapFallback: true,
-    allowPremiumWorkers: true,
-    maxParallelAgents: 3,
-    costPolicy: "balanced",
-    instructions: "Template for any OpenAI-compatible provider. The dropdown uses live provider discovery where available; edit the profile to map main/workers/reviewers to the exact models returned by your provider."
+    costPolicy: "novelty-lab",
+    instructions: "For strategy, product, architecture, and critiques, ask different workers for genuinely different approaches. Main model must compare, rank, synthesize, and choose the safest executable plan."
   }
 ];
 
+/** Bumped whenever BUILTIN_SKILLS content changes so existing installs re-sync. */
+const BUILTIN_SKILLS_VERSION_KEY = "sentinelCoder.builtinSkillsVersion";
+
+/** Default, stack-focused skills shipped with the extension and enabled by
+ * default so every chat session starts with the team's conventions loaded.
+ * Generic and reusable — NO secrets, IPs, hostnames, or credentials. */
 const BUILTIN_SKILLS: Array<{ id: string; name: string; description: string; body: string }> = [
   {
     id: "builtin_cost_orchestrator",
@@ -503,7 +347,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
   private _lastDynamicContextHash: string = "";
   private _turnAgentUsage: TurnAgentUsage[] = [];
   private _agenticPreflightContext = "";
-  private _subAgentCooldowns = new Map<string, { until: number; reason: string }>();
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -576,31 +419,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     if (!this._context) return;
     this._agenticProfiles = this._context.globalState.get<AgenticProfile[]>(AGENTIC_PROFILES_KEY, []) || [];
     this._currentAgenticProfileId = this._context.globalState.get<string>(CURRENT_AGENTIC_PROFILE_KEY, "") || "";
-    this._sanitizeAgenticProfilesForPolicy();
     this._seedBuiltinAgenticProfiles();
-  }
-
-  private _sanitizeAgenticProfilesForPolicy() {
-    // Keep deprecated deployment IDs out of runtime strings while migrating old saved profiles.
-    const deprecatedAzurePro = "azure:" + ["gpt", "5.4", "pro"].join("-");
-    const replaceUnsafe = (id: string) => id === deprecatedAzurePro ? "azure:model-router" : id;
-    let changed = false;
-    for (const profile of this._agenticProfiles) {
-      const before = JSON.stringify(profile);
-      profile.mainModel = replaceUnsafe(profile.mainModel);
-      profile.defaultWorkerModel = replaceUnsafe(profile.defaultWorkerModel);
-      profile.workerModels = (profile.workerModels || []).map(replaceUnsafe).filter((id, idx, arr) => id && arr.indexOf(id) === idx);
-      profile.reviewerModels = (profile.reviewerModels || []).map(replaceUnsafe).filter((id, idx, arr) => id && arr.indexOf(id) === idx);
-      if (/azure|premium|frontier/i.test(profile.name || "")) {
-        profile.maxParallelAgents = Math.min(Math.max(1, profile.maxParallelAgents || 1), 2);
-        profile.allowCheapFallback = false;
-      }
-      if (JSON.stringify(profile) !== before) {
-        profile.updatedAt = Date.now();
-        changed = true;
-      }
-    }
-    if (changed) void this._saveAgenticProfiles();
   }
 
   private _seedBuiltinAgenticProfiles() {
@@ -609,8 +428,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     for (const def of BUILTIN_AGENTIC_PROFILES) {
       const existing = this._agenticProfiles.find(p => p.id === def.id && p.source === "builtin");
       if (existing) {
-        Object.assign(existing, def, { updatedAt: now });
-        changed = true;
+        Object.assign(existing, def, { updatedAt: existing.updatedAt || now });
       } else {
         this._agenticProfiles.push({ ...def, source: "builtin", createdAt: now, updatedAt: now });
         changed = true;
@@ -647,23 +465,8 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
 
   private _availableModel(id: string): boolean { return !!id && this._cachedModels.some(m => m.id === id); }
 
-  private _isSubAgentCoolingDown(modelId: string): boolean {
-    const item = this._subAgentCooldowns.get(modelId);
-    if (!item) return false;
-    if (Date.now() >= item.until) {
-      this._subAgentCooldowns.delete(modelId);
-      return false;
-    }
-    return true;
-  }
-
-  private _subAgentCooldownReason(modelId: string): string {
-    const item = this._subAgentCooldowns.get(modelId);
-    return item && Date.now() < item.until ? item.reason : "";
-  }
-
   private _firstAvailable(ids: string[] | undefined, exclude?: string): string | undefined {
-    for (const id of ids || []) if (id && id !== exclude && this._availableModel(id) && !this._isSubAgentCoolingDown(id)) return id;
+    for (const id of ids || []) if (id && id !== exclude && this._availableModel(id)) return id;
     return undefined;
   }
 
@@ -1387,24 +1190,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
         case "deleteSession": await this._deleteSession(data.id); break;
         case "renameSession": await this._renameSession(data.id, data.title); break;
         case "requestInit": await this._sendInitState(); break;
-        case "testMicrosoftIq": {
-          const query = String(data.query || "Sentinel Coder One Foundry IQ connectivity test");
-          try {
-            const result = await getMicrosoftIqGrounding(query, vscode.workspace.workspaceFolders?.[0]?.name || "workspace");
-            const ok = !!(result.enabled && result.configured && result.status === "ok");
-            const sourceCount = result.sources?.length || 0;
-            this._view?.webview.postMessage({
-              type: "microsoftIqTest",
-              ok,
-              message: ok
-                ? `Foundry IQ reachable. Retrieved ${sourceCount} source(s).`
-                : `Foundry IQ not ready: ${result.error || (result.enabled ? (result.configured ? result.status : "endpoint not configured") : "disabled")}`,
-            });
-          } catch (err: any) {
-            this._view?.webview.postMessage({ type: "microsoftIqTest", ok: false, message: err?.message || String(err) });
-          }
-          break;
-        }
         case "saveSettings": {
           const cfg = vscode.workspace.getConfiguration("sentinelCoder");
           if (data.temperature !== undefined) await cfg.update("temperature", data.temperature, vscode.ConfigurationTarget.Global);
@@ -1416,12 +1201,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
           if (data.contextBudgetTokens !== undefined && !Number.isNaN(data.contextBudgetTokens)) {
             await cfg.update("contextBudgetTokens", data.contextBudgetTokens, vscode.ConfigurationTarget.Global);
           }
-          if (data.microsoftIqEnabled !== undefined) await cfg.update("microsoftIq.enabled", !!data.microsoftIqEnabled, vscode.ConfigurationTarget.Global);
-          if (data.microsoftIqLayer !== undefined) await cfg.update("microsoftIq.layer", String(data.microsoftIqLayer || "foundry-iq"), vscode.ConfigurationTarget.Global);
-          if (data.microsoftIqEndpoint !== undefined) await cfg.update("microsoftIq.endpoint", String(data.microsoftIqEndpoint || ""), vscode.ConfigurationTarget.Global);
-          if (data.microsoftIqApiKeyEnv !== undefined) await cfg.update("microsoftIq.apiKeyEnv", String(data.microsoftIqApiKeyEnv || "MICROSOFT_IQ_API_KEY"), vscode.ConfigurationTarget.Global);
-          if (data.microsoftIqTimeoutMs !== undefined && !Number.isNaN(data.microsoftIqTimeoutMs)) await cfg.update("microsoftIq.timeoutMs", Number(data.microsoftIqTimeoutMs), vscode.ConfigurationTarget.Global);
-          if (data.microsoftIqMaxQueryChars !== undefined && !Number.isNaN(data.microsoftIqMaxQueryChars)) await cfg.update("microsoftIq.maxQueryChars", Number(data.microsoftIqMaxQueryChars), vscode.ConfigurationTarget.Global);
           break;
         }
         case "getSettings": {
@@ -1435,14 +1214,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
             modelMaxOutput: this._currentModelMaxOutput(),
             modelContextWindow: this._currentModelContextWindow(),
             modelLabel: this._selectedModel || "auto",
-            microsoftIq: {
-              enabled: sc.get<boolean>("microsoftIq.enabled", false),
-              layer: sc.get<string>("microsoftIq.layer", "foundry-iq"),
-              endpoint: sc.get<string>("microsoftIq.endpoint", ""),
-              apiKeyEnv: sc.get<string>("microsoftIq.apiKeyEnv", "MICROSOFT_IQ_API_KEY"),
-              timeoutMs: sc.get<number>("microsoftIq.timeoutMs", 12000),
-              maxQueryChars: sc.get<number>("microsoftIq.maxQueryChars", 4000),
-            },
           });
           break;
         }
@@ -1591,11 +1362,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   private async _sendInitState() {
-    // Post a non-network bootstrap list immediately so the selector never sits at
-    // its HTML Auto-only fallback while provider discovery is slow/offline.
-    this._ensureConfiguredModelSnapshot();
-    this._postModelList(this._cachedModels);
-    void this._refreshModels();
+    await this._refreshModels();
     this._sendToolConfig();
     this._view?.webview.postMessage({
       type: "initState",
@@ -1614,102 +1381,52 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     this._view?.webview.postMessage({ type: "connectionStatus", connected: ok });
   }
 
-  private _autoModelListItem() {
-    return {
-      name: "auto",
-      displayName: "Auto (best for task)",
-      provider: "auto",
-      providerType: "auto",
-      contextWindow: 0,
-      maxOutputTokens: 0,
-      pricing: "free",
-      pricingNote: "Picks best model per task",
-      supportsTools: true,
-      supportsThinking: true,
-      supportsVision: false,
-      supportsStreaming: true,
-    };
-  }
-
-  private _agenticProfileModelItems() {
-    return this._agenticProfiles.map(p => ({
-      name: `agentic:${p.id}`,
-      displayName: `Agentic: ${p.name}`,
-      provider: "agentic",
-      providerType: "agentic",
-      contextWindow: 0,
-      maxOutputTokens: 0,
-      pricing: p.costPolicy,
-      pricingNote: `Main ${p.mainModel}; workers ${p.workerModels.slice(0, 3).join(", ")}${p.workerModels.length > 3 ? "..." : ""}`,
-      supportsTools: true,
-      supportsThinking: true,
-      supportsVision: false,
-      supportsStreaming: true,
-    }));
-  }
-
-  private _modelListItem(m: ModelOption) {
-    return {
-      name: m.id,
-      displayName: m.displayName,
-      provider: m.provider,
-      providerType: m.providerType,
-      contextWindow: m.contextWindow,
-      effectiveContextWindow: m.effectiveContextWindow,
-      maxOutputTokens: m.maxOutputTokens,
-      pricing: m.pricing,
-      pricingNote: m.pricingNote,
-      supportsTools: m.supportsTools,
-      supportedParameters: m.supportedParameters,
-      supportsThinking: m.supportsThinking,
-      supportsVision: m.supportsVision,
-      supportsStreaming: m.supportsStreaming,
-      contextSource: m.contextSource,
-      contextUpdatedAt: m.contextUpdatedAt,
-    };
-  }
-
-  private _mergeModelOptions(primary: ModelOption[], fallback: ModelOption[]): ModelOption[] {
-    const merged: ModelOption[] = [];
-    const seen = new Set<string>();
-    for (const model of [...primary, ...fallback]) {
-      if (!model?.id || seen.has(model.id)) continue;
-      seen.add(model.id);
-      merged.push(model);
-    }
-    return merged;
-  }
-
-  private _ensureConfiguredModelSnapshot(): ModelOption[] {
-    const snapshot = this._multiClient.getConfiguredModelsSnapshot(true);
-    this._cachedModels = this._mergeModelOptions(this._cachedModels, snapshot);
-    return this._cachedModels;
-  }
-
-  private _postModelList(models: ModelOption[]) {
-    const autoOption = this._autoModelListItem();
-    const profileItems = this._agenticProfileModelItems();
-    const cachedItems = models.map(m => this._modelListItem(m));
-    this._view?.webview.postMessage({
-      type: "modelList",
-      models: [autoOption, ...profileItems, ...cachedItems],
-      selected: this._selectedModel,
-      agenticProfiles: this._agenticProfiles,
-      currentAgenticProfileId: this._currentAgenticProfileId,
-    });
-  }
-
   private async _refreshModels() {
-    // Always keep/post configured provider models before touching the network.
-    const snapshot = this._ensureConfiguredModelSnapshot();
-    this._postModelList(snapshot);
     try {
-      const liveModels = await this._multiClient.getAllModels();
-      this._cachedModels = this._mergeModelOptions(liveModels, snapshot);
-      this._postModelList(this._cachedModels);
+      this._cachedModels = await this._multiClient.getAllModels();
+      const autoOption = {
+        name: "auto", displayName: "Auto (best for task)", provider: "auto", providerType: "auto",
+        contextWindow: 0, maxOutputTokens: 0, pricing: "free", pricingNote: "Picks best model per task",
+        supportsTools: true, supportsThinking: true, supportsVision: false, supportsStreaming: true,
+      };
+      const profileItems = this._agenticProfiles.map(p => ({
+        name: `agentic:${p.id}`,
+        displayName: `Agentic: ${p.name}`,
+        provider: "agentic",
+        providerType: "agentic",
+        contextWindow: 0,
+        maxOutputTokens: 0,
+        pricing: p.costPolicy,
+        pricingNote: `Main ${p.mainModel}; workers ${p.workerModels.slice(0, 3).join(", ")}${p.workerModels.length > 3 ? "…" : ""}`,
+        supportsTools: true,
+        supportsThinking: true,
+        supportsVision: false,
+        supportsStreaming: true,
+      }));
+      const modelItems = [autoOption, ...profileItems, ...this._cachedModels.map(m => ({
+        name: m.id,
+        displayName: m.displayName,
+        provider: m.provider,
+        providerType: m.providerType,
+        contextWindow: m.contextWindow,
+        maxOutputTokens: m.maxOutputTokens,
+        pricing: m.pricing,
+        pricingNote: m.pricingNote,
+        supportsTools: m.supportsTools,
+        supportsThinking: m.supportsThinking,
+        supportsVision: m.supportsVision,
+        supportsStreaming: m.supportsStreaming,
+      }))];
+      this._view?.webview.postMessage({ type: "modelList", models: modelItems, selected: this._selectedModel, agenticProfiles: this._agenticProfiles, currentAgenticProfileId: this._currentAgenticProfileId });
     } catch (err) {
       this._outputChannel.appendLine("Refresh models error: " + String(err));
-      this._postModelList(this._ensureConfiguredModelSnapshot());
+      this._view?.webview.postMessage({
+        type: "modelList",
+        models: [{ name: "auto", displayName: "Auto (best for task)", provider: "auto", providerType: "auto",
+          contextWindow: 0, maxOutputTokens: 0, pricing: "free", pricingNote: "", supportsTools: true,
+          supportsThinking: true, supportsVision: false, supportsStreaming: true }],
+        selected: this._selectedModel
+      });
     }
   }
 
@@ -1877,7 +1594,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
       }
       prompt += "\n\nWhen the user asks you to create a file, a page, or build something:\n1. Use the createFile tool to create the file directly\n2. If it's an HTML file, also use serveFile to start a localhost server\n3. Then use openBrowser to open the URL";
       prompt += "\n\nWhen the user asks about the workspace, code, or files:\n1. Use readFile, listDirectory, searchFiles, searchText to find information\n2. Use getActiveFile, getSelection to check the current editor\n3. Use getDiagnostics to check for errors\n4. Use queryRAG to search the knowledge base for relevant context";
-      prompt += "\n\nWhen the user asks to run something:\n1. Use runCommand to execute terminal commands in the current workspace host. For parallel builds/tests/servers, pass distinct sessionId values (for example build, tests, server) so one long-running task does not block another chat/session.\n2. If VS Code is already connected through Remote Explorer / Remote SSH / Dev Container / WSL / Codespaces / Tunnel, prefer remoteWorkspaceCommand so Sentinel reuses VS Code's authenticated remote extension session and does not ask for SSH keys again; also use sessionId there for parallel remote tasks.\n3. Use dockerCommand for Docker container operations\n4. Use sshCommand only when the user explicitly provides a separate SSH target outside the current VS Code Remote session";
+      prompt += "\n\nWhen the user asks to run something:\n1. Use runCommand to execute terminal commands\n2. Use dockerCommand for Docker container operations\n3. Use sshCommand to run commands on remote servers";
       prompt += "\n\nWhen the user asks to search the web or fetch data:\n1. Use httpRequest to make HTTP requests";
       prompt += "\n\nWhen working with Git:\n1. Use gitStatus to check state, gitDiff to see changes\n2. Use gitCommit to stage and commit, gitPush to push to remote\n3. Use gitLog to show recent history";
       prompt += "\n\nWhen the user wants to add knowledge or search documentation:\n1. Use ingestRAG to add files or text to the knowledge base\n2. Use queryRAG to search for relevant context before answering";
@@ -1885,12 +1602,10 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
         // Native function-calling: tools are supplied via the API, not a text protocol.
         prompt += "\n\nCRITICAL: You have real tools available through function calling. To DO anything (create a file, run a command, serve a page, ssh), you MUST call the appropriate tool — do NOT just describe what you would do, and do NOT print code in a fenced block and stop. Call the tool. After the tool result returns, continue until the task is fully complete, then give a short final summary with the local URL if you served something.";
         prompt += "\nALWAYS act autonomously by calling tools. NEVER say 'save this file manually'.";
-        prompt += "\n\nPLAN, ACT & VERIFY CONTEXT: For non-trivial tasks, first outline a concise user-visible numbered plan, then execute it step by step, verifying each tool result before the next step. Do not ask any provider to reveal private reasoning traces or internal deliberation; provide only brief decision summaries that are safe to show the user. Always relate the current step to earlier messages, files, and tool results in THIS conversation so the work stays coherent end to end. If something fails, diagnose from the actual error and adapt rather than repeating the same call.";
+        prompt += "\n\nCHAIN OF THOUGHT & CONTEXT: For non-trivial tasks, first outline a short numbered plan, then execute it step by step, verifying each tool result before the next step. Always relate the current step to earlier messages, files, and tool results in THIS conversation so the work stays coherent end to end. If something fails, diagnose from the actual error and adapt rather than repeating the same call.";
         prompt += "\n\nPLAN TRACKING: For any task with 3+ steps, call updatePlan at the START with the full step list (one step 'in-progress', rest 'pending'), then call updatePlan again after each step to mark it 'done' and move the next to 'in-progress'. This keeps the user oriented during long enterprise builds.";
         prompt += "\n\nCODEBASE AWARENESS: Use codebaseSearch for natural-language 'where is X / how does Y work' questions to find the most relevant files fast, and searchText for exact string/regex matches. Read files before editing them. When editing, copy the EXACT text into editFile's oldText (it must match uniquely) so edits apply as undoable diffs.";
         prompt += "\n\nVERIFY BEFORE DONE: After creating or editing code files, the host auto-checks diagnostics; if errors are reported back to you, FIX them before finishing. Proactively run the build/tests (runCommand) for non-trivial changes and resolve failures. Never declare a task done with known compile errors.";
-
-    prompt += "\n\nAZURE / PROVIDER SAFETY: Never request, reveal, store, or display private reasoning traces or internal deliberation. Provide concise user-visible plans, summaries, and justifications only. Keep agentic fan-out conservative and use only configured/available models.";
         prompt += "\n\nMULTI-AGENT: When a task has independent sub-parts (e.g. research + scaffold + write tests), you can fan them out with delegateTeam to run several specialist models IN PARALLEL, or use delegateSubAgent for a single focused hand-off. After delegating, read the returned results and synthesize them into the final solution yourself.";
         if (activeProfile) {
           prompt += `\n\nAGENTIC PROFILE ACTIVE: ${activeProfile.name}\nMain/orchestrator model: ${this._profileMainModel(activeProfile)}\nWorker pool: ${activeProfile.workerModels.join(", ") || "none configured"}\nReviewer pool: ${activeProfile.reviewerModels.join(", ") || "none configured"}\nDefault worker: ${activeProfile.defaultWorkerModel}\nCost policy: ${activeProfile.costPolicy}\nPremium workers allowed: ${activeProfile.allowPremiumWorkers ? "yes" : "no"}\nCheap fallback allowed: ${activeProfile.allowCheapFallback ? "yes" : "no"}\nMax parallel agents: ${activeProfile.maxParallelAgents}\nProfile instructions: ${activeProfile.instructions || "Use the configured profile pools and verify all worker output."}\n\nUse delegateSubAgent(model:"worker") for the profile's default worker, model:"reviewer" for a reviewer, or an explicit model id from the profile when quality matters. Do not force cheap/free workers unless the profile cost policy says cost-first or the task is low-risk. The main model remains responsible for final verification and tool-applied changes.`;
@@ -2180,16 +1895,15 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     const runs = tasks.map(async (t) => {
       const started = Date.now();
       try {
-        const run = await this._runSubAgentResilient(t.model, t.task, `Active profile: ${profile.name}\nMain model: ${modelId}\nCost policy: ${profile.costPolicy}\nInstructions: ${profile.instructions}`, modelId, temperature, Math.min(maxTokens, 8192));
-        const content = run.warning ? `WARNING: ${run.warning}\n\n${run.result}` : run.result;
-        this._recordAgentUsage("subagent", run.model, t.label, t.task, Date.now() - started, content.length);
-        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: run.warning ? "warning" : "success", content: `${t.label} (${run.model})\n${content.slice(0, 3000)}` });
-        return `### ${t.label} (${run.model})\n${content.slice(0, 5000)}`;
+        const result = await this._runSubAgent(t.task, t.model, `Active profile: ${profile.name}\nMain model: ${modelId}\nCost policy: ${profile.costPolicy}\nInstructions: ${profile.instructions}`, temperature, Math.min(maxTokens, 8192));
+        this._recordAgentUsage("subagent", t.model, t.label, t.task, Date.now() - started, result.length);
+        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: "success", content: `${t.label} (${t.model})\n${result.slice(0, 3000)}` });
+        return `### ${t.label} (${t.model})\n${result.slice(0, 5000)}`;
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this._recordAgentUsage("subagent", t.model, t.label, t.task, Date.now() - started, msg.length);
-        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: "warning", content: `${t.label} (${t.model}) unavailable; continuing with main orchestrator: ${msg}` });
-        return `### ${t.label} (${t.model})\nWARNING: sub-agent unavailable; main orchestrator must continue directly and verify with tools. ${msg}`;
+        this._emit({ type: "toolResult", toolName: "Agentic preflight", status: "error", content: `${t.label} (${t.model}) failed: ${msg}` });
+        return `### ${t.label} (${t.model})\nERROR: ${msg}`;
       }
     });
 
@@ -2201,10 +1915,21 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     return this._getSystemPrompt() + (this._agenticPreflightContext || "");
   }
 
-  /** Strip provider-private reasoning traces from streamed content before UI/history persistence. */
+  /** Separate thinking from visible content */
   private _processStreamChunk(rawResponse: string) {
+    const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
+    let thinkContent = "";
+    let match;
+    while ((match = thinkRegex.exec(rawResponse)) !== null) {
+      thinkContent += match[1];
+    }
+    const openThink = rawResponse.lastIndexOf("<think>");
+    const closeThink = rawResponse.lastIndexOf("</think>");
+    if (openThink > closeThink) {
+      thinkContent += rawResponse.slice(openThink + 7);
+    }
     const visible = rawResponse.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*$/, "").trimStart();
-    return { visible };
+    return { thinkContent, visible, isThinking: openThink > closeThink };
   }
 
   private async _runSimpleChat(modelId: string, temperature: number, maxTokens: number) {
@@ -2212,11 +1937,9 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     const hist = this._activeTurnHistory || this._conversationHistory;
     const latestUser = [...hist].reverse().find(m => m.role === "user")?.content || "";
     await this._runAgenticPreflightIfNeeded(latestUser, modelId, temperature, maxTokens);
-    const microsoftIqGrounding = await getMicrosoftIqGrounding(latestUser, vscode.workspace.workspaceFolders?.[0]?.name || "workspace");
-    const microsoftIqBlock = formatMicrosoftIqGroundingForPrompt(microsoftIqGrounding);
-    const systemPrompt = [this._systemPromptWithAgenticPreflight(), microsoftIqBlock].filter(Boolean).join("\n\n");
-    const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }, ...this._budgetHistory(hist, maxTokens)];
+    const messages: ChatMessage[] = [{ role: "system", content: this._systemPromptWithAgenticPreflight() }, ...this._budgetHistory(hist, maxTokens)];
     let rawResponse = "";
+    let lastThinkSent = "";
 
     // Live assistant message: appended now and updated in place as tokens arrive,
     // so partial output is persisted (survives reload / chat switch) and never lost.
@@ -2226,7 +1949,11 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
 
     for await (const chunk of this._multiClient.streamChat(modelId, messages, { temperature, max_tokens: maxTokens }, this._abortController?.signal)) {
       rawResponse += chunk;
-      const { visible } = this._processStreamChunk(rawResponse);
+      const { thinkContent, visible, isThinking } = this._processStreamChunk(rawResponse);
+      if (thinkContent && thinkContent !== lastThinkSent) {
+        this._emit({ type: "thinkingChunk", content: thinkContent, done: !isThinking });
+        lastThinkSent = thinkContent;
+      }
       this._emit({ type: "responseReplace", content: visible });
       live.content = visible;
       this._scheduleLivePersist();
@@ -2283,6 +2010,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
 
     for (let iteration = 0; iteration < MAX_ITER; iteration++) {
       let iterText = "";        // text for the CURRENT content block only
+      let lastThinkSent = "";
       let toolCalls: ToolCallSpec[] = [];
 
       turnIterations++;
@@ -2294,7 +2022,11 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
       )) {
         if (ev.kind === "text") {
           iterText += ev.value;
-          const { visible } = this._processStreamChunk(iterText);
+          const { thinkContent, visible, isThinking } = this._processStreamChunk(iterText);
+          if (thinkContent && thinkContent !== lastThinkSent) {
+            this._emit({ type: "thinkingChunk", content: thinkContent, done: !isThinking });
+            lastThinkSent = thinkContent;
+          }
           // Only this iteration's prose goes into the current block.
           this._emit({ type: "responseReplace", content: visible });
           live.content = assistantTextForHistory + visible;
@@ -2529,18 +2261,20 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     const hist = this._activeTurnHistory || this._conversationHistory;
     const latestUser = [...hist].reverse().find(m => m.role === "user")?.content || "";
     await this._runAgenticPreflightIfNeeded(latestUser, modelId, temperature, maxTokens);
-    const microsoftIqGrounding = await getMicrosoftIqGrounding(latestUser, vscode.workspace.workspaceFolders?.[0]?.name || "workspace");
-    const microsoftIqBlock = formatMicrosoftIqGroundingForPrompt(microsoftIqGrounding);
 
     while (iteration < MAX_ITER) {
       iteration++;
-      const systemPrompt = [this._systemPromptWithAgenticPreflight(), microsoftIqBlock].filter(Boolean).join("\n\n");
-      const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }, ...this._budgetHistory(hist, maxTokens)];
+      const messages: ChatMessage[] = [{ role: "system", content: this._systemPromptWithAgenticPreflight() }, ...this._budgetHistory(hist, maxTokens)];
       let rawIter = "";
+      let lastThinkSent = "";
 
       for await (const chunk of this._multiClient.streamChat(modelId, messages, { temperature, max_tokens: maxTokens }, this._abortController?.signal)) {
         rawIter += chunk;
-        const { visible } = this._processStreamChunk(rawIter);
+        const { thinkContent, visible, isThinking } = this._processStreamChunk(rawIter);
+        if (thinkContent && thinkContent !== lastThinkSent) {
+          this._emit({ type: "thinkingChunk", content: thinkContent, done: !isThinking });
+          lastThinkSent = thinkContent;
+        }
         this._emit({ type: "responseReplace", content: fullResponse + visible });
         this._scheduleLivePersist();
       }
@@ -2640,22 +2374,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     if (userTurn) this._persistExchange(userTurn.content, fullResponse);
   }
 
-  private _summarizeToolResultForTranscript(toolName: string, result: string): string {
-    const text = String(result || "").trim();
-    if (!text) return "\n_Tool completed with no textual output._\n";
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const exitLine = lines.find(l => /(?:exit code|Exit code|__SENTINEL_EXIT_CODE__)/.test(l));
-    const errorLine = lines.find(l => /\b(error|failed|exception|traceback|denied|not found|cannot|unable)\b/i.test(l));
-    const usefulLine = errorLine || exitLine || lines.find(l => l.length <= 180) || lines[0];
-    const safeLine = usefulLine ? usefulLine.replace(/[`<>]/g, "").slice(0, 240) : "completed";
-    const hiddenCount = Math.max(0, lines.length - 1);
-    return "\n_Tool `" + toolName + "` completed. " + safeLine + (hiddenCount ? " (full output is in the tool log)." : "") + "_\n";
-  }
-
-  private _humanizeToolError(message: string): string {
-    return String(message || "Unknown tool error").replace(/\s+/g, " ").replace(/[`<>]/g, "").slice(0, 500);
-  }
-
   /** Resolve a model preference ('worker'|'reviewer'|'fast'|'reasoning'|'coding'|'auto'|<id>) to a concrete model id. */
   private _resolveSubModel(modelPref: string, task: string, parentModelId: string): string {
     const pref = String(modelPref || "").trim();
@@ -2717,76 +2435,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     return out.trim() || "(sub-agent returned no content)";
   }
 
-  private _subAgentErrorInfo(error: unknown): { message: string; transient: boolean; cooldownMs: number } {
-    const message = error instanceof Error ? error.message : String(error);
-    const lower = message.toLowerCase();
-    const transient = /\b(429|rate.?limit|retry-after|quota|temporar|throttl|overload|upstream|503|502|504|timeout|timed out|too many requests)\b/i.test(message);
-    const secondsMatch = message.match(/retry_after_seconds(?:_raw)?["'\s:=]+([0-9.]+)/i) || message.match(/retry-after["'\s:=]+([0-9.]+)/i);
-    const seconds = secondsMatch ? Math.max(5, Math.min(600, Number(secondsMatch[1]) || 60)) : 90;
-    return { message, transient, cooldownMs: transient ? seconds * 1000 : 0 };
-  }
-
-  private _subAgentCandidates(modelPref: string, task: string, parentModelId: string): string[] {
-    const primary = this._resolveSubModel(modelPref, task, parentModelId);
-    const profile = this._activeAgenticProfile();
-    const pool: string[] = [primary];
-    if (profile) {
-      if (modelPref === "reviewer") pool.push(...profile.reviewerModels, profile.defaultWorkerModel, ...profile.workerModels);
-      else pool.push(profile.defaultWorkerModel, ...profile.workerModels, ...profile.reviewerModels);
-    } else {
-      const taskType = classifyTask(task);
-      pool.push(
-        this._pickWorkerModel(taskType === "reasoning" ? "reasoning" : "coding", parentModelId, false),
-        this._pickWorkerModel("coding", parentModelId, true),
-        this._pickWorkerModel("speed", parentModelId, true)
-      );
-    }
-    const seen = new Set<string>();
-    return pool
-      .map(id => String(id || "").trim())
-      .filter(id => id && id !== parentModelId && this._availableModel(id) && !this._isSubAgentCoolingDown(id))
-      .filter(id => (seen.has(id) ? false : (seen.add(id), true)));
-  }
-
-  private async _runSubAgentResilient(modelPref: string, task: string, context: string, parentModelId: string, temperature: number, maxTokens: number): Promise<SubAgentRunResult> {
-    const skipped = this._resolveSubModel(modelPref, task, parentModelId);
-    const candidates = this._subAgentCandidates(modelPref, task, parentModelId);
-    if (!candidates.length) {
-      const reason = this._subAgentCooldownReason(skipped);
-      return {
-        model: skipped,
-        result: "(sub-agent skipped; no configured fallback model is currently available)",
-        warning: reason ? `Skipped ${skipped}: ${reason}` : "No available sub-agent candidate after provider/model filtering."
-      };
-    }
-
-    const failures: string[] = [];
-    for (const candidate of candidates) {
-      try {
-        const result = await this._runSubAgent(task, candidate, context, temperature, maxTokens);
-        const warning = failures.length ? `Fallback used ${candidate}; previous sub-agent attempt(s) failed: ${failures.join(" | ").slice(0, 1200)}` : undefined;
-        if (warning) this._emit({ type: "systemNote", content: warning });
-        return { model: candidate, result, warning };
-      } catch (error) {
-        const info = this._subAgentErrorInfo(error);
-        failures.push(`${candidate}: ${info.message.slice(0, 500)}`);
-        if (info.transient) {
-          this._subAgentCooldowns.set(candidate, { until: Date.now() + info.cooldownMs, reason: info.message.slice(0, 500) });
-          this._emit({ type: "systemNote", content: `Sub-agent ${candidate} is temporarily unavailable/rate-limited; cooling it down and trying another configured worker if possible.` });
-          continue;
-        }
-        // Non-transient provider/model errors may still be isolated to one worker deployment.
-        // Continue to the next configured candidate so Agentic orchestration does not collapse the turn.
-      }
-    }
-
-    return {
-      model: candidates[0],
-      result: `(sub-agent unavailable; main orchestrator should continue directly and verify with tools)\n${failures.join("\n").slice(0, 3000)}`,
-      warning: `All configured sub-agent candidates failed or were rate-limited. ${failures.join(" | ").slice(0, 1200)}`
-    };
-  }
-
   private async _handleSubAgent(
     args: Record<string, unknown>,
     parentModelId: string,
@@ -2798,9 +2446,9 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     // keeps the older budget-conscious default.
     const modelPref = (args.model as string) || (this._activeAgenticProfile() ? "worker" : (this._orchestration === "boss" ? "cheap" : "auto"));
     const context = (args.context as string) || "";
-    const run = await this._runSubAgentResilient(modelPref, task, context, parentModelId, temperature, maxTokens);
-    const header = run.warning ? `Sub-agent (${run.model.split(":").pop()}) warning/fallback:\n${run.warning}\n\n` : `Sub-agent (${run.model.split(":").pop()}) result:\n`;
-    return `${header}${run.result.slice(0, 8000)}`;
+    const subModelId = this._resolveSubModel(modelPref, task, parentModelId);
+    const result = await this._runSubAgent(task, subModelId, context, temperature, maxTokens);
+    return `Sub-agent (${subModelId.split(":").pop()}) result:\n${result.slice(0, 8000)}`;
   }
 
   /** Run several sub-agents in PARALLEL and return an aggregated summary of all results. */
@@ -2827,17 +2475,15 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     // mode defaults to cheap fan-out when no profile is selected.
     const bossDefault = activeProfile ? "worker" : "cheap";
     const runs = tasks.map((t) => {
-      const pref = t.model || bossDefault;
+      const subModelId = this._resolveSubModel(t.model || bossDefault, t.task, parentModelId);
       const started = Date.now();
-      return this._runSubAgentResilient(pref, t.task, context, parentModelId, temperature, maxTokens)
-        .then((run) => {
-          const res = run.warning ? `WARNING: ${run.warning}\n\n${run.result}` : run.result;
-          this._recordAgentUsage("team", run.model, "team agent", t.task, Date.now() - started, res.length);
-          return { task: t.task, model: run.model, res };
+      return this._runSubAgent(t.task, subModelId, context, temperature, maxTokens)
+        .then((res) => {
+          this._recordAgentUsage("team", subModelId, "team agent", t.task, Date.now() - started, res.length);
+          return { task: t.task, model: subModelId, res };
         })
         .catch((e: unknown) => {
-          const subModelId = this._resolveSubModel(pref, t.task, parentModelId);
-          const msg = "warning: sub-agent unavailable; main orchestrator should continue directly. " + (e instanceof Error ? e.message : String(e));
+          const msg = "error: " + (e instanceof Error ? e.message : String(e));
           this._recordAgentUsage("team", subModelId, "team agent", t.task, Date.now() - started, msg.length);
           return { task: t.task, model: subModelId, res: msg };
         });
@@ -3354,12 +3000,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     <button class="icon-btn" id="btn-new-chat" title="New chat">&#x2716;</button>
     <button class="icon-btn" id="btn-settings" title="Settings">&#x2699;</button>
   </div>
-  <div class="foundry-iq-global-banner" id="foundry-iq-global-banner" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:6px 8px;padding:9px 10px;border:1px solid #8b5cf6;border-radius:8px;background:linear-gradient(90deg,rgba(139,92,246,.24),rgba(14,165,233,.18));color:var(--vscode-foreground);font-size:12px;flex-shrink:0;position:relative;z-index:1;box-sizing:border-box;">
-    <strong style="font-size:12px;white-space:nowrap;">Microsoft Foundry IQ</strong>
-    <span id="foundry-iq-global-status" style="flex:1 1 160px;min-width:120px;opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Enabled: Azure Search knowledge grounding</span>
-    <button class="mini-link-btn" id="btn-foundry-iq-global-open" title="Open Foundry IQ settings">Setup</button>
-    <button class="mini-link-btn" id="btn-foundry-iq-global-test" title="Test real Foundry IQ retrieval">Test</button>
-  </div>
   <div class="mode-bar">
     <button class="mode-tab active" data-mode="agent">Agent</button>
     <button class="mode-tab" data-mode="ask">Ask</button>
@@ -3397,7 +3037,7 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     <div class="collab-actions"><button id="btn-restore-checkpoints-top" class="mini-link-btn">Restore checkpoints</button><button id="btn-previous-tasks-top" class="mini-link-btn">Previous tasks/issues</button></div>
   </section>
   <div class="chat-container" id="chat-container"></div>
-  <div class="typing-indicator" id="typing">Sentinel is working...</div>
+  <div class="typing-indicator" id="typing">Sentinel is thinking...</div>
   <div class="continue-bar" id="continue-bar" style="display:none">
     <button class="continue-btn" id="continue-btn" title="Keep the agent going from where it stopped">▶ Continue</button>
     <span class="continue-hint">Paused at the step limit — pick up where it left off.</span>
@@ -3439,7 +3079,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     </div>
     <div class="settings-tabs">
       <button class="settings-tab active" data-stab="tools">Tools</button>
-      <button class="settings-tab" data-stab="iq">Microsoft IQ</button>
       <button class="settings-tab" data-stab="skills">Skills</button>
       <button class="settings-tab" data-stab="agentic">Agentic</button>
       <button class="settings-tab" data-stab="models">Models</button>
@@ -3450,40 +3089,6 @@ export class SentinelSidebarProvider implements vscode.WebviewViewProvider {
     <div id="settings-content">
       <div class="settings-pane" id="settings-tools" style="display:block">
         <div id="tool-list"></div>
-      </div>
-      <div class="settings-pane" id="settings-iq" style="display:none">
-        <div class="settings-section">
-          <h3 style="margin:0 0 6px">Microsoft IQ / Foundry IQ</h3>
-          <p style="font-size:12px;color:var(--desc-fg);margin:0 0 8px">
-            Hackathon-required Microsoft IQ layer. Sentinel Coder uses this to ground answers with the real Azure AI Search-backed Foundry IQ knowledge index before calling the selected coding model.
-          </p>
-          <label class="checkbox-row"><input id="iq-enabled" type="checkbox"> Enable Microsoft IQ grounding</label>
-          <label>IQ layer
-            <select id="iq-layer" style="width:100%;margin-top:4px">
-              <option value="foundry-iq">Foundry IQ</option>
-              <option value="work-iq">Work IQ</option>
-              <option value="fabric-iq">Fabric IQ</option>
-            </select>
-          </label>
-          <label>Foundry IQ / Azure Search endpoint
-            <input id="iq-endpoint" type="text" style="width:100%;margin-top:4px" placeholder="https://stan.search.windows.net/indexes/sentinel-coder-iq/docs/search?api-version=2023-11-01">
-          </label>
-          <label>API key environment variable
-            <input id="iq-apikey-env" type="text" style="width:100%;margin-top:4px" placeholder="MICROSOFT_IQ_API_KEY">
-          </label>
-          <div class="settings-row" style="gap:8px;align-items:center;flex-wrap:wrap">
-            <label>Timeout ms <input id="iq-timeout" type="number" min="1000" max="60000" value="12000" style="width:90px"></label>
-            <label>Max query chars <input id="iq-maxchars" type="number" min="500" max="20000" value="4000" style="width:90px"></label>
-          </div>
-          <div class="settings-row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-            <button class="action-btn primary" id="btn-save-iq">Save Microsoft IQ</button>
-            <button class="action-btn" id="btn-test-iq">Test Foundry IQ</button>
-          </div>
-          <p id="iq-status" style="font-size:12px;color:var(--desc-fg);margin:8px 0 0">Status: not tested in this window.</p>
-          <p style="font-size:11px;color:var(--desc-fg);margin:8px 0 0">
-            Current verified local setup uses Azure AI Search service <code>stan</code>, index <code>sentinel-coder-iq</code>, and env var <code>MICROSOFT_IQ_API_KEY</code>.
-          </p>
-        </div>
       </div>
       <div class="settings-pane" id="settings-skills" style="display:none">
         <div class="settings-section">

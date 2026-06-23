@@ -8,15 +8,6 @@
   <link rel="stylesheet" href="${styleUri}">
 </head>
 <body>
-  <section id="foundry-iq-global-banner" aria-label="Microsoft Foundry IQ status" style="display:block !important; margin:8px; padding:10px 12px; border:2px solid #8b5cf6; border-radius:10px; background:linear-gradient(135deg, rgba(139,92,246,.28), rgba(14,165,233,.18)); color:var(--vscode-foreground,#fff); box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 8px 24px rgba(0,0,0,.28);">
-    <div style="font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.9; font-weight:800;">Microsoft IQ / Foundry IQ — REQUIRED HACKATHON LAYER</div>
-    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:5px;">
-      <strong style="font-size:13px;">Foundry IQ grounding is installed and configured</strong>
-      <span id="foundry-iq-global-status" style="font-size:12px; padding:3px 8px; border-radius:999px; background:rgba(0,0,0,.28);">Loading status...</span>
-      <button id="btn-foundry-iq-global-open" style="cursor:pointer; border:0; border-radius:7px; padding:5px 9px; font-weight:700; background:#8b5cf6; color:white;">Open Foundry IQ Setup</button>
-      <button id="btn-foundry-iq-global-test" style="cursor:pointer; border:1px solid rgba(255,255,255,.25); border-radius:7px; padding:4px 9px; font-weight:700; background:rgba(255,255,255,.08); color:inherit;">Test Foundry IQ</button>
-    </div>
-  </section>
   <div class="top-bar">
     <div class="model-select">
       <select id="model-select" title="Select model">
@@ -26,8 +17,6 @@
     <button class="icon-btn" id="btn-refresh" title="Refresh models">&#x21bb;</button>
     <button class="icon-btn" id="btn-new-chat" title="New chat">&#x2716;</button>
     <button class="icon-btn" id="btn-history" title="Chat history">&#x1F5C2;</button>
-    <button class="foundry-top-btn" id="btn-foundry-iq-top" title="Open Microsoft IQ / Foundry IQ setup">Foundry IQ</button>
-    <button class="foundry-top-pill" id="foundry-iq-top-pill" title="Microsoft IQ status">IQ: ...</button>
     <button class="icon-btn" id="btn-settings" title="Configure tools, providers, skills, agentic profiles and context">&#x2699;</button>
   </div>
   <div class="mode-bar">
@@ -49,17 +38,6 @@
     <span style="flex:1"></span>
     <span id="mode-label">Agent</span>
   </div>
-  <section class="foundry-iq-card" id="foundry-iq-card" aria-label="Microsoft IQ Foundry IQ setup">
-    <div class="foundry-iq-card-main">
-      <div class="foundry-iq-kicker">Microsoft IQ required</div>
-      <div class="foundry-iq-title">Foundry IQ grounding</div>
-      <div class="foundry-iq-status" id="foundry-iq-card-status">Loading Microsoft IQ settings...</div>
-    </div>
-    <div class="foundry-iq-card-actions">
-      <button class="mini-btn primary" id="btn-iq-card-open" title="Open Microsoft IQ / Foundry IQ settings">Setup Foundry IQ</button>
-      <button class="mini-btn" id="btn-iq-card-test" title="Test configured Foundry IQ endpoint">Test</button>
-    </div>
-  </section>
   <div class="chat-container" id="chat-container"></div>
   <div class="typing-indicator" id="typing">Sentinel is thinking...</div>
   <div class="input-toolbar" id="input-toolbar">
@@ -89,8 +67,7 @@
       <button class="icon-btn" id="btn-close-settings">&times;</button>
     </div>
     <div class="settings-tabs">
-      <button class="settings-tab active" data-stab="iq">Microsoft IQ</button>
-      <button class="settings-tab" data-stab="agentic">Agentic</button>
+      <button class="settings-tab active" data-stab="agentic">Agentic</button>
       <button class="settings-tab" data-stab="context">Context</button>
       <button class="settings-tab" data-stab="models">Models</button>
       <button class="settings-tab" data-stab="providers">Providers</button>
@@ -100,7 +77,7 @@
       <button class="settings-tab" data-stab="general">General</button>
     </div>
     <div class="settings-content" id="settings-content">
-      <section class="settings-pane" id="settings-agentic" style="display:none">
+      <section class="settings-pane" id="settings-agentic">
         <h3>Agentic Profiles</h3>
         <p class="settings-help">Create/delete/edit orchestration workflows: choose the main model, worker pool, reviewer pool, cost policy, and max parallel sub-agents. Profiles appear dynamically in the chat model selector as <strong>Agentic: ...</strong>.</p>
         <div class="settings-toolbar">
@@ -146,26 +123,6 @@
       <section class="settings-pane" id="settings-skills" style="display:none"><h3>Skills</h3><div class="settings-toolbar"><button class="action-btn primary" id="btn-skill-new">+ New skill</button><button class="action-btn" id="btn-skill-import">Import from workspace</button><button class="action-btn" id="btn-skill-refresh">Refresh</button></div><div id="skill-list"></div><div id="skill-editor" class="inline-editor" style="display:none"><label>Name <input id="skill-name" type="text"></label><label>Description <input id="skill-desc" type="text"></label><label>Body <textarea id="skill-body" rows="10"></textarea></label><div class="settings-toolbar"><button class="action-btn primary" id="btn-skill-save">Save skill</button><button class="action-btn" id="btn-skill-cancel">Cancel</button></div></div></section>
       <section class="settings-pane" id="settings-tools" style="display:none"><h3>Tools</h3><div id="tool-list"></div></section>
       <section class="settings-pane" id="settings-mcp" style="display:none"><h3>MCP Servers</h3><div class="settings-toolbar"><button class="action-btn" id="btn-mcp-import">Import from VS Code</button><button class="action-btn" id="btn-mcp-refresh">Refresh</button></div><div id="mcp-result"></div><div id="mcp-server-list"></div></section>
-      <section class="settings-pane" id="settings-iq">
-        <h3>Microsoft IQ / Foundry IQ</h3>
-        <p class="settings-help"><strong>Hackathon requirement:</strong> enable Foundry IQ grounding so Sentinel Coder One Studio retrieves enterprise/project knowledge before answering. Retrieval failures are non-fatal and normal chat continues.</p>
-        <div class="inline-editor">
-          <label class="checkbox-row"><input id="iq-enabled" type="checkbox"> Enable Microsoft IQ grounding</label>
-          <label>IQ layer
-            <select id="iq-layer">
-              <option value="foundry-iq">Foundry IQ — agentic knowledge retrieval</option>
-              <option value="work-iq">Work IQ — Microsoft 365 / Graph context</option>
-              <option value="fabric-iq">Fabric IQ — data, semantic models, operations</option>
-            </select>
-          </label>
-          <label>Foundry IQ endpoint <input id="iq-endpoint" type="text" placeholder="https://your-foundry-iq-proxy.example.com/retrieve"></label>
-          <label>API key environment variable <input id="iq-api-env" type="text" placeholder="MICROSOFT_IQ_API_KEY"></label>
-          <label>Timeout ms <input id="iq-timeout" type="number" min="1000" value="12000"></label>
-          <label>Max query characters <input id="iq-maxchars" type="number" min="128" value="4000"></label>
-          <div id="iq-status" class="settings-help">Status: not loaded yet.</div>
-          <div class="settings-toolbar"><button class="action-btn primary" id="btn-save-iq">Save Microsoft IQ settings</button><button class="action-btn" id="btn-test-iq">Test Foundry IQ</button></div>
-        </div>
-      </section>
       <section class="settings-pane" id="settings-general" style="display:none"><h3>General</h3><div class="inline-editor"><label>Temperature <input id="set-temp" type="range" min="0" max="100" value="30"><span id="set-temp-val">0.30</span></label><label>Max output tokens <input id="set-tokens" type="number" min="0" value="0"></label><div id="set-tokens-hint" class="settings-help"></div><label>Context budget tokens <input id="set-ctxbudget" type="number" min="4000" value="96000"></label><label>Ollama URL <input id="set-url" type="text" placeholder="http://127.0.0.1:11434"></label><div class="settings-toolbar"><button class="action-btn primary" id="btn-save-settings">Save general settings</button></div></div></section>
     </div>
   </div>

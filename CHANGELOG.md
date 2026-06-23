@@ -1,3 +1,10 @@
+## 3.16.55 - Stability recovery
+
+- Restored known-good 3.16.10 chat/autopilot runtime files.
+- Fixed regression where newer builds stopped mid-task or displayed raw tool/code output in confusing order.
+- Restored collapsed tool-result cards and stable final-answer placement.
+- Bumped Marketplace version for a clean rollback-forward release.
+
 ﻿
 ## 3.16.54 - GitHub proof assets for Foundry IQ comparison
 

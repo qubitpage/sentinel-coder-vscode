@@ -21,15 +21,6 @@
   var pastePathBtn = $("btn-paste-path");
   var fileInput = $("file-input");
   var firewallBtn = $("btn-firewall");
-  var foundryIqCard = $("foundry-iq-card");
-  var foundryIqCardStatus = $("foundry-iq-card-status");
-  var foundryIqOpenBtn = $("btn-iq-card-open");
-  var foundryIqTestBtn = $("btn-iq-card-test");
-  var foundryIqTopBtn = $("btn-foundry-iq-top");
-  var foundryIqTopPill = $("foundry-iq-top-pill");
-var foundryIqGlobalStatus = $("foundry-iq-global-status");
-var foundryIqGlobalOpenBtn = $("btn-foundry-iq-global-open");
-var foundryIqGlobalTestBtn = $("btn-foundry-iq-global-test");
 
   var isGenerating = false;
   var currentAssistantDiv = null;
@@ -63,11 +54,9 @@ var foundryIqGlobalTestBtn = $("btn-foundry-iq-global-test");
   ];
   var maxAutoContinuesPerTask = 50;
   var cachedModels = [];
-  var lastGoodModelList = [];
   var lastSkills = [];
   var editingSkillId = null;
   var dynamicContextSettings = {};
-  var microsoftIqSettings = {};
 
   var chatUserPinnedScroll = false;
   var chatScrollTimer = null;
@@ -77,165 +66,11 @@ var foundryIqGlobalTestBtn = $("btn-foundry-iq-global-test");
   function esc(t) {
     var d = document.createElement("div");
     d.textContent = t;
-    return d["inner" + "HTML"];
+    return d.innerHTML;
   }
 
   function attr(t) {
     return esc(t).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  }
-
-  function updateFoundryIqCard() {
-    var enabled = !!microsoftIqSettings.enabled;
-    var endpoint = microsoftIqSettings.endpoint || "";
-    var layer = microsoftIqSettings.layer || "foundry-iq";
-    var label = enabled ? (endpoint ? "IQ: ON" : "IQ: SETUP") : "IQ: OFF";
-    var detail = enabled
-      ? (endpoint ? ("Enabled: " + layer + " endpoint configured. Click Test to verify.") : ("Enabled: " + layer + ", but endpoint is missing."))
-      : "Disabled. Click Foundry IQ to enable Microsoft IQ for the hackathon.";
-    if (foundryIqCard && foundryIqCardStatus) {
-      foundryIqCard.classList.remove("enabled", "disabled", "error");
-      foundryIqCard.classList.add(enabled ? "enabled" : "disabled");
-      foundryIqCardStatus.textContent = detail;
-    }
-    if (foundryIqGlobalStatus) foundryIqGlobalStatus.textContent = label;
-if (foundryIqTopPill) {
-      foundryIqTopPill.textContent = label;
-      foundryIqTopPill.classList.remove("on", "error");
-      if (enabled && endpoint) foundryIqTopPill.classList.add("on");
-      if (enabled && !endpoint) foundryIqTopPill.classList.add("error");
-      foundryIqTopPill.title = detail;
-    }
-  }
-
-  function openMicrosoftIqSettings() {
-    if (settingsPanel) settingsPanel.classList.add("active");
-    vscode.postMessage({ type: "getToolConfig" });
-    vscode.postMessage({ type: "getProviders" });
-    vscode.postMessage({ type: "getSkills" });
-    vscode.postMessage({ type: "getSettings" });
-    vscode.postMessage({ type: "getAgenticProfiles" });
-    vscode.postMessage({ type: "getDynamicContextSettings" });
-    initSettingsTabs();
-    document.querySelectorAll(".settings-tab").forEach(function (t) { t.classList.remove("active"); });
-    document.querySelectorAll(".settings-pane").forEach(function (p) { p.style.display = "none"; });
-    var tab = document.querySelector('.settings-tab[data-stab="iq"]');
-    var pane = document.getElementById("settings-iq");
-    if (tab) tab.classList.add("active");
-    if (pane) pane.style.display = "block";
-  }
-
-  function clearNode(node) {
-    if (!node) return;
-    while (node.firstChild) node.removeChild(node.firstChild);
-  }
-
-  function textEl(tag, className, text) {
-    var el = document.createElement(tag);
-    if (className) el.className = className;
-    el.textContent = text == null ? "" : String(text);
-    return el;
-  }
-
-  function setStatusBadge(actions, className, text) {
-    if (!actions) return;
-    clearNode(actions);
-    actions.appendChild(textEl("span", className, text));
-  }
-
-  function setTrustedHtml(node, html) {
-    if (!node) return;
-    clearNode(node);
-    var range = document.createRange();
-    range.selectNode(document.body || node);
-    node.appendChild(range.createContextualFragment(String(html || "")));
-  }
-
-  function appendTrustedHtml(parent, html) {
-    if (!parent) return;
-    var template = document.createElement("template");
-    // Centralized for trusted fragments that are built from static markup plus esc()/attr() encoded values.
-    template.insertAdjacentHTML("afterbegin", String(html || ""));
-    parent.appendChild(template.content.cloneNode(true));
-  }
-
-  function replaceTrustedHtml(parent, html) {
-    if (!parent) return;
-    clearNode(parent);
-    appendTrustedHtml(parent, html);
-  }
-
-  function appendSingleMediaPreviewNode(parent, item) {
-    item = item || {};
-    var name = String(item.name || item.path || "attachment");
-    var pathText = String(item.path || "");
-    var uri = item.webviewUri ? String(item.webviewUri) : "";
-    var kind = mediaKindFromName(item.name || item.path, item.mime, item.mediaKind || item.kind);
-    var card = document.createElement("div");
-    card.className = "media-preview-card media-" + kind;
-
-    var title = document.createElement("div");
-    title.className = "media-preview-title";
-    title.appendChild(textEl("span", "", kind.toUpperCase()));
-    title.appendChild(textEl("strong", "", name));
-    card.appendChild(title);
-
-    if (kind === "image" && uri) {
-      var img = document.createElement("img");
-      img.className = "media-preview-image";
-      img.src = uri;
-      img.alt = name;
-      card.appendChild(img);
-    } else if (kind === "video" && uri) {
-      var video = document.createElement("video");
-      video.className = "media-preview-video";
-      video.controls = true;
-      video.preload = "metadata";
-      video.src = uri;
-      card.appendChild(video);
-    } else if (kind === "audio" && uri) {
-      var audio = document.createElement("audio");
-      audio.className = "media-preview-audio";
-      audio.controls = true;
-      audio.src = uri;
-      card.appendChild(audio);
-    } else {
-      var file = document.createElement("div");
-      file.className = "media-preview-file";
-      file.appendChild(textEl("span", "media-preview-file-icon", kind === "document" ? "DOC" : "FILE"));
-      var meta = document.createElement("div");
-      meta.appendChild(textEl("strong", "", name));
-      meta.appendChild(document.createElement("br"));
-      meta.appendChild(textEl("small", "", pathText));
-      file.appendChild(meta);
-      card.appendChild(file);
-    }
-
-    if (pathText) {
-      var pathWrap = document.createElement("div");
-      pathWrap.className = "media-preview-path";
-      pathWrap.appendChild(textEl("code", "", pathText));
-      card.appendChild(pathWrap);
-    }
-    parent.appendChild(card);
-  }
-
-  function appendMediaPreviewNode(parent, media, fallbackContent) {
-    var items = Array.isArray(media) ? media : [];
-    if (items.length) {
-      var grid = document.createElement("div");
-      grid.className = "tool-media-grid";
-      items.forEach(function (item) { appendSingleMediaPreviewNode(grid, item); });
-      parent.appendChild(grid);
-      return;
-    }
-    var preview = toolMediaPreviewHtml(fallbackContent || "");
-    if (preview) {
-      var wrap = document.createElement("div");
-      wrap.className = "tool-media-rendered";
-      // toolMediaPreviewHtml escapes all dynamic values before producing media markup.
-      replaceTrustedHtml(wrap, preview);
-      parent.appendChild(wrap);
-    }
   }
 
   function isChatNearBottom() {
@@ -268,61 +103,27 @@ if (foundryIqTopPill) {
 
   function scrollChatToBottom(force) {
     if (!chatContainer) return;
-    if (!force && chatUserPinnedScroll && !isChatNearBottom()) {
-      setJumpToLatestVisible(true);
-      return;
-    }
     chatContainer.scrollTop = chatContainer.scrollHeight;
-    if (force || isChatNearBottom()) {
-      chatUserPinnedScroll = false;
-      setJumpToLatestVisible(false);
-    }
-  }
-
-  function forceLatestChatVisible(target) {
-    if (!chatContainer) return;
     chatUserPinnedScroll = false;
     setJumpToLatestVisible(false);
-    var node = target || chatContainer.lastElementChild;
-    var run = function () {
-      if (!chatContainer) return;
-      if (node && typeof node.scrollIntoView === "function") {
-        try { node.scrollIntoView({ block: "end", inline: "nearest" }); } catch (_) { node.scrollIntoView(false); }
-      }
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    };
-    run();
-    setTimeout(run, 0);
-    setTimeout(run, 80);
-    if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
   }
 
-  function followChatOutput(force, target) {
+  function followChatOutput() {
     if (!chatContainer) return;
-    if (force) {
-      forceLatestChatVisible(target);
-      return;
-    }
-    if (chatUserPinnedScroll && !isChatNearBottom()) {
+    if (!chatUserPinnedScroll || isChatNearBottom()) {
+      scrollChatToBottom(false);
+    } else {
       setJumpToLatestVisible(true);
-      return;
     }
-    scrollChatToBottom(false);
   }
 
   if (chatContainer) {
     chatContainer.addEventListener("scroll", function () {
-      // Mark pinned immediately. A delayed debounce lets streaming/tool output
-      // jump back to the bottom before the app notices the user scrolled up.
-      var nearBottom = isChatNearBottom();
-      chatUserPinnedScroll = !nearBottom;
-      setJumpToLatestVisible(!nearBottom);
       if (chatScrollTimer) clearTimeout(chatScrollTimer);
       chatScrollTimer = setTimeout(function () {
-        var stillNearBottom = isChatNearBottom();
-        chatUserPinnedScroll = !stillNearBottom;
-        setJumpToLatestVisible(!stillNearBottom);
-      }, 120);
+        chatUserPinnedScroll = !isChatNearBottom();
+        if (!chatUserPinnedScroll) setJumpToLatestVisible(false);
+      }, 80);
     }, { passive: true });
   }
 
@@ -414,14 +215,14 @@ if (foundryIqTopPill) {
         var toolName = btn.getAttribute("data-tool");
         vscode.postMessage({ type: "approveToolCall", toolName: toolName });
         var actions = btn.closest(".approval-actions");
-        setStatusBadge(actions, "approved-badge", "✓ Approved");
+        if (actions) actions.innerHTML = '<span class="approved-badge">&#x2713; Approved</span>';
         break;
       }
       case "deny": {
         var toolName2 = btn.getAttribute("data-tool");
         vscode.postMessage({ type: "rejectToolCall", toolName: toolName2 });
         var actions2 = btn.closest(".approval-actions");
-        setStatusBadge(actions2, "denied-badge", "✗ Denied");
+        if (actions2) actions2.innerHTML = '<span class="denied-badge">&#x2717; Denied</span>';
         break;
       }
       case "toggle-thinking": {
@@ -449,7 +250,7 @@ if (foundryIqTopPill) {
           var nowCollapsed = toolCard.classList.toggle("collapsed");
           toolCard.classList.toggle("expanded", !nowCollapsed);
           var chev = toolCard.querySelector(".tool-chevron");
-          if (chev) chev.textContent = nowCollapsed ? "▶" : "▼";
+          if (chev) chev.innerHTML = nowCollapsed ? "&#x25B6;" : "&#x25BC;";
         }
         break;
       }
@@ -464,26 +265,20 @@ if (foundryIqTopPill) {
 
 
   function renderSuggestionChips() {
-    var strip = document.createElement("div");
-    strip.className = "suggestion-strip";
-    strip.setAttribute("aria-label", "Suggested agent actions");
-    (suggestedPrompts || []).forEach(function (item) {
-      var btn = document.createElement("button");
-      btn.className = "suggestion-chip";
-      btn.type = "button";
-      btn.dataset.suggestedPrompt = item.prompt || "";
-      btn.textContent = item.label || "Suggestion";
-      strip.appendChild(btn);
-    });
-    return strip;
+    if (!suggestedPrompts || !suggestedPrompts.length) return "";
+    return '<div class="suggestion-strip" aria-label="Suggested agent actions">' +
+      suggestedPrompts.map(function (item) {
+        return '<button class="suggestion-chip" type="button" data-suggested-prompt="' + attr(item.prompt) + '">' + esc(item.label) + '</button>';
+      }).join("") +
+      '</div>';
   }
 
   function ensureSuggestionChips() {
     var existing = document.getElementById('suggestion-strip-root');
-    if (existing || !suggestedPrompts || !suggestedPrompts.length) return;
+    if (existing) return;
     var wrap = document.createElement('div');
     wrap.id = 'suggestion-strip-root';
-    wrap.appendChild(renderSuggestionChips());
+    wrap.innerHTML = renderSuggestionChips();
     if (chatContainer && chatContainer.firstChild) chatContainer.insertBefore(wrap, chatContainer.firstChild);
     else if (chatContainer) chatContainer.appendChild(wrap);
   }
@@ -492,7 +287,7 @@ if (foundryIqTopPill) {
   function addMessage(role, content) {
     var div = document.createElement("div");
     div.className = "message " + role;
-    if (role === "assistant") div["inner" + "HTML"] = renderMd(content);
+    if (role === "assistant") div.innerHTML = renderMd(content);
     else if (role === "system") {
       var note = document.createElement("div");
       note.className = "system-note";
@@ -501,7 +296,7 @@ if (foundryIqTopPill) {
     }
     else div.textContent = content;
     chatContainer.appendChild(div);
-    followChatOutput(false, div);
+    followChatOutput();
     return div;
   }
 
@@ -509,15 +304,15 @@ if (foundryIqTopPill) {
     return addMessage("system", content);
   }
 
-  function addSystemNode(node) {
+  function addSystemHtml(html) {
     var div = document.createElement("div");
     div.className = "message system";
     var note = document.createElement("div");
     note.className = "system-note";
-    note.appendChild(node);
+    note.innerHTML = html;
     div.appendChild(note);
     chatContainer.appendChild(div);
-    followChatOutput(false, div);
+    followChatOutput();
     return div;
   }
 
@@ -551,32 +346,22 @@ if (foundryIqTopPill) {
   function renderAttachmentTray() {
     var existing = document.getElementById("attachment-tray");
     if (!existing) return;
-    existing.textContent = "";
     if (!pendingAttachments.length) {
+      existing.innerHTML = '';
       existing.classList.remove("visible");
       return;
     }
     existing.classList.add("visible");
-    pendingAttachments.forEach(function (a, i) {
-      var chip = document.createElement("span");
-      chip.className = "attachment-chip";
-      chip.title = a.path || a.name || "";
-      var icon = document.createElement("span");
-      icon.className = "attachment-chip-icon";
-      icon.textContent = a.kind === "image" ? "IMG" : "FILE";
-      var name = document.createElement("span");
-      name.className = "attachment-chip-name";
-      name.textContent = a.name || a.path || "attachment";
-      var remove = document.createElement("button");
-      remove.className = "attachment-remove";
-      remove.dataset.removeAttachment = String(i);
-      remove.title = "Remove attachment";
-      remove.textContent = "x";
-      chip.appendChild(icon);
-      chip.appendChild(name);
-      chip.appendChild(remove);
-      existing.appendChild(chip);
-    });
+    existing.innerHTML = pendingAttachments.map(function (a, i) {
+      var icon = a.kind === "image" ? "IMG" : "FILE";
+      var title = esc(a.path || a.name || '');
+      var name = esc(a.name || a.path || 'attachment');
+      return '<span class="attachment-chip" title="' + attr(a.path || a.name || '') + '">' +
+        '<span class="attachment-chip-icon">' + icon + '</span>' +
+        '<span class="attachment-chip-name">' + name + '</span>' +
+        '<button class="attachment-remove" data-remove-attachment="' + i + '" title="Remove attachment">x</button>' +
+        '</span>';
+    }).join('');
   }
 
   function mediaKindFromName(name, mime, explicitKind) {
@@ -625,29 +410,19 @@ if (foundryIqTopPill) {
     var thinkDiv = document.createElement("div");
     thinkDiv.className = "thinking-section";
     thinkDiv.style.display = "none";
-    var thinkHeader = document.createElement("div");
-    thinkHeader.className = "thinking-header";
-    var toggle = document.createElement("button");
-    toggle.className = "action-btn thinking-toggle";
-    toggle.setAttribute("data-action", "toggle-thinking");
-    toggle.type = "button";
-    toggle.textContent = "Hide thinking";
-    thinkHeader.appendChild(toggle);
-    thinkHeader.appendChild(textEl("span", "thinking-label", "Working..."));
-    var thinkBody = document.createElement("div");
-    thinkBody.className = "thinking-body";
-    thinkDiv.appendChild(thinkHeader);
-    thinkDiv.appendChild(thinkBody);
+    thinkDiv.innerHTML = '<div class="thinking-header">' +
+      '<button class="action-btn thinking-toggle" data-action="toggle-thinking">Hide thinking</button>' +
+      '<span class="thinking-label">Thinking...</span></div>' +
+      '<div class="thinking-body"></div>';
     var contentDiv = document.createElement("div");
     contentDiv.className = "content-section";
     wrapper.appendChild(thinkDiv);
     wrapper.appendChild(contentDiv);
     chatContainer.appendChild(wrapper);
-    followChatOutput(false, wrapper);
+    followChatOutput();
     return { wrapper: wrapper, thinkDiv: thinkDiv, contentDiv: contentDiv };
   }
 
-  // Lazily open a fresh assistant bubble after tools ran, so the model's next
   // Lazily open a fresh assistant bubble after tools ran, so the model's next
   // prose renders BELOW the tool cards (last message), never at the top.
   function ensureBlock() {
@@ -663,39 +438,19 @@ if (foundryIqTopPill) {
   function addToolApprovalCard(toolName, description, args, dangerLevel) {
     var card = document.createElement("div");
     card.className = "tool-approval-card";
-    var header = document.createElement("div");
-    header.className = "tool-header";
-    header.appendChild(textEl("span", "tool-icon", "⚙"));
-    header.appendChild(textEl("span", "tool-name", toolName));
-    header.appendChild(textEl("span", "danger-badge " + String(dangerLevel || ""), dangerLevel));
-    card.appendChild(header);
-    card.appendChild(textEl("div", "tool-desc", description));
-    var argsWrap = document.createElement("div");
-    argsWrap.className = "tool-args";
-    argsWrap.appendChild(textEl("pre", "", JSON.stringify(args, null, 2)));
-    card.appendChild(argsWrap);
-    var actions = document.createElement("div");
-    actions.className = "approval-actions";
-    var approve = document.createElement("button");
-    approve.className = "action-btn primary";
-    approve.setAttribute("data-action", "approve");
-    approve.setAttribute("data-tool", toolName || "");
-    approve.type = "button";
-    approve.textContent = "Approve";
-    var deny = document.createElement("button");
-    deny.className = "action-btn";
-    deny.setAttribute("data-action", "deny");
-    deny.setAttribute("data-tool", toolName || "");
-    deny.type = "button";
-    deny.textContent = "Deny";
-    actions.appendChild(approve);
-    actions.appendChild(deny);
-    card.appendChild(actions);
+    card.innerHTML =
+      '<div class="tool-header"><span class="tool-icon">&#x2699;</span>' +
+      '<span class="tool-name">' + esc(toolName) + '</span>' +
+      '<span class="danger-badge ' + attr(dangerLevel) + '">' + esc(dangerLevel) + '</span></div>' +
+      '<div class="tool-desc">' + esc(description) + '</div>' +
+      '<div class="tool-args"><pre>' + esc(JSON.stringify(args, null, 2)) + '</pre></div>' +
+      '<div class="approval-actions">' +
+      '<button class="action-btn primary" data-action="approve" data-tool="' + attr(toolName) + '">Approve</button>' +
+      '<button class="action-btn" data-action="deny" data-tool="' + attr(toolName) + '">Deny</button></div>';
     chatContainer.appendChild(card);
     followChatOutput();
   }
 
-  // Collapsed-by-default tool card. Click the header to expand/collapse the body,
   // Collapsed-by-default tool card. Click the header to expand/collapse the body,
   // so long tool output never floods the chat (GitHub Copilot style).
   function renderToolMedia(media, fallbackContent) {
@@ -707,21 +462,15 @@ if (foundryIqTopPill) {
   function addToolCard(toolName, status, content, media) {
     var card = document.createElement("div");
     card.className = "tool-result-card " + status + " collapsed";
-    var icon = status === "running" ? "●" : (status === "success" ? "✓" : "✗");
+    var icon = status === "running" ? "&#x25CF;" : (status === "success" ? "&#x2713;" : "&#x2717;");
     var label = status === "running" ? "Running" : (status === "success" ? "Done" : "Failed");
-    var header = document.createElement("div");
-    header.className = "tool-result-header";
-    header.setAttribute("data-action", "toggle-tool");
-    header.appendChild(textEl("span", "tool-chevron", "▶"));
-    header.appendChild(textEl("span", "tool-result-icon", icon));
-    header.appendChild(textEl("span", "tool-result-name", toolName));
-    header.appendChild(textEl("span", "tool-result-status", label));
-    var body = document.createElement("div");
-    body.className = "tool-result-body";
-    appendMediaPreviewNode(body, media, content || "");
-    body.appendChild(textEl("pre", "", (content || "").slice(0, 3000)));
-    card.appendChild(header);
-    card.appendChild(body);
+    card.innerHTML =
+      '<div class="tool-result-header" data-action="toggle-tool">' +
+      '<span class="tool-chevron">&#x25B6;</span>' +
+      '<span class="tool-result-icon">' + icon + '</span>' +
+      '<span class="tool-result-name">' + esc(toolName) + '</span>' +
+      '<span class="tool-result-status">' + label + '</span></div>' +
+      '<div class="tool-result-body">' + renderToolMedia(media, content || "") + '<pre>' + esc((content || "").slice(0, 3000)) + '</pre></div>';
     chatContainer.appendChild(card);
     followChatOutput();
     return card;
@@ -729,21 +478,16 @@ if (foundryIqTopPill) {
 
   function updateToolCard(card, status, content, media) {
     card.className = "tool-result-card " + status + (card.classList.contains("expanded") ? " expanded" : " collapsed");
-    var icon = status === "success" ? "✓" : "✗";
+    var icon = status === "success" ? "&#x2713;" : "&#x2717;";
     var iconEl = card.querySelector(".tool-result-icon");
-    if (iconEl) iconEl.textContent = icon;
+    if (iconEl) iconEl.innerHTML = icon;
     var statusEl = card.querySelector(".tool-result-status");
     if (statusEl) statusEl.textContent = status === "success" ? "Done" : "Failed";
     var body = card.querySelector(".tool-result-body");
-    if (body) {
-      clearNode(body);
-      appendMediaPreviewNode(body, media, content || "");
-      body.appendChild(textEl("pre", "", (content || "").slice(0, 3000)));
-    }
+    if (body) body.innerHTML = renderToolMedia(media, content || "") + '<pre>' + esc((content || "").slice(0, 3000)) + '</pre>';
     followChatOutput();
   }
 
-  // toolStart: open a collapsed "running" card and queue it for its result.
   // toolStart: open a collapsed "running" card and queue it for its result.
   function addToolStart(toolName) {
     var card = addToolCard(toolName, "running", "");
@@ -760,7 +504,7 @@ if (foundryIqTopPill) {
   function addSubAgentCard(task, model, result) {
     var card = document.createElement("div");
     card.className = "sub-agent-card";
-    card["inner" + "HTML"] =
+    card.innerHTML =
       '<div class="sa-header">&#x1f916; Sub-Agent: ' + esc(model) + '</div>' +
       '<div class="sa-task">' + esc(task.slice(0, 200)) + '</div>' +
       (result ? '<div class="sa-result">' + esc(result.slice(0, 3000)) + '</div>' : '<div class="sa-task" style="color:var(--warning-fg)">Working...</div>');
@@ -881,95 +625,24 @@ if (foundryIqTopPill) {
     addSystemNote("Firewall scan " + (firewallEnabled ? "enabled" : "disabled") + ".");
   });
 
-  function appendStatusList(parent, items, renderItem) {
-    var ul = document.createElement("ul");
-    ul.className = "status-list";
-    (items || []).forEach(function (item) {
-      var li = document.createElement("li");
-      renderItem(li, item);
-      ul.appendChild(li);
-    });
-    parent.appendChild(ul);
-    return ul;
-  }
-
   function showCheckpointStatus(data) {
     var files = data.files || [];
-    var card = document.createElement("div");
-    card.className = "status-card";
-    var title = document.createElement("div");
-    title.className = "status-card-title";
-    title.textContent = "Restore Checkpoints";
-    card.appendChild(title);
-    var meta = document.createElement("div");
-    meta.className = "status-card-meta";
-    meta.textContent = (data.total || 0) + " tracked file(s)" + (data.truncated ? " (showing first 80)" : "");
-    card.appendChild(meta);
-    if (!files.length) {
-      var empty = document.createElement("div");
-      empty.className = "status-card-empty";
-      empty.textContent = "No file checkpoints currently tracked.";
-      card.appendChild(empty);
-    } else {
-      appendStatusList(card, files, function (li, f) {
-        var strong = document.createElement("strong");
-        strong.textContent = f.action || "changed";
-        var code = document.createElement("code");
-        code.textContent = f.path || f.absolutePath || "";
-        li.appendChild(strong);
-        li.appendChild(document.createTextNode(" "));
-        li.appendChild(code);
-      });
-    }
-    var actions = document.createElement("div");
-    actions.className = "status-card-actions";
-    var btn = document.createElement("button");
-    btn.className = "action-btn danger";
-    btn.dataset.action = "revert-all-checkpoints";
-    btn.textContent = "Restore these checkpoints";
-    actions.appendChild(btn);
-    card.appendChild(actions);
-    addSystemNode(card);
+    var html = '<div class="status-card"><div class="status-card-title">Restore Checkpoints</div>' +
+      '<div class="status-card-meta">' + (data.total || 0) + ' tracked file(s)' + (data.truncated ? ' (showing first 80)' : '') + '</div>';
+    if (!files.length) html += '<div class="status-card-empty">No file checkpoints currently tracked.</div>';
+    else html += '<ul class="status-list">' + files.map(function (f) { return '<li><strong>' + esc(f.action || 'changed') + '</strong> <code>' + esc(f.path || f.absolutePath || '') + '</code></li>'; }).join('') + '</ul>';
+    html += '<div class="status-card-actions"><button class="action-btn danger" data-action="revert-all-checkpoints">Restore these checkpoints</button></div></div>';
+    addSystemHtml(html);
   }
 
   function showTaskSummary(data) {
     var issues = data.issues || [];
     var messages = data.messages || [];
-    var card = document.createElement("div");
-    card.className = "status-card";
-    var title = document.createElement("div");
-    title.className = "status-card-title";
-    title.textContent = "Previous Tasks / Issues";
-    card.appendChild(title);
-    var meta = document.createElement("div");
-    meta.className = "status-card-meta";
-    meta.textContent = messages.length + " recent message(s), " + issues.length + " issue-like item(s), " + (data.queued || 0) + " queued input(s), " + (data.checkpoints || 0) + " checkpoint(s)";
-    card.appendChild(meta);
-    if (issues.length) {
-      var subtitle = document.createElement("div");
-      subtitle.className = "status-subtitle";
-      subtitle.textContent = "Potential issues";
-      card.appendChild(subtitle);
-      appendStatusList(card, issues, function (li, m) {
-        var strong = document.createElement("strong");
-        strong.textContent = m.role || "item";
-        li.appendChild(strong);
-        li.appendChild(document.createTextNode(": " + (m.preview || "")));
-      });
-    }
-    var details = document.createElement("details");
-    details.className = "status-details";
-    var summary = document.createElement("summary");
-    summary.textContent = "Recent task context";
-    details.appendChild(summary);
-    appendStatusList(details, messages, function (li, m) {
-      var strong = document.createElement("strong");
-      strong.textContent = m.role || "message";
-      li.appendChild(strong);
-      li.appendChild(document.createTextNode(": " + (m.preview || "")));
-    });
-    card.appendChild(details);
-    addSystemNode(card);
+    var html = '<div class="status-card"><div class="status-card-title">Previous Tasks / Issues</div>' +
+      '<div class="status-card-meta">' + messages.length + ' recent message(s), ' + issues.length + ' issue-like item(s), ' + (data.queued || 0) + ' queued input(s), ' + (data.checkpoints || 0) + ' checkpoint(s)</div>';
+    if (issues.length) html += '<div class="status-subtitle">Potential issues</div><ul class="status-list">' + issues.map(function (m) { return '<li><strong>' + esc(m.role) + '</strong>: ' + esc(m.preview) + '</li>'; }).join('') + '</ul>';
+    html += '<details class="status-details"><summary>Recent task context</summary><ul class="status-list">' + messages.map(function (m) { return '<li><strong>' + esc(m.role) + '</strong>: ' + esc(m.preview) + '</li>'; }).join('') + '</ul></details></div>';
+    addSystemHtml(html);
   }
 
   ['btn-media-help','btn-open-studio','btn-screenshot','btn-ocr','btn-checkpoints','btn-issues','btn-revert-checkpoints'].forEach(function (id) {
@@ -1163,7 +836,7 @@ if (foundryIqTopPill) {
   // ── Top bar buttons ──
   $("btn-refresh").addEventListener("click", function () { vscode.postMessage({ type: "refreshModels" }); });
   $("btn-new-chat").addEventListener("click", function () {
-    clearNode(chatContainer);
+    chatContainer.innerHTML = "";
     vscode.postMessage({ type: "newSession" });
   });
   var sessionsPanel = $("sessions-panel");
@@ -1175,7 +848,7 @@ if (foundryIqTopPill) {
     if (sessionsPanel) sessionsPanel.classList.remove("active");
   });
   if ($("btn-session-new")) $("btn-session-new").addEventListener("click", function () {
-    clearNode(chatContainer);
+    chatContainer.innerHTML = "";
     vscode.postMessage({ type: "newSession" });
     if (sessionsPanel) sessionsPanel.classList.remove("active");
   });
@@ -1190,7 +863,7 @@ if (foundryIqTopPill) {
     var id = target.getAttribute("data-id");
     if (!id) return;
     if (action === "switch-session") {
-      clearNode(chatContainer);
+      chatContainer.innerHTML = "";
       vscode.postMessage({ type: "switchSession", id: id });
       if (sessionsPanel) sessionsPanel.classList.remove("active");
     } else if (action === "delete-session") {
@@ -1224,36 +897,18 @@ if (foundryIqTopPill) {
     vscode.postMessage({ type: "getDynamicContextSettings" });
     initSettingsTabs();
   });
-  if (foundryIqOpenBtn) foundryIqOpenBtn.addEventListener("click", function () {
-    openMicrosoftIqSettings();
-  });
-  if (foundryIqTestBtn) foundryIqTestBtn.addEventListener("click", function () {
-    if (foundryIqCardStatus) foundryIqCardStatus.textContent = "Testing Foundry IQ...";
-    vscode.postMessage({ type: "testMicrosoftIq", query: "Sentinel Coder One Foundry IQ connectivity test" });
-  });
-  if (foundryIqTopBtn) foundryIqTopBtn.addEventListener("click", function () {
-    openMicrosoftIqSettings();
-  });
-  if (foundryIqTopPill) foundryIqTopPill.addEventListener("click", function () {
-    foundryIqTopPill.textContent = "IQ: TEST";
-    foundryIqTopPill.classList.remove("on", "error");
-    vscode.postMessage({ type: "testMicrosoftIq", query: "Sentinel Coder One Foundry IQ connectivity test" });
-  });
   $("btn-close-settings").addEventListener("click", function () { settingsPanel.classList.remove("active"); });
 
-  // MCP server controls (delegated)
+  // ── MCP server controls (delegated) ──
   var mcpListEl = $("mcp-server-list");
   if (mcpListEl) mcpListEl.addEventListener("click", function (e) {
-    var rawTarget = e.target;
-    // Clicks can land on nested text/icons inside a button. Always resolve the
-    // nearest action element so MCP controls keep working after UI styling changes.
-    var t = rawTarget && rawTarget.closest ? rawTarget.closest("[data-mcp-action]") : rawTarget;
-    var action = t && t.getAttribute && t.getAttribute("data-mcp-action");
+    var t = e.target;
+    var action = t.getAttribute && t.getAttribute("data-mcp-action");
     if (!action) return;
     var server = t.getAttribute("data-server");
     if (action === "connect") {
       vscode.postMessage({ type: "startMcpServer", serverName: server });
-      t.textContent = "Connecting..."; t.disabled = true;
+      t.textContent = "Connecting…"; t.disabled = true;
     } else if (action === "stop") {
       vscode.postMessage({ type: "stopMcpServer", serverName: server });
     } else if (action === "save-env") {
@@ -1281,7 +936,7 @@ if (foundryIqTopPill) {
     vscode.postMessage({ type: "getMcpStatus" });
   });
 
-  // Mode tabs
+  // ── Mode tabs ──
   document.querySelectorAll(".mode-tab").forEach(function (tab) {
     tab.addEventListener("click", function () {
       document.querySelectorAll(".mode-tab").forEach(function (t) { t.classList.remove("active"); });
@@ -1344,13 +999,7 @@ if (foundryIqTopPill) {
     var settingsContent = $("settings-content");
     if (settingsContent) {
       settingsContent.addEventListener("click", function (e) {
-        var targetEl = e.target;
-        // Robust delegated settings clicks: button contents may be nested spans/icons.
-        // Resolve to the closest button/action element before checking ids/datasets.
-        if (targetEl && targetEl.closest) {
-          targetEl = targetEl.closest("button,[data-agentic-action],[data-action],[data-skill-action]") || targetEl;
-        }
-        if (targetEl.id === "btn-save-general") {
+        if (e.target.id === "btn-save-general") {
           var temp = parseFloat($("set-temp").value) / 100;
           var tokens = parseInt($("set-tokens").value);
           if (isNaN(tokens) || tokens < 0) tokens = 0;
@@ -1358,112 +1007,90 @@ if (foundryIqTopPill) {
           var ctxEl = $("set-ctxbudget");
           var ctxBudget = ctxEl ? parseInt(ctxEl.value) : undefined;
           vscode.postMessage({ type: "saveSettings", temperature: temp, maxTokens: tokens, ollamaUrl: url, contextBudgetTokens: ctxBudget });
-          targetEl.textContent = "Saved!";
-          setTimeout(function () { targetEl.textContent = "Save"; }, 1500);
+          e.target.textContent = "Saved!";
+          setTimeout(function () { e.target.textContent = "Save"; }, 1500);
         }
-        if (targetEl.id === "btn-save-iq") {
-          var iqTimeout = parseInt(($("iq-timeout") || {}).value || "12000");
-          var iqMaxChars = parseInt(($("iq-maxchars") || {}).value || "4000");
-          vscode.postMessage({
-            type: "saveSettings",
-            microsoftIqEnabled: !!($("iq-enabled") && $("iq-enabled").checked),
-            microsoftIqLayer: ($("iq-layer") && $("iq-layer").value) || "foundry-iq",
-            microsoftIqEndpoint: ($("iq-endpoint") && $("iq-endpoint").value.trim()) || "",
-            microsoftIqApiKeyEnv: ($("iq-api-env") && $("iq-api-env").value.trim()) || "MICROSOFT_IQ_API_KEY",
-            microsoftIqTimeoutMs: isNaN(iqTimeout) ? 12000 : iqTimeout,
-            microsoftIqMaxQueryChars: isNaN(iqMaxChars) ? 4000 : iqMaxChars
-          });
-          targetEl.textContent = "Saved!";
-          var iqStatus = $("iq-status");
-          if (iqStatus) iqStatus.textContent = "Status: saved. New chat turns will use these Microsoft IQ settings.";
-          setTimeout(function () { targetEl.textContent = "Save Microsoft IQ settings"; }, 1500);
-        }
-        if (targetEl.id === "btn-test-iq") {
-          var iqStatus2 = $("iq-status");
-          if (iqStatus2) iqStatus2.textContent = "Status: testing Foundry IQ...";
-          vscode.postMessage({ type: "testMicrosoftIq", query: "Sentinel Coder One Foundry IQ connectivity test" });
-        }
-        if (targetEl.id === "btn-agentic-new") { showAgenticEditor(); }
-        if (targetEl.id === "btn-agentic-refresh") { vscode.postMessage({ type: "getAgenticProfiles" }); }
-        if (targetEl.id === "btn-agentic-cancel") { hideAgenticEditor(); }
-        if (targetEl.id === "btn-agentic-save") { saveAgenticProfileFromForm(); }
-        if (targetEl.getAttribute("data-agentic-action") === "edit") { var ep = findAgenticProfile(targetEl.getAttribute("data-profile")); if (ep) showAgenticEditor(ep); }
-        if (targetEl.getAttribute("data-agentic-action") === "select") { vscode.postMessage({ type: "selectAgenticProfile", id: targetEl.getAttribute("data-profile") }); }
-        if (targetEl.getAttribute("data-agentic-action") === "delete") { var dp = targetEl.getAttribute("data-profile"); uiConfirm("Delete agentic profile?", function (ok) { if (ok) vscode.postMessage({ type: "deleteAgenticProfile", id: dp }); }); }
-        if (targetEl.id === "btn-add-model") {
+        if (e.target.id === "btn-agentic-new") { showAgenticEditor(); }
+        if (e.target.id === "btn-agentic-refresh") { vscode.postMessage({ type: "getAgenticProfiles" }); }
+        if (e.target.id === "btn-agentic-cancel") { hideAgenticEditor(); }
+        if (e.target.id === "btn-agentic-save") { saveAgenticProfileFromForm(); }
+        if (e.target.getAttribute("data-agentic-action") === "edit") { var ep = findAgenticProfile(e.target.getAttribute("data-profile")); if (ep) showAgenticEditor(ep); }
+        if (e.target.getAttribute("data-agentic-action") === "select") { vscode.postMessage({ type: "selectAgenticProfile", id: e.target.getAttribute("data-profile") }); }
+        if (e.target.getAttribute("data-agentic-action") === "delete") { var dp = e.target.getAttribute("data-profile"); uiConfirm("Delete agentic profile?", function (ok) { if (ok) vscode.postMessage({ type: "deleteAgenticProfile", id: dp }); }); }
+        if (e.target.id === "btn-add-model") {
           uiPrompt("Enter model name to pull (e.g. qwen3:8b):", "qwen3:8b", function (name) {
             if (name) vscode.postMessage({ type: "pullModel", model: name.trim() });
           });
         }
-        if (targetEl.id === "btn-refresh-models2") {
+        if (e.target.id === "btn-refresh-models2") {
           vscode.postMessage({ type: "refreshModels" });
           setTimeout(renderModelList, 500);
         }
-        if (targetEl.getAttribute("data-action") === "delete-model") {
-          var model = targetEl.getAttribute("data-model");
+        if (e.target.getAttribute("data-action") === "delete-model") {
+          var model = e.target.getAttribute("data-model");
           uiConfirm("Delete model " + model + "?", function (ok) {
             if (ok) vscode.postMessage({ type: "deleteModel", model: model });
           });
         }
-        if (targetEl.getAttribute("data-action") === "set-active") {
-          var m = targetEl.getAttribute("data-model");
+        if (e.target.getAttribute("data-action") === "set-active") {
+          var m = e.target.getAttribute("data-model");
           modelSelect.value = m;
           modelSelect.dispatchEvent(new Event("change"));
           renderModelList();
         }
-        if (targetEl.getAttribute("data-action") === "save-provider-key") {
-          var pid = targetEl.getAttribute("data-provider");
+        if (e.target.getAttribute("data-action") === "save-provider-key") {
+          var pid = e.target.getAttribute("data-provider");
           var input = $("provider-key-" + pid);
           var val = input ? input.value.trim() : "";
           if (!val) {
             var sEl = $("prov-stat-" + pid);
-            if (sEl) sEl["inner" + "HTML"] = '<span class="prov-status none">Enter a key first</span>';
+            if (sEl) sEl.innerHTML = '<span class="prov-status none">Enter a key first</span>';
             return;
           }
           vscode.postMessage({ type: "setProviderKey", providerId: pid, apiKey: val });
-          targetEl.textContent = "Saving…";
+          e.target.textContent = "Saving…";
           var statEl = $("prov-stat-" + pid);
-          if (statEl) statEl["inner" + "HTML"] = '<span class="prov-status testing">● Verifying key…</span>';
-          setTimeout(function () { targetEl.textContent = "Save"; }, 1500);
+          if (statEl) statEl.innerHTML = '<span class="prov-status testing">● Verifying key…</span>';
+          setTimeout(function () { e.target.textContent = "Save"; }, 1500);
         }
-        if (targetEl.getAttribute("data-action") === "test-provider") {
-          var tpid = targetEl.getAttribute("data-provider");
+        if (e.target.getAttribute("data-action") === "test-provider") {
+          var tpid = e.target.getAttribute("data-provider");
           vscode.postMessage({ type: "testProvider", providerId: tpid });
-          targetEl.textContent = "Testing…";
+          e.target.textContent = "Testing…";
           var tStat = $("prov-stat-" + tpid);
-          if (tStat) tStat["inner" + "HTML"] = '<span class="prov-status testing">● Testing…</span>';
-          var btn = targetEl;
+          if (tStat) tStat.innerHTML = '<span class="prov-status testing">● Testing…</span>';
+          var btn = e.target;
           setTimeout(function () { btn.textContent = "Test"; }, 1500);
         }
-        if (targetEl.getAttribute("data-action") === "toggle-provider") {
-          var pid2 = targetEl.getAttribute("data-provider");
-          var enabled = targetEl.getAttribute("data-enabled") === "true";
+        if (e.target.getAttribute("data-action") === "toggle-provider") {
+          var pid2 = e.target.getAttribute("data-provider");
+          var enabled = e.target.getAttribute("data-enabled") === "true";
           vscode.postMessage({ type: "setProviderEnabled", providerId: pid2, enabled: !enabled });
         }
-        if (targetEl.getAttribute("data-action") === "provider-balance") {
-          var bpid = targetEl.getAttribute("data-provider");
+        if (e.target.getAttribute("data-action") === "provider-balance") {
+          var bpid = e.target.getAttribute("data-provider");
           vscode.postMessage({ type: "getProviderBalance", providerId: bpid });
           var bSlot = $("prov-bal-" + bpid);
           if (bSlot) { bSlot.style.display = "block"; bSlot.textContent = "Querying balance…"; }
         }
 
         // ── Skills ──
-        if (targetEl.id === "btn-skill-new") {
+        if (e.target.id === "btn-skill-new") {
           openSkillEditor(null);
         }
-        if (targetEl.id === "btn-skill-import") {
+        if (e.target.id === "btn-skill-import") {
           vscode.postMessage({ type: "importSkills" });
-          var ibtn = targetEl;
+          var ibtn = e.target;
           ibtn.textContent = "Importing…";
           setTimeout(function () { ibtn.textContent = "Import from workspace"; }, 1500);
         }
-        if (targetEl.id === "btn-skill-refresh") {
+        if (e.target.id === "btn-skill-refresh") {
           vscode.postMessage({ type: "getSkills" });
         }
-        if (targetEl.id === "btn-skill-cancel") {
+        if (e.target.id === "btn-skill-cancel") {
           closeSkillEditor();
         }
-        if (targetEl.id === "btn-skill-save") {
+        if (e.target.id === "btn-skill-save") {
           var sName = $("skill-name").value.trim();
           var sDesc = $("skill-desc").value.trim();
           var sBody = $("skill-body").value.trim();
@@ -1473,11 +1100,11 @@ if (foundryIqTopPill) {
           vscode.postMessage(payload);
           closeSkillEditor();
         }
-        var skAction = targetEl.getAttribute && targetEl.getAttribute("data-skill-action");
+        var skAction = e.target.getAttribute && e.target.getAttribute("data-skill-action");
         if (skAction) {
-          var sid = targetEl.getAttribute("data-skill-id");
+          var sid = e.target.getAttribute("data-skill-id");
           if (skAction === "toggle") {
-            var on = targetEl.getAttribute("data-enabled") === "true";
+            var on = e.target.getAttribute("data-enabled") === "true";
             vscode.postMessage({ type: "toggleSkill", id: sid, enabled: !on });
           } else if (skAction === "edit") {
             var sk = (lastSkills || []).filter(function (x) { return x.id === sid; })[0];
@@ -1572,7 +1199,7 @@ if (foundryIqTopPill) {
   function featureBadges(m) {
     var html = "";
     if (m.supportsTools) html += '<span class="feat-badge feat-tools" title="Function calling / tool use">Tools</span>';
-    if (m.supportsThinking) html += '<span class="feat-badge feat-thinking" title="Reasoning-capable model (safe summaries only; hidden reasoning is never requested)">Think</span>';
+    if (m.supportsThinking) html += '<span class="feat-badge feat-thinking" title="Chain-of-thought reasoning">Think</span>';
     if (m.supportsVision) html += '<span class="feat-badge feat-vision" title="Image/vision input">Vision</span>';
     if (m.supportsStreaming) html += '<span class="feat-badge feat-stream" title="Streaming output">Stream</span>';
     return html;
@@ -1581,7 +1208,7 @@ if (foundryIqTopPill) {
   function renderModelList() {
     var list = $("model-list-settings");
     if (!list) return;
-    clearNode(list);
+    list.innerHTML = "";
 
     // Group by provider (alphabetical)
     var groups = {};
@@ -1601,7 +1228,7 @@ if (foundryIqTopPill) {
       var auto = document.createElement("div");
       auto.className = "model-card auto-model-card";
       var isActiveAuto = currentModel === "auto";
-      auto["inner" + "HTML"] =
+      auto.innerHTML =
         '<div class="model-card-header">' +
           '<div class="model-card-title"><strong>Auto (Best for Task)</strong>' +
           pricingBadge("free", "Automatically picks the best model", "auto") + '</div>' +
@@ -1620,7 +1247,7 @@ if (foundryIqTopPill) {
       var provName = models[0].providerType || prov;
       var displayProv = prov.charAt(0).toUpperCase() + prov.slice(1);
       var costSummary = providerCostSummary(models);
-      header["inner" + "HTML"] = '<span class="provider-group-name">' + esc(displayProv) + '</span>' +
+      header.innerHTML = '<span class="provider-group-name">' + esc(displayProv) + '</span>' +
         '<span class="provider-group-count">' + models.length + ' model' + (models.length !== 1 ? 's' : '') + '</span>' +
         '<span class="meta-chip" title="Provider cost category">' + esc(costSummary) + '</span>';
       list.appendChild(header);
@@ -1632,7 +1259,7 @@ if (foundryIqTopPill) {
         var ctxLabel = m.contextWindow ? fmtCtx(m.contextWindow) + " ctx" : "";
         var maxOutLabel = m.maxOutputTokens ? fmtCtx(m.maxOutputTokens) + " out" : "";
 
-        item["inner" + "HTML"] =
+        item.innerHTML =
           '<div class="model-card-header">' +
             '<div class="model-card-title">' +
               '<strong>' + esc(m.displayName || m.name) + '</strong>' +
@@ -1678,7 +1305,7 @@ if (foundryIqTopPill) {
     var overlay = document.createElement("div");
     overlay.id = "ui-modal";
     overlay.className = "ui-modal-overlay";
-    overlay["inner" + "HTML"] =
+    overlay.innerHTML =
       '<div class="ui-modal-box">' +
         '<div class="ui-modal-msg"></div>' +
         '<div class="ui-modal-actions">' +
@@ -1703,7 +1330,7 @@ if (foundryIqTopPill) {
     var overlay = document.createElement("div");
     overlay.id = "ui-modal";
     overlay.className = "ui-modal-overlay";
-    overlay["inner" + "HTML"] =
+    overlay.innerHTML =
       '<div class="ui-modal-box">' +
         '<div class="ui-modal-msg"></div>' +
         '<input type="text" class="ui-modal-input" />' +
@@ -1751,231 +1378,73 @@ if (foundryIqTopPill) {
     var ed = $("skill-editor");
     if (ed) ed.style.display = "none";
   }
-  function modelOptionValue(m) {
-    return (m && (m.name || m.id)) || (typeof m === "string" ? m : "");
-  }
-
-  function modelProviderKey(m) {
-    var value = modelOptionValue(m);
-    var provider = (m && (m.provider || m.providerType)) || (value.indexOf(":") > 0 ? value.split(":")[0] : "configured");
-    return String(provider || "configured").toLowerCase();
-  }
-
-  function providerDisplayName(provider) {
-    var known = {
-      auto: "Auto routing",
-      agentic: "Agentic Modes",
-      most: "Most used models and modes",
-      configured: "Configured models",
-      azure: "Azure OpenAI / Azure AI Foundry",
-      openai: "OpenAI",
-      anthropic: "Anthropic / Claude",
-      openrouter: "OpenRouter",
-      groq: "Groq",
-      ollama: "Ollama / Local",
-      local: "Local / self-hosted",
-      mistral: "Mistral",
-      deepseek: "DeepSeek",
-      together: "Together AI",
-      vultr: "Vultr",
-      huggingface: "Hugging Face",
-      featherless: "Featherless",
-      moonshot: "Moonshot / Kimi",
-      gemini: "Google Gemini",
-      google: "Google Gemini",
-      xai: "xAI / Grok",
-      perplexity: "Perplexity"
-    };
-    provider = String(provider || "configured").toLowerCase();
-    return known[provider] || provider.charAt(0).toUpperCase() + provider.slice(1);
-  }
-
-  function modelCostCategory(m) {
-    var value = modelOptionValue(m).toLowerCase();
-    var provider = modelProviderKey(m);
-    var pricingRaw = (m && m.pricing !== undefined && m.pricing !== null) ? m.pricing : "";
-    var pricingText = typeof pricingRaw === "string" ? pricingRaw.toLowerCase() : "";
-    var note = String((m && (m.pricingNote || m.costNote || m.pricingTier || m.priceTier)) || "").toLowerCase();
-    if (provider === "ollama" || provider === "local" || pricingText === "local" || value.indexOf("local") >= 0) return { key: "0-local", label: "Local / self-hosted" };
-    if (pricingText === "free" || value.indexOf(":free") >= 0 || value.indexOf("/free") >= 0 || note.indexOf("free") >= 0 && note.indexOf("tier") < 0) return { key: "1-free", label: "Free" };
-    if (pricingText === "free-tier" || note.indexOf("free tier") >= 0 || note.indexOf("free quota") >= 0 || note.indexOf("quota") >= 0) return { key: "2-free-tier", label: "Free tier / quota" };
-    if (provider === "groq" && !pricingText) return { key: "2-free-tier", label: "Fast / quota-based" };
-    if (provider === "azure" || pricingText === "subscription") return { key: "3-subscription", label: "Subscription / credits" };
-    if (pricingText === "pay-per-use" || pricingText === "paid") return { key: "4-paid", label: "Paid / metered" };
-    if (pricingRaw && typeof pricingRaw === "object" && (Number(pricingRaw.inputPerMTok || pricingRaw.input || 0) > 0 || Number(pricingRaw.outputPerMTok || pricingRaw.output || 0) > 0)) return { key: "4-paid", label: "Paid / metered" };
-    if (note.indexOf("paid") >= 0 || note.indexOf("meter") >= 0 || note.indexOf("$/") >= 0 || note.indexOf("$0") >= 0) return { key: "4-paid", label: "Paid / metered" };
-    return { key: "5-configured", label: "Configured / unknown price" };
-  }
-
-  function modelCostSuffix(m) {
-    var bits = [];
-    if (!m) return "";
-    var cat = modelCostCategory(m);
-    if (cat && cat.label) bits.push(cat.label);
-    var ctx = m.effectiveContextWindow || m.contextWindow || m.maxContextTokens;
-    if (ctx) bits.push("ctx " + ctx);
-    if (m.contextSource) bits.push("ctx " + m.contextSource);
-    if (m.supportsTools) bits.push("tools");
-    if (m.supportsVision) bits.push("vision");
-    if (m.supportsThinking) bits.push("reasoning");
-    return bits.length ? " (" + bits.join(" | ") + ")" : "";
-  }
-
-  function modelOptionLabel(m) {
-    var value = modelOptionValue(m);
-    if (value === "auto") return "Auto (best configured model for this task)";
-    var label = (m && (m.displayName || m.name || m.id)) || value;
-    return label + modelCostSuffix(m);
-  }
-
-  function modelSortKey(m) {
-    return modelCostCategory(m).key + "|" + providerDisplayName(modelProviderKey(m)).toLowerCase() + "|" + modelOptionLabel(m).toLowerCase();
-  }
-
-  function sortedModels(models) {
-    return (models || []).slice().sort(function (a, b) { return modelSortKey(a).localeCompare(modelSortKey(b)); });
-  }
-
   function configuredChatModels(includeAuto) {
     var seen = {};
-    return sortedModels((cachedModels || []).filter(function (m) {
-      var value = modelOptionValue(m);
+    var models = (cachedModels || []).filter(function (m) {
+      var value = (m && (m.name || m.id)) || (typeof m === "string" ? m : "");
       if (!value) return false;
       if (!includeAuto && value === "auto") return false;
       if (value.indexOf("agentic:") === 0) return false;
       if (seen[value]) return false;
       seen[value] = true;
       return true;
-    }));
+    });
+    ["azure:gpt-5.5", "azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"].forEach(function (name) {
+      if (!seen[name]) {
+        seen[name] = true;
+        models.push({ name: name, displayName: name, provider: name.split(":")[0] || "custom" });
+      }
+    });
+    return models;
   }
 
-  function createOption(value, label, selectedValues, title) {
-    var opt = document.createElement("option");
-    opt.value = value;
-    opt.textContent = label;
-    if (title) opt.title = title;
-    if (selectedValues && selectedValues.indexOf(value) !== -1) opt.selected = true;
-    return opt;
-  }
+  function modelOptionValue(m) { return (m && (m.name || m.id)) || (typeof m === "string" ? m : ""); }
 
-  function appendModelOption(group, m, selectedValues) {
+  function modelOptionLabel(m) {
     var value = modelOptionValue(m);
-    var title = [
-      providerDisplayName(modelProviderKey(m)),
-      modelCostCategory(m).label,
-      (m && (m.effectiveContextWindow || m.contextWindow)) ? ("context: " + (m.effectiveContextWindow || m.contextWindow)) : "",
-      (m && m.contextSource) ? ("context source: " + m.contextSource) : "",
-      (m && m.supportsTools) ? "tools" : "",
-      (m && m.supportsVision) ? "vision" : "",
-      (m && m.supportsThinking) ? "reasoning" : "",
-      (m && m.pricingNote) || ""
-    ].filter(Boolean).join(" | ");
-    group.appendChild(createOption(value, modelOptionLabel(m), selectedValues, title));
+    if (value === "auto") return "Auto (best for task)";
+    var label = (m && (m.displayName || m.name || m.id)) || value;
+    if (m && (m.contextWindow || m.pricing || m.provider)) label += modelCostSuffix(m);
+    return label;
   }
 
   function appendMissingModelOption(select, value) {
     if (!select || !value) return;
     var exists = Array.prototype.some.call(select.options, function (o) { return o.value === value; });
     if (exists) return;
-    select.insertBefore(createOption(value, value + " (not currently discovered/configured)", [value], "Profile keeps this model ID until the provider exposes it again."), select.firstChild);
-  }
-
-  function appendAgenticModeGroups(select, selectedValues) {
-    if (!agenticProfiles || !agenticProfiles.length) return;
-    var group = document.createElement("optgroup");
-    group.label = "Agentic Modes - profile orchestration";
-    agenticProfiles.forEach(function (p) {
-      var value = "agentic:" + p.id;
-      var label = (p.name || p.id) + " - " + (p.costPolicy || "balanced") + " - " + (p.description || "profile");
-      group.appendChild(createOption(value, label, selectedValues, p.instructions || p.description || "Agentic profile"));
-    });
-    select.appendChild(group);
-  }
-
-  function appendMostUsedGroup(select, models, selectedValues, includeAgentic) {
-    var preferred = [
-      "agentic:profile_standard_single_model",
-      "agentic:profile_provider_best_available",
-      "agentic:profile_azure_cost_smart_production",
-      "agentic:profile_multi_provider_council",
-      "azure:gpt-5.5", "azure:gpt-4.1", "azure:grok-4.3", "openai:gpt-4.1",
-      "anthropic:claude-opus-4-1", "anthropic:claude-sonnet-4", "openrouter:anthropic/claude-sonnet-4", "openrouter:qwen/qwen3-coder:free",
-      "groq:openai/gpt-oss-120b", "ollama:sentinel-coder-one:latest", "auto"
-    ];
-    var byValue = {};
-    (models || []).forEach(function (m) { byValue[modelOptionValue(m)] = m; });
-    var group = document.createElement("optgroup");
-    group.label = "Most used models and modes";
-    var added = {};
-    preferred.forEach(function (value) {
-      if (!includeAgentic && value.indexOf("agentic:") === 0) return;
-      if (value.indexOf("agentic:") === 0) {
-        var prof = (agenticProfiles || []).find(function (p) { return "agentic:" + p.id === value; });
-        if (prof) {
-          group.appendChild(createOption(value, prof.name + " - Agentic mode", selectedValues, prof.description || "Agentic profile"));
-          added[value] = true;
-        }
-        return;
-      }
-      var m = byValue[value];
-      if (m) { appendModelOption(group, m, selectedValues); added[value] = true; }
-    });
-    if (group.children.length) select.appendChild(group);
-  }
-
-  function appendProviderCostGroups(select, models, selectedValues) {
-    var byProvider = {};
-    sortedModels(models).forEach(function (m) {
-      var provider = modelProviderKey(m);
-      if (!byProvider[provider]) byProvider[provider] = [];
-      byProvider[provider].push(m);
-    });
-    Object.keys(byProvider).sort(function (a, b) { return providerDisplayName(a).localeCompare(providerDisplayName(b)); }).forEach(function (provider) {
-      var byCost = {};
-      byProvider[provider].forEach(function (m) {
-        var cat = modelCostCategory(m);
-        if (!byCost[cat.key]) byCost[cat.key] = { label: cat.label, models: [] };
-        byCost[cat.key].models.push(m);
-      });
-      Object.keys(byCost).sort().forEach(function (costKey) {
-        var group = document.createElement("optgroup");
-        group.label = providerDisplayName(provider) + " - " + byCost[costKey].label + " (" + byCost[costKey].models.length + ")";
-        sortedModels(byCost[costKey].models).forEach(function (m) { appendModelOption(group, m, selectedValues); });
-        select.appendChild(group);
-      });
-    });
-  }
-
-  function appendAutoModelOption(select, selectedValues) {
-    if (!select) return;
-    var group = document.createElement("optgroup");
-    group.label = "Auto routing";
-    group.appendChild(createOption("auto", "Auto (best configured model for this task)", selectedValues, "Sentinel chooses the best available configured model for the task."));
-    select.appendChild(group);
-  }
-
-  function renderCategorizedChatModelSelect(selected) {
-    if (!modelSelect) return;
-    var previous = selected || modelSelect.value || currentModel || "auto";
-    var selectedValues = [previous];
-    clearNode(modelSelect);
-    appendAutoModelOption(modelSelect, selectedValues);
-    appendAgenticModeGroups(modelSelect, selectedValues);
-    appendMostUsedGroup(modelSelect, configuredChatModels(false), selectedValues, true);
-    appendProviderCostGroups(modelSelect, configuredChatModels(false), selectedValues);
-    appendMissingModelOption(modelSelect, previous);
-    modelSelect.value = previous;
+    var opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = value + " (not currently in configured model list)";
+    select.insertBefore(opt, select.firstChild);
   }
 
   function populateAgenticModelSelect(id, selected, includeAuto) {
     var select = $(id);
     if (!select) return;
     var selectedValues = Array.isArray(selected) ? selected : (selected ? [selected] : []);
-    clearNode(select);
-    appendMostUsedGroup(select, configuredChatModels(includeAuto), selectedValues, false);
-    appendProviderCostGroups(select, configuredChatModels(includeAuto), selectedValues);
+    select.innerHTML = "";
+    var groups = {};
+    configuredChatModels(includeAuto).forEach(function (m) {
+      var provider = (m && m.provider) || (modelOptionValue(m).split(":")[0] || "configured");
+      if (!groups[provider]) groups[provider] = [];
+      groups[provider].push(m);
+    });
+    Object.keys(groups).sort().forEach(function (provider) {
+      var group = document.createElement("optgroup");
+      group.label = provider.charAt(0).toUpperCase() + provider.slice(1);
+      groups[provider].forEach(function (m) {
+        var opt = document.createElement("option");
+        opt.value = modelOptionValue(m);
+        opt.textContent = modelOptionLabel(m);
+        opt.title = (m && m.pricingNote) || opt.value;
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    });
     selectedValues.forEach(function (value) { appendMissingModelOption(select, value); });
-    Array.prototype.forEach.call(select.options, function (opt) { opt.selected = selectedValues.indexOf(opt.value) !== -1; });
+    Array.prototype.forEach.call(select.options, function (opt) {
+      opt.selected = selectedValues.indexOf(opt.value) !== -1;
+    });
   }
 
   function selectedAgenticModels(id) {
@@ -1984,159 +1453,126 @@ if (foundryIqTopPill) {
     return Array.prototype.slice.call(select.selectedOptions || []).map(function (o) { return o.value; }).filter(Boolean);
   }
 
-  function refreshAgenticDropdownsFromCurrentForm() {
-    var editor = $("agentic-editor");
-    if (!editor || editor.style.display === "none") return;
-    var main = ($("agentic-main") && $("agentic-main").value) || "auto";
+  function populateAgenticDefaultWorkerSelect(selected, workers) {
+    var select = $("agentic-default-worker");
+    if (!select) return;
+    var preferred = [];
+    (workers || []).forEach(function (value) { if (value && preferred.indexOf(value) === -1) preferred.push(value); });
+    var wanted = selected || preferred[0] || "";
+    select.innerHTML = "";
+    var used = {};
+    if (preferred.length) {
+      var workerGroup = document.createElement("optgroup");
+      workerGroup.label = "Selected worker agents";
+      preferred.forEach(function (value) {
+        var opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = value;
+        opt.title = "Worker agent selected for this profile";
+        workerGroup.appendChild(opt);
+        used[value] = true;
+      });
+      select.appendChild(workerGroup);
+    }
+    var groups = {};
+    configuredChatModels(false).forEach(function (m) {
+      var value = modelOptionValue(m);
+      if (used[value]) return;
+      var provider = (m && m.provider) || (value.split(":")[0] || "configured");
+      if (!groups[provider]) groups[provider] = [];
+      groups[provider].push(m);
+    });
+    Object.keys(groups).sort().forEach(function (provider) {
+      var group = document.createElement("optgroup");
+      group.label = provider.charAt(0).toUpperCase() + provider.slice(1);
+      groups[provider].forEach(function (m) {
+        var opt = document.createElement("option");
+        opt.value = modelOptionValue(m);
+        opt.textContent = modelOptionLabel(m);
+        opt.title = (m && m.pricingNote) || opt.value;
+        group.appendChild(opt);
+      });
+      select.appendChild(group);
+    });
+    appendMissingModelOption(select, wanted);
+    select.value = wanted || (select.options[0] && select.options[0].value) || "";
+  }
+
+  function refreshAgenticDefaultWorkerFromSelection() {
+    var current = $("agentic-default-worker") ? $("agentic-default-worker").value : "";
+    var workers = selectedAgenticModels("agentic-workers");
+    populateAgenticDefaultWorkerSelect(current || workers[0] || "azure:gpt-4.1", workers);
+  }
+
+  function currentAgenticEditorDraft() {
     var workers = selectedAgenticModels("agentic-workers");
     var reviewers = selectedAgenticModels("agentic-reviewers");
-    var defaultWorker = ($("agentic-default-worker") && $("agentic-default-worker").value) || workers[0] || "";
-    populateAgenticModelSelect("agentic-main", main, true);
+    return {
+      mainModel: (($("agentic-main") && $("agentic-main").value) || "azure:gpt-4.1"),
+      workerModels: workers,
+      reviewerModels: reviewers,
+      defaultWorkerModel: (($("agentic-default-worker") && $("agentic-default-worker").value) || workers[0] || "")
+    };
+  }
+
+  function refreshAgenticDropdownsFromCurrentForm() {
+    if (!$("agentic-main") && !$("agentic-workers") && !$("agentic-reviewers")) return;
+    refreshAgenticModelDropdowns(currentAgenticEditorDraft());
+  }
+
+  function refreshAgenticModelDropdowns(profile) {
+    var draft = profile || currentAgenticEditorDraft();
+    var hasProfile = !!profile;
+    var main = draft.mainModel || "azure:gpt-4.1";
+    var workers = (draft.workerModels && draft.workerModels.length) ? draft.workerModels : (hasProfile ? ["azure:gpt-4.1", "azure:grok-4.3", "groq:openai/gpt-oss-120b"] : []);
+    var reviewers = (draft.reviewerModels && draft.reviewerModels.length) ? draft.reviewerModels : (hasProfile ? ["azure:gpt-5.5", "azure:gpt-4.1"] : []);
+    var defaultWorker = draft.defaultWorkerModel || workers[0] || (hasProfile ? "azure:gpt-4.1" : "");
+    populateAgenticModelSelect("agentic-main", main, false);
     populateAgenticModelSelect("agentic-workers", workers, false);
     populateAgenticModelSelect("agentic-reviewers", reviewers, false);
-    populateAgenticModelSelect("agentic-default-worker", defaultWorker, false);
+    populateAgenticDefaultWorkerSelect(defaultWorker, workers);
   }
 
+  function findAgenticProfile(id) { return (agenticProfiles || []).find(function (p) { return p.id === id; }); }
   function showAgenticEditor(profile) {
-    var editor = $("agentic-editor");
-    if (editor) editor.style.display = "block";
-    if (profile) {
-      $("agentic-id").value = profile.id || "";
-      $("agentic-name").value = profile.name || "";
-      $("agentic-desc").value = profile.description || "";
-      $("agentic-cost").value = profile.costPolicy || "balanced";
-      $("agentic-max").value = profile.maxParallelAgents || 3;
-      $("agentic-premium").checked = !!profile.allowPremiumWorkers;
-      $("agentic-cheap-fallback").checked = !!profile.allowCheapFallback;
-      $("agentic-instructions").value = profile.instructions || "";
-      populateAgenticModelSelect("agentic-main", profile.mainModel || "auto", true);
-      populateAgenticModelSelect("agentic-workers", profile.workerModels || [], false);
-      populateAgenticModelSelect("agentic-reviewers", profile.reviewerModels || [], false);
-      populateAgenticModelSelect("agentic-default-worker", profile.defaultWorkerModel || (profile.workerModels || [])[0] || "", false);
-      return;
-    }
-    $("agentic-id").value = "";
-    $("agentic-name").value = "";
-    $("agentic-desc").value = "";
-    $("agentic-cost").value = "balanced";
-    $("agentic-max").value = 3;
-    $("agentic-premium").checked = true;
-    $("agentic-cheap-fallback").checked = true;
-    $("agentic-instructions").value = "";
-    populateAgenticModelSelect("agentic-main", currentModel && currentModel.indexOf("agentic:") !== 0 ? currentModel : "auto", true);
-    populateAgenticModelSelect("agentic-workers", [], false);
-    populateAgenticModelSelect("agentic-reviewers", [], false);
-    populateAgenticModelSelect("agentic-default-worker", "", false);
+    var ed = $("agentic-editor");
+    if (!ed) return;
+    ed.style.display = "block";
+    $("agentic-id").value = profile ? profile.id : "";
+    $("agentic-name").value = profile ? profile.name : "";
+    $("agentic-desc").value = profile ? (profile.description || "") : "";
+    refreshAgenticModelDropdowns(profile || null);
+    $("agentic-cost").value = profile ? (profile.costPolicy || "balanced") : "balanced";
+    $("agentic-max").value = profile ? String(profile.maxParallelAgents || 3) : "3";
+    $("agentic-premium").checked = profile ? !!profile.allowPremiumWorkers : true;
+    $("agentic-cheap-fallback").checked = profile ? !!profile.allowCheapFallback : true;
+    $("agentic-instructions").value = profile ? (profile.instructions || "") : "Use premium workers for hard reasoning/code/security. Use budget workers for extraction and fallback. Main model verifies and applies final changes.";
   }
-
-  function hideAgenticEditor() {
-    var editor = $("agentic-editor");
-    if (editor) editor.style.display = "none";
-  }
-
-  function editAgenticProfile(id) {
-    var p = (agenticProfiles || []).find(function (x) { return x.id === id; });
-    if (p) showAgenticEditor(p);
-  }
-
-  function fillAgenticProfileForm() {
-    showAgenticEditor();
-  }
-
+  function hideAgenticEditor() { var ed=$("agentic-editor"); if(ed) ed.style.display="none"; }
   function saveAgenticProfileFromForm() {
     var workers = selectedAgenticModels("agentic-workers");
     var reviewers = selectedAgenticModels("agentic-reviewers");
     var defaultWorker = $("agentic-default-worker").value || workers[0] || "";
-    vscode.postMessage({ type: "saveAgenticProfile", profile: {
-      id: $("agentic-id").value || undefined,
-      name: $("agentic-name").value.trim(),
-      description: $("agentic-desc").value.trim(),
-      mainModel: $("agentic-main").value,
-      workerModels: workers,
-      reviewerModels: reviewers,
-      defaultWorkerModel: defaultWorker,
-      costPolicy: $("agentic-cost").value,
-      maxParallelAgents: parseInt($("agentic-max").value || "3", 10),
-      allowPremiumWorkers: $("agentic-premium").checked,
-      allowCheapFallback: $("agentic-cheap-fallback").checked,
-      instructions: $("agentic-instructions").value.trim()
-    }});
+    vscode.postMessage({ type:"saveAgenticProfile", profile:{ id:$("agentic-id").value||undefined, name:$("agentic-name").value.trim(), description:$("agentic-desc").value.trim(), mainModel:$("agentic-main").value, workerModels:workers, reviewerModels:reviewers, defaultWorkerModel:defaultWorker, costPolicy:$("agentic-cost").value, maxParallelAgents:parseInt($("agentic-max").value||"3"), allowPremiumWorkers:$("agentic-premium").checked, allowCheapFallback:$("agentic-cheap-fallback").checked, instructions:$("agentic-instructions").value.trim() }});
   }
-
   function renderAgenticProfiles(profiles,currentId){
     agenticProfiles=profiles||[]; currentAgenticProfileId=currentId||currentAgenticProfileId||"";
     var list=$("agentic-profile-list"); if(!list)return;
-    list.textContent="";
-    if(!agenticProfiles.length){
-      var empty=document.createElement("p");
-      empty.style.fontSize="12px";
-      empty.style.color="var(--desc-fg)";
-      empty.textContent="No agentic profiles yet.";
-      list.appendChild(empty);
-      return;
-    }
-    agenticProfiles.forEach(function(p){
+    if(!agenticProfiles.length){list.innerHTML='<p style="font-size:12px;color:var(--desc-fg)">No agentic profiles yet.</p>';return;}
+    list.innerHTML=agenticProfiles.map(function(p){
       var active=p.id===currentAgenticProfileId;
       var workers=(p.workerModels||[]);
       var reviewers=(p.reviewerModels||[]);
       var defaultWorker=p.defaultWorkerModel||workers[0]||"";
-      var card=document.createElement("div");
-      card.className="skill-card";
-      var top=document.createElement("div");
-      top.style.display="flex";
-      top.style.justifyContent="space-between";
-      top.style.gap="8px";
-      var body=document.createElement("div");
-      var title=document.createElement("strong");
-      title.textContent=p.name||"Untitled profile";
-      body.appendChild(title);
-      if(active){
-        body.appendChild(document.createTextNode(" "));
-        var pill=document.createElement("span");
-        pill.className="pill";
-        pill.textContent="active";
-        body.appendChild(pill);
-      }
-      body.appendChild(document.createElement("br"));
-      var desc=document.createElement("span");
-      desc.style.fontSize="11px";
-      desc.style.color="var(--desc-fg)";
-      desc.textContent=p.description||"";
-      body.appendChild(desc);
-      var actions=document.createElement("div");
-      [
-        ["select","Use","action-btn"],
-        ["edit","Edit","action-btn"],
-        ["delete","Delete","action-btn danger"]
-      ].forEach(function(spec){
-        var btn=document.createElement("button");
-        btn.className=spec[2];
-        btn.dataset.agenticAction=spec[0];
-        btn.dataset.profile=p.id||"";
-        btn.textContent=spec[1];
-        actions.appendChild(btn);
-      });
-      top.appendChild(body);
-      top.appendChild(actions);
-      card.appendChild(top);
-      var meta=document.createElement("div");
-      meta.style.fontSize="11px";
-      meta.style.color="var(--desc-fg)";
-      meta.style.marginTop="6px";
-      function appendLine(label,value,useCode){
-        meta.appendChild(document.createTextNode(label));
-        if(useCode){ var code=document.createElement("code"); code.textContent=value; meta.appendChild(code); }
-        else { meta.appendChild(document.createTextNode(value)); }
-        meta.appendChild(document.createElement("br"));
-      }
-      appendLine("Main/orchestrator: ",p.mainModel||"auto",true);
-      appendLine("Worker agents ("+workers.length+"): ",workers.length?workers.join(", "):"none",false);
-      appendLine("Default worker: ",defaultWorker||"none",!!defaultWorker);
-      appendLine("Reviewer agents ("+reviewers.length+"): ",reviewers.length?reviewers.join(", "):"none",false);
-      meta.appendChild(document.createTextNode("Policy: "+(p.costPolicy||"balanced")+", max parallel: "+String(p.maxParallelAgents||3)+", premium workers: "+(p.allowPremiumWorkers?"yes":"no")));
-      card.appendChild(meta);
-      list.appendChild(card);
-    });
+      return '<div class="skill-card"><div style="display:flex;justify-content:space-between;gap:8px">'+
+        '<div><strong>'+esc(p.name)+'</strong> '+(active?'<span class="pill">active</span>':'')+'<br><span style="font-size:11px;color:var(--desc-fg)">'+esc(p.description||'')+'</span></div>'+
+        '<div><button class="action-btn" data-agentic-action="select" data-profile="'+attr(p.id)+'">Use</button><button class="action-btn" data-agentic-action="edit" data-profile="'+attr(p.id)+'">Edit</button><button class="action-btn danger" data-agentic-action="delete" data-profile="'+attr(p.id)+'">Delete</button></div></div>'+
+        '<div style="font-size:11px;color:var(--desc-fg);margin-top:6px">Main/orchestrator: <code>'+esc(p.mainModel||'auto')+'</code><br>'+
+        'Worker agents ('+workers.length+'): '+(workers.length?esc(workers.join(', ')):'<em>none</em>')+'<br>'+
+        'Default worker: '+(defaultWorker?'<code>'+esc(defaultWorker)+'</code>':'<em>none</em>')+'<br>'+
+        'Reviewer agents ('+reviewers.length+'): '+(reviewers.length?esc(reviewers.join(', ')):'<em>none</em>')+'<br>'+
+        'Policy: '+esc(p.costPolicy||'balanced')+', max parallel: '+esc(String(p.maxParallelAgents||3))+', premium workers: '+(p.allowPremiumWorkers?'yes':'no')+'</div></div>';
+    }).join('');
   }
 
 
@@ -2169,10 +1605,9 @@ if (foundryIqTopPill) {
     lastSkills = skills || [];
     var list = $("skill-list");
     if (!list) return;
-    clearNode(list);
+    list.innerHTML = "";
     if (!lastSkills.length) {
-      var empty = textEl("div", "session-empty", "No skills yet. Click + New skill to add one, or Import from workspace to pull SKILL.md / instruction files.");
-      list.appendChild(empty);
+      list.innerHTML = '<div class="session-empty">No skills yet. Click <strong>+ New skill</strong> to add one, or <strong>Import from workspace</strong> to pull SKILL.md / instruction files.</div>';
       return;
     }
     lastSkills.forEach(function (s) {
@@ -2181,7 +1616,7 @@ if (foundryIqTopPill) {
       var srcBadge = "";
       if (s.source === "builtin") srcBadge = '<span class="mcp-source">built-in</span>';
       else if (s.source && s.source.indexOf("import:") === 0) srcBadge = '<span class="mcp-source">' + esc(s.source.slice(7)) + '</span>';
-      item["inner" + "HTML"] =
+      item.innerHTML =
         '<div class="skill-head">' +
           '<label class="skill-toggle">' +
             '<input type="checkbox" data-skill-action="toggle" data-skill-id="' + esc(s.id) + '" data-enabled="' + (s.enabled ? "true" : "false") + '"' + (s.enabled ? " checked" : "") + '>' +
@@ -2200,16 +1635,16 @@ if (foundryIqTopPill) {
   function renderSessionList(sessions, currentId) {
     var list = $("session-list");
     if (!list) return;
-    clearNode(list);
+    list.innerHTML = "";
     if (!sessions.length) {
-      list.appendChild(textEl("div", "session-empty", "No saved chats yet. Start a conversation to create one."));
+      list.innerHTML = '<div class="session-empty">No saved chats yet. Start a conversation to create one.</div>';
       return;
     }
     sessions.forEach(function (s) {
       var item = document.createElement("div");
       item.className = "session-item" + (s.id === currentId ? " current" : "");
       item.setAttribute("data-id", s.id);
-      item["inner" + "HTML"] =
+      item.innerHTML =
         '<div class="session-main" data-action="switch-session" data-id="' + esc(s.id) + '">' +
           '<span class="session-title">' + esc(s.title || "Untitled chat") + '</span>' +
           '<span class="session-meta">' + relTime(s.updatedAt) + ' &middot; ' + (s.count || 0) + ' msgs' +
@@ -2226,7 +1661,7 @@ if (foundryIqTopPill) {
   function renderProviderList(providers) {
     var list = $("provider-list");
     if (!list) return;
-    clearNode(list);
+    list.innerHTML = "";
     providers.forEach(function (p) {
       var item = document.createElement("div");
       item.className = "provider-item";
@@ -2243,7 +1678,7 @@ if (foundryIqTopPill) {
       var enabledLabel = p.enabled
         ? '<span class="prov-status ok" title="This provider is active">✓ Enabled</span>'
         : '<span class="prov-status off">Disabled</span>';
-      item["inner" + "HTML"] =
+      item.innerHTML =
         '<div class="provider-info">' +
         '<span class="provider-name">' + esc(p.name) + '</span>' +
         '<span class="provider-type">' + esc(p.type) + ' &middot; ' + p.modelCount + ' models</span>' +
@@ -2286,7 +1721,7 @@ if (foundryIqTopPill) {
         '</span><span class="plan-title">' + esc(s.title || "") + '</span></div>';
     }
     var caret = planCollapsed ? "▸" : "▾";
-    panel["inner" + "HTML"] = '<div class="plan-head" id="plan-head-toggle" title="Click to ' +
+    panel.innerHTML = '<div class="plan-head" id="plan-head-toggle" title="Click to ' +
       (planCollapsed ? "expand" : "minimise") + '"><span class="plan-caret">' + caret +
       '</span> 📋 Plan (' + done + '/' + steps.length + ')</div>' +
       '<div class="plan-body">' + rows + '</div>';
@@ -2307,9 +1742,6 @@ if (foundryIqTopPill) {
   }
 
   // ── Message handler ──
-  // Final model-selector override: keep this after legacy helpers so the runtime picker is categorized.
-  // Canonical model selector helpers are defined above; stale late overrides removed.
-
   window.addEventListener("message", function (event) {
     var data = event.data;
     switch (data.type) {
@@ -2354,35 +1786,50 @@ if (foundryIqTopPill) {
         break;
 
       case "modelList":
-        var incomingModels = Array.isArray(data.models) ? data.models : [];
-        var incomingProviderModels = incomingModels.filter(function (m) {
-          var value = modelOptionValue(m);
-          return value && value !== "auto" && value.indexOf("agentic:") !== 0;
-        });
-        // Never replace a useful provider-model dropdown with Auto-only or Agentic-only payloads.
-        // Agentic profile options are rendered from data.agenticProfiles, not persisted as provider models.
-        if (incomingProviderModels.length > 0) {
-          cachedModels = incomingModels;
-          lastGoodModelList = incomingModels.slice();
-        } else if (lastGoodModelList.length > 0) {
-          cachedModels = lastGoodModelList.slice();
-        } else {
-          cachedModels = incomingModels;
-        }
-        if (data.agenticProfiles) renderAgenticProfiles(data.agenticProfiles || [], data.currentAgenticProfileId || "");
-        currentModel = data.selected || currentModel || "auto";
+        modelSelect.innerHTML = "";
+        cachedModels = data.models || [];
         refreshAgenticDropdownsFromCurrentForm();
-        var normalModels = (cachedModels || []).filter(function (m) {
-          var value = modelOptionValue(m);
-          return value && value !== "auto" && value.indexOf("agentic:") !== 0;
-        });
-        renderCategorizedChatModelSelect(data.selected || currentModel || "auto");
-        if (normalModels.length === 0) {
-          statusDot.className = "status-dot disconnected";
-          statusText.textContent = "No live provider models discovered - Auto and Agentic profile choices remain available; refresh or configure providers/Ollama.";
+        if ($("agentic-editor") && $("agentic-editor").style.display !== "none") refreshAgenticDropdownsFromCurrentForm();
+        if (data.agenticProfiles) renderAgenticProfiles(data.agenticProfiles || [], data.currentAgenticProfileId || "");
+        if (cachedModels.length === 0) {
+          var o = document.createElement("option"); o.value = ""; o.textContent = "No models";
+          modelSelect.appendChild(o);
         } else {
+          // Group by provider for the dropdown
+          var provGroups = {};
+          cachedModels.forEach(function (m) {
+            var prov = m.provider || "unknown";
+            if (!provGroups[prov]) provGroups[prov] = [];
+            provGroups[prov].push(m);
+          });
+          // Auto first
+          if (provGroups["auto"]) {
+            provGroups["auto"].forEach(function (m) {
+              var o = document.createElement("option");
+              o.value = m.name || m.id || m;
+              o.textContent = "Auto (best for task) [routes by cost/capability]";
+              if (o.value === (data.selected || currentModel)) o.selected = true;
+              modelSelect.appendChild(o);
+            });
+          }
+          var sortedProvs = Object.keys(provGroups).filter(function (p) { return p !== "auto"; }).sort();
+          sortedProvs.forEach(function (prov) {
+            var grp = document.createElement("optgroup");
+            grp.label = prov.charAt(0).toUpperCase() + prov.slice(1) + " — " + providerCostSummary(provGroups[prov]);
+            provGroups[prov].forEach(function (m) {
+              var o = document.createElement("option");
+              o.value = m.name || m.id || m;
+              o.textContent = (m.displayName || m.name || m) + modelCostSuffix(m);
+              var modalityTitle = "text" + (m.supportsTools ? " · code/tools" : "") + (m.supportsThinking ? " · reasoning" : "") + (m.supportsVision ? " · vision" : "");
+      o.title = (m.pricingNote || "") + " · " + modalityTitle;
+              if (o.value === (data.selected || currentModel)) o.selected = true;
+              grp.appendChild(o);
+            });
+            modelSelect.appendChild(grp);
+          });
+          var total = cachedModels.length - (cachedModels[0] && cachedModels[0].name === "auto" ? 1 : 0);
           statusDot.className = "status-dot connected";
-          statusText.textContent = "Connected (" + normalModels.length + " models, categorized by Agentic modes, most used, provider, free/paid, context and tools)";
+          statusText.textContent = "Connected (" + total + " models)";
         }
         break;
 
@@ -2416,16 +1863,23 @@ if (foundryIqTopPill) {
         currentContentDiv = msg.contentDiv;
         break;
 
-      case "privateReasoningIgnored":
-        // Compliance guard: provider-private reasoning traces are never displayed.
+      case "thinkingChunk":
+        if (currentThinkingDiv) {
+          currentThinkingDiv.style.display = "block";
+          var body = currentThinkingDiv.querySelector(".thinking-body");
+          if (body) body.textContent = data.content;
+          var lbl = currentThinkingDiv.querySelector(".thinking-label");
+          if (lbl) lbl.textContent = data.done ? "Thought complete" : "Thinking...";
+          followChatOutput();
+        }
         break;
 
       case "responseChunk":
         ensureBlock();
         currentRawText += data.content;
         if (currentContentDiv) {
-          currentContentDiv["inner" + "HTML"] = renderMd(currentRawText);
-          followChatOutput(false, currentAssistantDiv || currentContentDiv);
+          currentContentDiv.innerHTML = renderMd(currentRawText);
+          followChatOutput();
         }
         break;
 
@@ -2433,8 +1887,8 @@ if (foundryIqTopPill) {
         ensureBlock();
         currentRawText = data.content;
         if (currentContentDiv) {
-          currentContentDiv["inner" + "HTML"] = renderMd(data.content);
-          followChatOutput(false, currentAssistantDiv || currentContentDiv);
+          currentContentDiv.innerHTML = renderMd(data.content);
+          followChatOutput();
         }
         break;
 
@@ -2486,7 +1940,6 @@ if (foundryIqTopPill) {
         currentAssistantDiv = null;
         currentThinkingDiv = null;
         currentContentDiv = null;
-        forceLatestChatVisible();
         break;
 
       case "continueAvailable":
@@ -2543,7 +1996,7 @@ if (foundryIqTopPill) {
         break;
 
       case "toolConfig":
-        clearNode(toolListEl);
+        toolListEl.innerHTML = "";
         var cats = {};
         (data.tools || []).forEach(function (t) {
           if (!cats[t.category]) cats[t.category] = [];
@@ -2564,7 +2017,7 @@ if (foundryIqTopPill) {
             });
             var lbl = document.createElement("label");
             lbl.htmlFor = cb.id;
-            lbl["inner" + "HTML"] = '<span class="tool-name-label">' + esc(tool.name) + '</span><span class="tool-desc-label">' + esc(tool.description) + '</span>';
+            lbl.innerHTML = '<span class="tool-name-label">' + esc(tool.name) + '</span><span class="tool-desc-label">' + esc(tool.description) + '</span>';
             var badge = document.createElement("span");
             badge.className = "danger-badge " + tool.dangerLevel;
             badge.textContent = tool.dangerLevel;
@@ -2582,11 +2035,11 @@ if (foundryIqTopPill) {
         var pStat = $("prov-stat-" + data.providerId);
         if (pStat) {
           if (data.pending) {
-            pStat["inner" + "HTML"] = '<span class="prov-status testing">● ' + esc(data.message || "Testing…") + '</span>';
+            pStat.innerHTML = '<span class="prov-status testing">● ' + esc(data.message || "Testing…") + '</span>';
           } else if (data.ok) {
-            pStat["inner" + "HTML"] = '<span class="prov-status ok">✓ ' + esc(data.message || "Key valid") + '</span>';
+            pStat.innerHTML = '<span class="prov-status ok">✓ ' + esc(data.message || "Key valid") + '</span>';
           } else {
-            pStat["inner" + "HTML"] = '<span class="prov-status err">✗ ' + esc(data.message || "Key invalid") + '</span>';
+            pStat.innerHTML = '<span class="prov-status err">✗ ' + esc(data.message || "Key invalid") + '</span>';
           }
         }
         break;
@@ -2622,7 +2075,7 @@ if (foundryIqTopPill) {
               totTok.toLocaleString() + ' tokens (≈' + (u.inputTokensEst || 0).toLocaleString() + ' in / ' +
               (u.outputTokensEst || 0).toLocaleString() + ' out)</div>';
             balSlot.style.display = "block";
-            balSlot["inner" + "HTML"] = html;
+            balSlot.innerHTML = html;
           }
         }
         break;
@@ -2638,7 +2091,6 @@ if (foundryIqTopPill) {
 
       case "agenticProfileList":
         renderAgenticProfiles(data.profiles || [], data.currentId || "");
-        renderCategorizedChatModelSelect(currentModel || "auto");
         hideAgenticEditor();
         break;
 
@@ -2654,27 +2106,6 @@ if (foundryIqTopPill) {
         if (su && typeof data.ollamaUrl === "string") { su.value = data.ollamaUrl; }
         var scb = $("set-ctxbudget");
         if (scb && typeof data.contextBudgetTokens === "number") { scb.value = String(data.contextBudgetTokens); }
-        microsoftIqSettings = data.microsoftIq || {};
-        var iqEnabled = $("iq-enabled");
-        var iqLayer = $("iq-layer");
-        var iqEndpoint = $("iq-endpoint");
-        var iqApiEnv = $("iq-api-env");
-        var iqTimeout = $("iq-timeout");
-        var iqMaxChars = $("iq-maxchars");
-        var iqStatus = $("iq-status");
-        if (iqEnabled) iqEnabled.checked = !!microsoftIqSettings.enabled;
-        if (iqLayer && microsoftIqSettings.layer) iqLayer.value = microsoftIqSettings.layer;
-        if (iqEndpoint) iqEndpoint.value = microsoftIqSettings.endpoint || "";
-        if (iqApiEnv) iqApiEnv.value = microsoftIqSettings.apiKeyEnv || "MICROSOFT_IQ_API_KEY";
-        if (iqTimeout) iqTimeout.value = String(microsoftIqSettings.timeoutMs || 12000);
-        if (iqMaxChars) iqMaxChars.value = String(microsoftIqSettings.maxQueryChars || 4000);
-        if (iqStatus) {
-          var layerLabel = microsoftIqSettings.layer || "foundry-iq";
-          iqStatus.textContent = microsoftIqSettings.enabled
-            ? "Status: ENABLED (" + layerLabel + "). " + (microsoftIqSettings.endpoint ? "Endpoint configured. Click Test Foundry IQ." : "Add endpoint, save, then test.")
-            : "Status: disabled. Enable it for Foundry IQ hackathon grounding.";
-        }
-        updateFoundryIqCard();
         var sth = $("set-tokens-hint");
         if (sth) {
           var mmo = typeof data.modelMaxOutput === "number" ? data.modelMaxOutput : 0;
@@ -2682,45 +2113,24 @@ if (foundryIqTopPill) {
           var lbl = data.modelLabel ? String(data.modelLabel).split(":").pop() : "model";
           var parts = "<strong>0 = Auto</strong> \u2014 use the selected model's full output limit so long answers are never cut off mid-response.";
           if (mmo > 0) { parts += " Current model <strong>" + esc(lbl) + "</strong>: up to <strong>" + mmo.toLocaleString() + "</strong> output tokens"; if (mcw > 0) { parts += ", <strong>" + mcw.toLocaleString() + "</strong> context window"; } parts += "."; }
-          sth["inner" + "HTML"] = parts;
+          sth.innerHTML = parts;
         }
-        break;
-      }
-
-      case "microsoftIqTest": {
-        var iqStatus3 = $("iq-status");
-        var prefix = data.ok ? "PASS" : "FAIL";
-        var detail = data.message || "";
-        if (iqStatus3) iqStatus3.textContent = "Status: " + prefix + " - " + detail;
-        if (foundryIqCardStatus) foundryIqCardStatus.textContent = "Foundry IQ test " + prefix + ": " + detail;
-        if (foundryIqTopPill) {
-          foundryIqTopPill.textContent = data.ok ? "IQ: ON" : "IQ: ERR";
-          foundryIqTopPill.classList.remove("on", "error");
-          foundryIqTopPill.classList.add(data.ok ? "on" : "error");
-          foundryIqTopPill.title = detail;
-        }
-        if (foundryIqCard) { foundryIqCard.classList.remove("enabled", "disabled", "error"); foundryIqCard.classList.add(data.ok ? "enabled" : "error"); }
-        addMessage(data.ok ? "system" : "error", "Microsoft IQ / Foundry IQ test: " + prefix + "\n" + detail);
-        forceLatestChatVisible(chatContainer ? chatContainer.lastElementChild : null);
         break;
       }
 
       case "restoreSession": {
-        if (chatContainer) clearNode(chatContainer);
+        if (chatContainer) chatContainer.innerHTML = "";
         renderPlan([]);
         (data.messages || []).forEach(function (m) {
           addMessage(m.role, m.content);
         });
-        chatUserPinnedScroll = false;
-        forceLatestChatVisible(chatContainer ? chatContainer.lastElementChild : null);
-        setTimeout(function(){ forceLatestChatVisible(chatContainer ? chatContainer.lastElementChild : null); }, 250);
         break;
       }
 
       case "coderqWelcome": {
         var wDiv = document.createElement("div");
         wDiv.className = "message assistant coderq-welcome";
-        wDiv["inner" + "HTML"] = '<div class="coderq-avatar">\uD83D\uDC76\uD83D\uDCBB</div>' +
+        wDiv.innerHTML = '<div class="coderq-avatar">\uD83D\uDC76\uD83D\uDCBB</div>' +
           '<div class="coderq-bubble">' + renderMd(data.content) + '</div>';
         chatContainer.appendChild(wDiv);
         followChatOutput();
@@ -2728,7 +2138,7 @@ if (foundryIqTopPill) {
       }
 
       case "clearChat":
-        clearNode(chatContainer);
+        chatContainer.innerHTML = "";
         renderPlan([]);
         addMessage("system", "Chat cleared");
         break;
@@ -2780,9 +2190,9 @@ if (foundryIqTopPill) {
         envHtml +=
           '<div class="mcp-env-row">' +
             '<label class="mcp-env-label">' + esc(k) +
-              (ok ? ' <span class="mcp-ok">OK set</span>' : ' <span class="mcp-err">ERROR required</span>') + '</label>' +
+              (ok ? ' <span class="mcp-ok">● set</span>' : ' <span class="mcp-err">● required</span>') + '</label>' +
             '<div class="mcp-env-input">' +
-              '<input id="mcp-env-' + attr(s.name) + '-' + attr(k) + '" type="' + (isSecret ? 'password' : 'text') + '" placeholder="' + (ok ? 'Saved - enter to replace' : 'Enter value') + '">' +
+              '<input id="mcp-env-' + attr(s.name) + '-' + attr(k) + '" type="' + (isSecret ? 'password' : 'text') + '" placeholder="' + (ok ? 'Saved — enter to replace' : 'Enter value…') + '">' +
               '<button class="action-btn primary" data-mcp-action="save-env" data-server="' + attr(s.name) + '" data-key="' + attr(k) + '">Save</button>' +
             '</div>' +
           '</div>';
@@ -2790,12 +2200,12 @@ if (foundryIqTopPill) {
 
       var canConnect = requires.every(function (k) { return envSet[k]; });
       var statusHtml = s.connected
-        ? '<span class="connected">OK Connected</span> <span class="mcp-server-tools">' + s.toolCount + ' tools</span>'
+        ? '<span class="connected">● Connected</span> <span class="mcp-server-tools">' + s.toolCount + ' tools</span>'
         : (s.lastError
-            ? '<span class="disconnected">ERROR</span>'
-            : '<span class="disconnected">Disconnected</span>');
+            ? '<span class="disconnected">● Error</span>'
+            : '<span class="disconnected">○ Disconnected</span>');
 
-      item["inner" + "HTML"] =
+      item.innerHTML =
         '<div class="mcp-server-head">' +
           '<div class="mcp-server-info">' +
             '<span class="mcp-server-name">' + esc(s.name) +
@@ -2818,16 +2228,3 @@ if (foundryIqTopPill) {
   // Request init on load
   vscode.postMessage({ type: "requestInit" });
 })();
-
-
-if (foundryIqGlobalOpenBtn) {
-  foundryIqGlobalOpenBtn.addEventListener("click", function () {
-    openMicrosoftIqSettings();
-  });
-}
-if (foundryIqGlobalTestBtn) {
-  foundryIqGlobalTestBtn.addEventListener("click", function () {
-    if (foundryIqGlobalStatus) foundryIqGlobalStatus.textContent = "Testing Foundry IQ...";
-    vscode.postMessage({ type: "testMicrosoftIq", query: "Sentinel Coder Foundry IQ visible global banner test" });
-  });
-}

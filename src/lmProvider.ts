@@ -28,22 +28,16 @@ export class SentinelLanguageModelProvider implements vscode.LanguageModelChatPr
     _options: { silent: boolean },
     token: vscode.CancellationToken
   ): Promise<vscode.LanguageModelChatInformation[]> {
-    const snapshot = this._client.getConfiguredModelsSnapshot(true);
-
     try {
-      // VS Code calls this while opening the native Chat model picker. Do not let
-      // slow/offline provider discovery make Sentinel advertise zero models; that
-      // is the path that leaves the picker showing only Auto/default choices.
+      // VS Code calls this while opening the native Chat model picker. Keep this
+      // bounded so model discovery cannot stall Sentinel startup/chat rendering.
       const liveModels = await this._withTimeout(this._client.getAllModels(), 2500, token);
-      const merged = this._mergeModelOptions(liveModels, snapshot);
-      const infos = this._toLanguageModelInfo(merged.length > 0 ? merged : snapshot);
+      const infos = this._toLanguageModelInfo(liveModels);
       this._output.appendLine(`LM provider: advertising ${infos.length} Sentinel model(s) to VS Code chat picker`);
       return infos;
     } catch (err) {
-      this._output.appendLine("LM provider: live model listing failed; using configured snapshot - " + String(err));
-      const infos = this._toLanguageModelInfo(snapshot);
-      this._output.appendLine(`LM provider: advertising ${infos.length} Sentinel snapshot model(s) to VS Code chat picker`);
-      return infos;
+      this._output.appendLine("LM provider: live model listing failed; advertising no native chat models - " + String(err));
+      return [];
     }
   }
 
